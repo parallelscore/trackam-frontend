@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Dynamically determine API URL based on current environment
-const determineApiUrl = () => {
+export const determineApiUrl = () => {
     const hostname = window.location.hostname;
 
     // When accessing from a mobile device or another computer on the network

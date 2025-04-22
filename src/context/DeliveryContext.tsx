@@ -1,21 +1,19 @@
-import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
-import { Delivery, Location, CreateDeliveryFormData, OtpVerificationFormData } from '@/types';
-import { mockDeliveryService } from '../services/mockDeliveryService';
+// src/context/DeliveryContext.tsx
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import toast from 'react-hot-toast';
+import deliveryService from '../services/deliveryService';
+import { Delivery } from '@/types';
 
 interface DeliveryContextProps {
     deliveries: Delivery[];
-    currentDelivery: Delivery | null;
+    totalDeliveries: number;
+    currentPage: number;
+    totalPages: number;
     isLoading: boolean;
-    error: string | null;
-    fetchDeliveries: () => Promise<void>;
-    getDeliveryByTrackingId: (trackingId: string) => Promise<Delivery | null>;
-    createDelivery: (data: CreateDeliveryFormData) => Promise<Delivery>;
-    verifyOTP: (data: OtpVerificationFormData) => Promise<{success: boolean; delivery?: Delivery; message?: string}>;
-    startTracking: (trackingId: string) => Promise<{success: boolean; delivery?: Delivery; message?: string}>;
-    updateRiderLocation: (trackingId: string, location: Location) => Promise<{success: boolean; delivery?: Delivery; message?: string}>;
-    completeDelivery: (trackingId: string) => Promise<{success: boolean; delivery?: Delivery; message?: string}>;
-    cancelDelivery: (trackingId: string) => Promise<{success: boolean; delivery?: Delivery; message?: string}>;
-    setCurrentDelivery: (delivery: Delivery | null) => void;
+    fetchDeliveries: (filters?: { status?: string; search?: string; page?: number; limit?: number }) => Promise<void>;
+    createDelivery: (deliveryData: any) => Promise<Delivery | null>;
+    getDeliveryById: (id: string) => Promise<Delivery | null>;
+    getDeliveryByTracking: (trackingId: string) => Promise<Delivery | null>;
 }
 
 const DeliveryContext = createContext<DeliveryContextProps | undefined>(undefined);
@@ -34,224 +32,109 @@ interface DeliveryProviderProps {
 
 export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) => {
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-    const [currentDelivery, setCurrentDelivery] = useState<Delivery | null>(null);
+    const [totalDeliveries, setTotalDeliveries] = useState<number>(0);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+    const [totalPages, setTotalPages] = useState<number>(1);
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
 
-    // Fetch all deliveries
-    const fetchDeliveries = useCallback(async (): Promise<void> => {
+    // Fetch deliveries with optional filtering
+    const fetchDeliveries = async (filters?: { status?: string; search?: string; page?: number; limit?: number }) => {
         setIsLoading(true);
-        setError(null);
-
         try {
-            const fetchedDeliveries = await mockDeliveryService.getAllDeliveries();
-            setDeliveries(fetchedDeliveries);
-        } catch (err) {
-            setError('Failed to fetch deliveries');
-            console.error(err);
+            const result = await deliveryService.getDeliveries(filters || {});
+            if (result.success) {
+                setDeliveries(result.data.items);
+                setTotalDeliveries(result.data.total);
+                setCurrentPage(result.data.page);
+                setTotalPages(result.data.pages);
+            } else {
+                toast.error(result.error || 'Failed to fetch deliveries');
+            }
+        } catch (error) {
+            console.error('Error fetching deliveries:', error);
+            toast.error('An unexpected error occurred');
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    };
 
-    // Get delivery by tracking ID
-    const getDeliveryByTrackingId = useCallback(async (trackingId: string): Promise<Delivery | null> => {
+    // Create a new delivery
+    const createDelivery = async (deliveryData: any): Promise<Delivery | null> => {
         setIsLoading(true);
-        setError(null);
-
         try {
-            const delivery = await mockDeliveryService.getDeliveryByTrackingId(trackingId);
-            if (delivery) {
-                setCurrentDelivery(delivery);
+            const result = await deliveryService.createDelivery(deliveryData);
+            if (result.success) {
+                toast.success('Delivery created successfully');
+                return result.data;
+            } else {
+                toast.error(result.error || 'Failed to create delivery');
+                return null;
             }
-            return delivery;
-        } catch (err) {
-            setError('Failed to fetch delivery');
-            console.error(err);
+        } catch (error) {
+            console.error('Error creating delivery:', error);
+            toast.error('An unexpected error occurred');
             return null;
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    };
 
-    // Create a new delivery
-    const createDelivery = useCallback(async (data: CreateDeliveryFormData): Promise<Delivery> => {
+    // Get delivery by ID
+    const getDeliveryById = async (id: string): Promise<Delivery | null> => {
         setIsLoading(true);
-        setError(null);
-
         try {
-            const newDelivery = await mockDeliveryService.createDelivery(data);
-            setDeliveries(prev => [...prev, newDelivery]);
-            setCurrentDelivery(newDelivery);
-            return newDelivery;
-        } catch (err) {
-            setError('Failed to create delivery');
-            console.error(err);
-            throw err;
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
-
-    // Verify OTP
-    const verifyOTP = useCallback(async (data: OtpVerificationFormData) => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await mockDeliveryService.verifyOTP(data);
-            if (result.success && result.delivery) {
-                // Update deliveries list
-                setDeliveries(prev =>
-                    prev.map(d => d.id === result.delivery!.id ? result.delivery! : d)
-                );
-                // Update current delivery if it's the same
-                if (currentDelivery && currentDelivery.id === result.delivery.id) {
-                    setCurrentDelivery(result.delivery);
-                }
+            const result = await deliveryService.getDeliveryById(id);
+            if (result.success) {
+                return result.data;
+            } else {
+                toast.error(result.error || 'Failed to fetch delivery');
+                return null;
             }
-            return result;
-        } catch (err) {
-            setError('Failed to verify OTP');
-            console.error(err);
-            return { success: false, message: 'An error occurred' };
+        } catch (error) {
+            console.error('Error fetching delivery:', error);
+            toast.error('An unexpected error occurred');
+            return null;
         } finally {
             setIsLoading(false);
         }
-    }, [currentDelivery]);
+    };
 
-    // Start tracking
-    const startTracking = useCallback(async (trackingId: string) => {
+    // Get delivery by tracking ID
+    const getDeliveryByTracking = async (trackingId: string): Promise<Delivery | null> => {
         setIsLoading(true);
-        setError(null);
-
         try {
-            const result = await mockDeliveryService.startTracking(trackingId);
-            if (result.success && result.delivery) {
-                // Update deliveries list
-                setDeliveries(prev =>
-                    prev.map(d => d.id === result.delivery!.id ? result.delivery! : d)
-                );
-                // Update current delivery if it's the same
-                if (currentDelivery && currentDelivery.id === result.delivery.id) {
-                    setCurrentDelivery(result.delivery);
-                }
+            const result = await deliveryService.getDeliveryByTracking(trackingId);
+            if (result.success) {
+                return result.data;
+            } else {
+                toast.error(result.error || 'Failed to fetch delivery');
+                return null;
             }
-            return result;
-        } catch (err) {
-            setError('Failed to start tracking');
-            console.error(err);
-            return { success: false, message: 'An error occurred' };
+        } catch (error) {
+            console.error('Error fetching delivery:', error);
+            toast.error('An unexpected error occurred');
+            return null;
         } finally {
             setIsLoading(false);
         }
-    }, [currentDelivery]);
-
-    // Update rider location
-    const updateRiderLocation = useCallback(async (trackingId: string, location: Location) => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await mockDeliveryService.updateRiderLocation(trackingId, location);
-            if (result.success && result.delivery) {
-                // Update deliveries list
-                setDeliveries(prev =>
-                    prev.map(d => d.id === result.delivery!.id ? result.delivery! : d)
-                );
-                // Update current delivery if it's the same
-                if (currentDelivery && currentDelivery.id === result.delivery.id) {
-                    setCurrentDelivery(result.delivery);
-                }
-            }
-            return result;
-        } catch (err) {
-            setError('Failed to update location');
-            console.error(err);
-            return { success: false, message: 'An error occurred' };
-        } finally {
-            setIsLoading(false);
-        }
-    }, [currentDelivery]);
-
-    // Complete delivery
-    const completeDelivery = useCallback(async (trackingId: string) => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await mockDeliveryService.completeDelivery(trackingId);
-            if (result.success && result.delivery) {
-                // Update deliveries list
-                setDeliveries(prev =>
-                    prev.map(d => d.id === result.delivery!.id ? result.delivery! : d)
-                );
-                // Update current delivery if it's the same
-                if (currentDelivery && currentDelivery.id === result.delivery.id) {
-                    setCurrentDelivery(result.delivery);
-                }
-            }
-            return result;
-        } catch (err) {
-            setError('Failed to complete delivery');
-            console.error(err);
-            return { success: false, message: 'An error occurred' };
-        } finally {
-            setIsLoading(false);
-        }
-    }, [currentDelivery]);
-
-    // Cancel delivery
-    const cancelDelivery = useCallback(async (trackingId: string) => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await mockDeliveryService.cancelDelivery(trackingId);
-            if (result.success && result.delivery) {
-                // Update deliveries list
-                setDeliveries(prev =>
-                    prev.map(d => d.id === result.delivery!.id ? result.delivery! : d)
-                );
-                // Update current delivery if it's the same
-                if (currentDelivery && currentDelivery.id === result.delivery.id) {
-                    setCurrentDelivery(result.delivery);
-                }
-            }
-            return result;
-        } catch (err) {
-            setError('Failed to cancel delivery');
-            console.error(err);
-            return { success: false, message: 'An error occurred' };
-        } finally {
-            setIsLoading(false);
-        }
-    }, [currentDelivery]);
+    };
 
     // Load deliveries on initial mount
     useEffect(() => {
         fetchDeliveries();
-    }, [fetchDeliveries]);
+    }, []);
 
     const value = {
         deliveries,
-        currentDelivery,
+        totalDeliveries,
+        currentPage,
+        totalPages,
         isLoading,
-        error,
         fetchDeliveries,
-        getDeliveryByTrackingId,
         createDelivery,
-        verifyOTP,
-        startTracking,
-        updateRiderLocation,
-        completeDelivery,
-        cancelDelivery,
-        setCurrentDelivery,
+        getDeliveryById,
+        getDeliveryByTracking,
     };
 
-    return (
-        <DeliveryContext.Provider value={value}>
-            {children}
-        </DeliveryContext.Provider>
-    );
+    return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;
 };

@@ -1,42 +1,65 @@
-import React, { useState } from 'react';
-import { Delivery } from '@/types';
+import React, { useState, useEffect } from 'react';
 import { useDelivery } from '../../context/DeliveryContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } from '@/utils/utils.ts';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Delivery } from '@/types';
 
 const ActiveDeliveries: React.FC = () => {
-    const { deliveries, isLoading } = useDelivery();
+    const { deliveries, totalDeliveries, currentPage, totalPages, isLoading, fetchDeliveries } = useDelivery();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [currentPageState, setCurrentPageState] = useState(1);
 
-    // Filter deliveries based on search term and status
-    const filteredDeliveries = deliveries.filter(delivery => {
-        const matchesSearch = searchTerm === '' ||
-            delivery.trackingId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            delivery.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            delivery.rider?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Effect to load deliveries when filters change
+    useEffect(() => {
+        loadDeliveries();
+    }, [statusFilter, currentPageState]);
 
-        const matchesStatus = statusFilter === 'all' || delivery.status === statusFilter;
+    // Function to load deliveries with current filters
+    const loadDeliveries = async () => {
+        const filters: any = {
+            page: currentPageState,
+            limit: 10,
+        };
 
-        return matchesSearch && matchesStatus;
-    });
+        if (statusFilter !== 'all') {
+            filters.status = statusFilter;
+        }
 
-    // Sort deliveries by creation date (newest first)
-    const sortedDeliveries = [...filteredDeliveries].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+        if (searchTerm) {
+            filters.search = searchTerm;
+        }
 
+        await fetchDeliveries(filters);
+    };
+
+    // Handle search input change
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
     };
 
-    const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setStatusFilter(e.target.value);
+    // Handle search submission
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        setCurrentPageState(1); // Reset to first page
+        loadDeliveries();
     };
 
+    // Handle status filter change
+    const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        setStatusFilter(e.target.value);
+        setCurrentPageState(1); // Reset to first page
+    };
+
+    // Handle pagination
+    const handlePageChange = (page: number) => {
+        setCurrentPageState(page);
+    };
+
+    // Generate WhatsApp message for rider
     const handleShareWithRider = (delivery: Delivery) => {
         if (delivery.rider) {
             const message = `Hello ${delivery.rider.name}, you have a delivery to make. Track it here: ${delivery.tracking.riderLink} - Your OTP is: ${delivery.tracking.otp}`;
@@ -45,23 +68,43 @@ const ActiveDeliveries: React.FC = () => {
         }
     };
 
+    // Generate WhatsApp message for customer
     const handleShareWithCustomer = (delivery: Delivery) => {
         const message = `Hello ${delivery.customer.name}, track your delivery here: ${delivery.tracking.customerLink}`;
         const whatsappLink = generateWhatsAppLink(delivery.customer.phoneNumber, message);
         window.open(whatsappLink, '_blank');
     };
 
-    if (isLoading) {
+    // Pagination component
+    const Pagination = () => {
+        if (totalPages <= 1) return null;
+
         return (
-            <Card className="w-full">
-                <CardContent className="p-6">
-                    <div className="flex justify-center items-center h-32">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                    </div>
-                </CardContent>
-            </Card>
+            <div className="flex justify-center mt-6">
+                <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPageState - 1)}
+                        disabled={currentPageState === 1 || isLoading}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-sm">
+            Page {currentPageState} of {totalPages}
+          </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPageState + 1)}
+                        disabled={currentPageState === totalPages || isLoading}
+                    >
+                        Next
+                    </Button>
+                </div>
+            </div>
         );
-    }
+    };
 
     return (
         <Card className="w-full">
@@ -71,7 +114,7 @@ const ActiveDeliveries: React.FC = () => {
 
             <CardContent>
                 <div className="mb-6 space-y-2">
-                    <div className="flex flex-col md:flex-row gap-4">
+                    <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1">
                             <Input
                                 placeholder="Search by ID, customer or rider name"
@@ -96,16 +139,24 @@ const ActiveDeliveries: React.FC = () => {
                                 <option value="cancelled">Cancelled</option>
                             </select>
                         </div>
-                    </div>
+
+                        <Button type="submit" disabled={isLoading}>
+                            {isLoading ? 'Searching...' : 'Search'}
+                        </Button>
+                    </form>
                 </div>
 
-                {sortedDeliveries.length === 0 ? (
+                {isLoading ? (
+                    <div className="flex justify-center items-center h-32">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                    </div>
+                ) : deliveries.length === 0 ? (
                     <div className="text-center p-8 border border-dashed rounded-md">
                         <p className="text-gray-500">No deliveries found</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        {sortedDeliveries.map((delivery) => (
+                        {deliveries.map((delivery) => (
                             <div
                                 key={delivery.id}
                                 className="border rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -190,6 +241,9 @@ const ActiveDeliveries: React.FC = () => {
                         ))}
                     </div>
                 )}
+
+                {/* Pagination */}
+                <Pagination />
             </CardContent>
         </Card>
     );
