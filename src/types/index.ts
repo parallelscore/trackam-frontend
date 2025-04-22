@@ -1,9 +1,19 @@
 // User Types
+// User Types
 export interface User {
     id: string;
-    name: string;
-    phoneNumber: string;
-    role: 'vendor' | 'rider' | 'customer';
+    phone_number: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    business_name?: string;
+    profile_image_url?: string;
+    is_phone_verified?: boolean;
+    is_email_verified?: boolean;
+    is_active?: boolean;
+    created_at?: string;
+    updated_at?: string;
+    role?: 'vendor' | 'rider' | 'customer';
 }
 
 // Location Type

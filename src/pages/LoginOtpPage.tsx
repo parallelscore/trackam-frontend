@@ -31,7 +31,7 @@ const LoginOtpPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [countdown, setCountdown] = useState(60);
     const [canResend, setCanResend] = useState(false);
-    const { login, isAuthenticated } = useAuth();
+    const { verifyLoginOTP, requestLoginOTP, isAuthenticated } = useAuth();
 
     const {
         register,
@@ -78,66 +78,56 @@ const LoginOtpPage: React.FC = () => {
     }, [navigate]);
 
     const onSubmit = async (data: LoginOtpFormData) => {
+        if (!phoneNumber) return;
+
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to verify OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Verify OTP
+            const success = await verifyLoginOTP(phoneNumber, data.otp);
 
-            console.log('Login OTP submitted:', data.otp);
-
-            // Mock OTP validation (in a real app, this would be server-side)
-            if (data.otp === '123456' || data.otp === '000000') {
-                // Login the user
-                if (phoneNumber) {
-                    await login(phoneNumber, 'auth-via-otp');
-                }
-
+            if (success) {
                 // Clear login data from session storage
                 sessionStorage.removeItem('loginPhone');
 
-                toast.success('Login successful!');
+                // Navigate to vendor dashboard
                 navigate('/vendor');
-            } else {
-                toast.error('Invalid OTP. Please try again.');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
-            toast.error('Failed to verify OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleResendOtp = async () => {
-        if (!canResend) return;
+        if (!phoneNumber || !canResend) return;
 
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to resend OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Resend OTP
+            const success = await requestLoginOTP(phoneNumber);
 
-            // Reset countdown and disable resend button
-            setCountdown(60);
-            setCanResend(false);
+            if (success) {
+                // Reset countdown and disable resend button
+                setCountdown(60);
+                setCanResend(false);
 
-            // Start countdown again
-            const timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        setCanResend(true);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-
-            toast.success('OTP resent to your phone number.');
+                // Start countdown again
+                const timer = setInterval(() => {
+                    setCountdown(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            setCanResend(true);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
         } catch (error) {
             console.error('OTP resend error:', error);
-            toast.error('Failed to resend OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

@@ -20,7 +20,6 @@ import {
     FormErrorMessage,
     FormDescription
 } from '../components/ui/form';
-import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
 interface PhoneLoginFormData {
@@ -30,7 +29,7 @@ interface PhoneLoginFormData {
 const PhoneLoginPage: React.FC = () => {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { isAuthenticated } = useAuth();
+    const { requestLoginOTP, isAuthenticated } = useAuth();
 
     const {
         register,
@@ -53,19 +52,18 @@ const PhoneLoginPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to send OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Request OTP
+            const success = await requestLoginOTP(data.phoneNumber);
 
-            console.log('Phone submitted for login OTP:', data.phoneNumber);
+            if (success) {
+                // Store the phone number in session storage for the OTP verification page
+                sessionStorage.setItem('loginPhone', data.phoneNumber);
 
-            // Store the phone number in session storage for the OTP verification page
-            sessionStorage.setItem('loginPhone', data.phoneNumber);
-
-            toast.success('OTP sent to your phone number for login.');
-            navigate('/verify-login-otp');
+                // Navigate to OTP verification page
+                navigate('/verify-login-otp');
+            }
         } catch (error) {
             console.error('Login error:', error);
-            toast.error('Failed to send OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

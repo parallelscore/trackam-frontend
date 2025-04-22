@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import Layout from '../components/common/Layout';
@@ -20,7 +20,8 @@ import {
     FormErrorMessage,
     FormDescription
 } from '../components/ui/form';
-import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface PhoneRegistrationFormData {
     phoneNumber: string;
@@ -30,6 +31,7 @@ interface PhoneRegistrationFormData {
 const PhoneRegisterPage: React.FC = () => {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const { requestRegistrationOTP, isAuthenticated } = useAuth();
 
     const {
         register,
@@ -42,23 +44,29 @@ const PhoneRegisterPage: React.FC = () => {
         }
     });
 
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/vendor');
+        }
+    }, [isAuthenticated, navigate]);
+
     const onSubmit = async (data: PhoneRegistrationFormData) => {
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to send OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Request OTP
+            const success = await requestRegistrationOTP(data.phoneNumber);
 
-            console.log('Phone submitted for OTP:', data.phoneNumber);
+            if (success) {
+                // Store the phone number in session storage for the OTP verification page
+                sessionStorage.setItem('registrationPhone', data.phoneNumber);
 
-            // Store the phone number in session storage for the OTP verification page
-            sessionStorage.setItem('registrationPhone', data.phoneNumber);
-
-            toast.success('OTP sent to your phone number.');
-            navigate('/verify-otp');
+                // Navigate to OTP verification page
+                navigate('/verify-otp');
+            }
         } catch (error) {
             console.error('Registration error:', error);
-            toast.error('Failed to send OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -112,13 +120,13 @@ const PhoneRegisterPage: React.FC = () => {
                                 <div>
                                     <label htmlFor="agreeToTerms" className="text-sm text-gray-600">
                                         I agree to the
-                                        <a href="/terms" className="text-primary hover:underline ml-1">
+                                        <Link to="/terms" className="text-primary hover:underline ml-1">
                                             Terms of Service
-                                        </a>
+                                        </Link>
                                         {' '}and{' '}
-                                        <a href="/privacy" className="text-primary hover:underline">
+                                        <Link to="/privacy" className="text-primary hover:underline">
                                             Privacy Policy
-                                        </a>
+                                        </Link>
                                     </label>
                                     {errors.agreeToTerms && (
                                         <p className="text-red-500 text-xs mt-1">{errors.agreeToTerms.message}</p>
@@ -139,9 +147,9 @@ const PhoneRegisterPage: React.FC = () => {
                     <CardFooter className="flex flex-col space-y-4 text-center">
                         <div className="text-sm">
                             Already have an account?{' '}
-                            <a href="/login" className="text-primary hover:underline font-medium">
+                            <Link to="/login" className="text-primary hover:underline font-medium">
                                 Sign in
-                            </a>
+                            </Link>
                         </div>
                     </CardFooter>
                 </Card>

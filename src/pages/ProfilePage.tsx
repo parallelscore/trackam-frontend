@@ -46,11 +46,11 @@ const ProfilePage: React.FC = () => {
         watch
     } = useForm<ProfileFormData>({
         defaultValues: {
-            firstName: user?.firstName || '',
-            lastName: user?.lastName || '',
-            businessName: user?.businessName || '',
+            firstName: user?.first_name || '',
+            lastName: user?.last_name || '',
+            businessName: user?.business_name || '',
             email: user?.email || '',
-            phoneNumber: user?.phoneNumber || '',
+            phoneNumber: user?.phone_number || '',
         }
     });
 

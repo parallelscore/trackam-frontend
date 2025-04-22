@@ -35,7 +35,7 @@ const CompleteProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
-    const { login } = useAuth();
+    const { completeProfile, isAuthenticated, isLoading } = useAuth();
 
     const {
         register,
@@ -68,55 +68,47 @@ const CompleteProfilePage: React.FC = () => {
         }
     }, [profileImage]);
 
-    // Check if OTP was verified
+    // Redirect if not authenticated
     useEffect(() => {
-        const otpVerified = sessionStorage.getItem('otpVerified');
-        const phoneNumber = sessionStorage.getItem('registrationPhone');
-
-        if (!otpVerified || !phoneNumber) {
-            // Redirect to registration if OTP was not verified
+        if (!isLoading && !isAuthenticated) {
             navigate('/register');
             toast.error('Please complete the registration process');
         }
-    }, [navigate]);
+    }, [isAuthenticated, isLoading, navigate]);
 
     const onSubmit = async (data: CompleteProfileFormData) => {
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to complete profile
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            // Get phone number from session storage
-            const phoneNumber = sessionStorage.getItem('registrationPhone');
-
-            // Create user profile object
-            const userProfile = {
-                firstName: data.firstName,
-                lastName: data.lastName,
-                businessName: data.businessName,
-                email: data.email,
-                phoneNumber,
-                // In a real app, you would upload the image to a server
-                profileImage: profileImageUrl
-            };
-
-            console.log('Profile completed:', userProfile);
-
-            // Clear registration data from session storage
-            sessionStorage.removeItem('registrationPhone');
-            sessionStorage.removeItem('otpVerified');
-
-            // Simulate login
-            if (phoneNumber) {
-                await login(data.email || phoneNumber, 'auto-generated-password');
+            // In a real app, you would first upload the image to a server
+            // and then use the returned URL in profile data
+            let imageUrl = null;
+            if (profileImageUrl) {
+                // This is a placeholder for actual image upload logic
+                // In a real app, you would have an API endpoint for image upload
+                // and use the returned URL in profile data
+                imageUrl = profileImageUrl;
             }
 
-            toast.success('Profile completed successfully!');
-            navigate('/vendor');
+            // Complete profile
+            const success = await completeProfile({
+                first_name: data.firstName,
+                last_name: data.lastName,
+                business_name: data.businessName,
+                email: data.email,
+                profile_image_url: imageUrl,
+            });
+
+            if (success) {
+                // Clear registration data from session storage
+                sessionStorage.removeItem('registrationPhone');
+                sessionStorage.removeItem('otpVerified');
+
+                // Navigate to vendor dashboard
+                navigate('/vendor');
+            }
         } catch (error) {
             console.error('Profile completion error:', error);
-            toast.error('Failed to complete your profile. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
@@ -126,36 +118,28 @@ const CompleteProfilePage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // Get phone number from session storage
-            const phoneNumber = sessionStorage.getItem('registrationPhone');
-
-            // Create minimal user profile
-            const userProfile = {
-                phoneNumber,
-                // Generate a username from the phone number
-                username: `user_${phoneNumber?.slice(-6)}`
-            };
-
-            console.log('Minimal profile created:', userProfile);
+            // Skip profile completion
+            navigate('/vendor');
 
             // Clear registration data from session storage
             sessionStorage.removeItem('registrationPhone');
             sessionStorage.removeItem('otpVerified');
-
-            // Simulate login
-            if (phoneNumber) {
-                await login(phoneNumber, 'auto-generated-password');
-            }
-
-            toast.success('Registration completed successfully!');
-            navigate('/vendor');
         } catch (error) {
             console.error('Skip profile error:', error);
-            toast.error('An error occurred. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
+
+    if (isLoading) {
+        return (
+            <Layout>
+                <div className="flex justify-center items-center min-h-screen">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            </Layout>
+        );
+    }
 
     return (
         <Layout>

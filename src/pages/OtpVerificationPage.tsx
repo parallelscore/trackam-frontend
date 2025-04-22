@@ -19,6 +19,7 @@ import {
     FormErrorMessage
 } from '../components/ui/form';
 import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
 
 interface OtpVerificationFormData {
     otp: string;
@@ -30,6 +31,7 @@ const OtpVerificationPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [countdown, setCountdown] = useState(60);
     const [canResend, setCanResend] = useState(false);
+    const { verifyRegistrationOTP, requestRegistrationOTP, isAuthenticated } = useAuth();
 
     const {
         register,
@@ -40,6 +42,13 @@ const OtpVerificationPage: React.FC = () => {
             otp: ''
         }
     });
+
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated) {
+            navigate('/complete-profile');
+        }
+    }, [isAuthenticated, navigate]);
 
     // Check if there's a phone number in session storage
     useEffect(() => {
@@ -69,61 +78,53 @@ const OtpVerificationPage: React.FC = () => {
     }, [navigate]);
 
     const onSubmit = async (data: OtpVerificationFormData) => {
+        if (!phoneNumber) return;
+
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to verify OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Verify OTP
+            const success = await verifyRegistrationOTP(phoneNumber, data.otp);
 
-            console.log('OTP submitted:', data.otp);
-
-            // Mock OTP validation (in a real app, this would be server-side)
-            if (data.otp === '123456' || data.otp === '000000') {
-                // Store registration success in session storage
-                sessionStorage.setItem('otpVerified', 'true');
-
-                toast.success('Phone number verified successfully!');
+            if (success) {
+                // Navigate to profile completion page
                 navigate('/complete-profile');
-            } else {
-                toast.error('Invalid OTP. Please try again.');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
-            toast.error('Failed to verify OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
     };
 
     const handleResendOtp = async () => {
-        if (!canResend) return;
+        if (!phoneNumber || !canResend) return;
 
         setIsSubmitting(true);
 
         try {
-            // This would be replaced with an actual API call to resend OTP
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Resend OTP
+            const success = await requestRegistrationOTP(phoneNumber);
 
-            // Reset countdown and disable resend button
-            setCountdown(60);
-            setCanResend(false);
+            if (success) {
+                // Reset countdown and disable resend button
+                setCountdown(60);
+                setCanResend(false);
 
-            // Start countdown again
-            const timer = setInterval(() => {
-                setCountdown(prev => {
-                    if (prev <= 1) {
-                        clearInterval(timer);
-                        setCanResend(true);
-                        return 0;
-                    }
-                    return prev - 1;
-                });
-            }, 1000);
-
-            toast.success('OTP resent to your phone number.');
+                // Start countdown again
+                const timer = setInterval(() => {
+                    setCountdown(prev => {
+                        if (prev <= 1) {
+                            clearInterval(timer);
+                            setCanResend(true);
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+            }
         } catch (error) {
             console.error('OTP resend error:', error);
-            toast.error('Failed to resend OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }

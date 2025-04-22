@@ -1,19 +1,28 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import toast from 'react-hot-toast';
+import authService from '../services/authService';
 
 interface User {
     id?: string;
-    name?: string;
+    phone_number?: string;
     email?: string;
-    role?: 'vendor' | 'rider' | 'customer';
+    first_name?: string;
+    last_name?: string;
+    business_name?: string;
+    profile_image_url?: string;
+    is_phone_verified?: boolean;
+    is_email_verified?: boolean;
 }
 
 interface AuthContextProps {
     user: User | null;
     isAuthenticated: boolean;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<boolean>;
-    register: (userData: any) => Promise<boolean>;
+    requestLoginOTP: (phoneNumber: string) => Promise<boolean>;
+    verifyLoginOTP: (phoneNumber: string, otp: string) => Promise<boolean>;
+    requestRegistrationOTP: (phoneNumber: string) => Promise<boolean>;
+    verifyRegistrationOTP: (phoneNumber: string, otp: string) => Promise<boolean>;
+    completeProfile: (profileData: any) => Promise<boolean>;
     logout: () => void;
 }
 
@@ -40,24 +49,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                // In a real app, you would validate the token with your backend
-                const isAuth = localStorage.getItem('isAuthenticated') === 'true';
+                setIsLoading(true);
 
-                if (isAuth) {
-                    // Mock user data (would come from token or API in real app)
-                    const userRole = localStorage.getItem('userRole') || 'vendor';
-                    setUser({
-                        id: '1',
-                        name: 'Test User',
-                        email: 'user@example.com',
-                        role: userRole as 'vendor' | 'rider' | 'customer',
-                    });
-                    setIsAuthenticated(true);
+                // Check if token exists
+                if (authService.isAuthenticated()) {
+                    const result = await authService.getCurrentUser();
+
+                    if (result.success) {
+                        setUser(result.data);
+                        setIsAuthenticated(true);
+                    } else {
+                        // If getting current user fails, clear the token
+                        authService.logout();
+                        setIsAuthenticated(false);
+                    }
                 }
             } catch (error) {
                 console.error('Auth check error:', error);
-                localStorage.removeItem('isAuthenticated');
-                localStorage.removeItem('userRole');
+                authService.logout();
+                setIsAuthenticated(false);
             } finally {
                 setIsLoading(false);
             }
@@ -66,56 +76,130 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         checkAuth();
     }, []);
 
-    const login = async (email: string, password: string): Promise<boolean> => {
+    const requestLoginOTP = async (phoneNumber: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
-            // This would be an actual API call in a real app
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const result = await authService.requestLoginOTP(phoneNumber);
 
-            // Mock successful login
-            if (email && password) {
-                const userRole = email.includes('vendor') ? 'vendor' :
-                    email.includes('rider') ? 'rider' : 'customer';
-
-                setUser({
-                    id: '1',
-                    name: 'Test User',
-                    email,
-                    role: userRole as 'vendor' | 'rider' | 'customer',
-                });
-
-                setIsAuthenticated(true);
-                localStorage.setItem('isAuthenticated', 'true');
-                localStorage.setItem('userRole', userRole);
-
+            if (result.success) {
+                // If in development and OTP is in response, show it
+                if (result.data.debug_otp) {
+                    toast.success(`Development OTP: ${result.data.debug_otp}`);
+                } else {
+                    toast.success('OTP sent to your phone');
+                }
                 return true;
             }
 
-            toast.error('Invalid credentials');
+            toast.error(result.error || 'Failed to send OTP');
             return false;
         } catch (error) {
-            console.error('Login error:', error);
-            toast.error('Login failed. Please try again.');
+            console.error('Login OTP request error:', error);
+            toast.error('An unexpected error occurred');
             return false;
         } finally {
             setIsLoading(false);
         }
     };
 
-    const register = async (userData: any): Promise<boolean> => {
+    const verifyLoginOTP = async (phoneNumber: string, otp: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
-            // This would be an actual API call in a real app
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const result = await authService.verifyLoginOTP(phoneNumber, otp);
 
-            // Just return success for the mock implementation
-            toast.success('Registration successful! Please check your email to verify your account.');
-            return true;
+            if (result.success) {
+                // Fetch user data
+                const userResult = await authService.getCurrentUser();
+
+                if (userResult.success) {
+                    setUser(userResult.data);
+                    setIsAuthenticated(true);
+                    toast.success('Login successful');
+                    return true;
+                }
+            }
+
+            toast.error(result.error || 'Invalid OTP');
+            return false;
         } catch (error) {
-            console.error('Registration error:', error);
-            toast.error('Registration failed. Please try again.');
+            console.error('Login OTP verification error:', error);
+            toast.error('An unexpected error occurred');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const requestRegistrationOTP = async (phoneNumber: string): Promise<boolean> => {
+        setIsLoading(true);
+
+        try {
+            const result = await authService.requestRegistrationOTP(phoneNumber);
+
+            if (result.success) {
+                // If in development and OTP is in response, show it
+                if (result.data.debug_otp) {
+                    toast.success(`Development OTP: ${result.data.debug_otp}`);
+                } else {
+                    toast.success('OTP sent to your phone');
+                }
+                return true;
+            }
+
+            toast.error(result.error || 'Failed to send OTP');
+            return false;
+        } catch (error) {
+            console.error('Registration OTP request error:', error);
+            toast.error('An unexpected error occurred');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const verifyRegistrationOTP = async (phoneNumber: string, otp: string): Promise<boolean> => {
+        setIsLoading(true);
+
+        try {
+            const result = await authService.verifyRegistrationOTP(phoneNumber, otp);
+
+            if (result.success) {
+                setIsAuthenticated(true);
+                // We'll get user details during profile completion
+                toast.success('Phone number verified');
+                return true;
+            }
+
+            toast.error(result.error || 'Invalid OTP');
+            return false;
+        } catch (error) {
+            console.error('Registration OTP verification error:', error);
+            toast.error('An unexpected error occurred');
+            return false;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const completeProfile = async (profileData: any): Promise<boolean> => {
+        setIsLoading(true);
+
+        try {
+            const result = await authService.completeProfile(profileData);
+
+            if (result.success) {
+                setUser(result.data);
+                toast.success('Profile updated successfully');
+                return true;
+            }
+
+            toast.error(result.error || 'Failed to update profile');
+            return false;
+        } catch (error) {
+            console.error('Profile completion error:', error);
+            toast.error('An unexpected error occurred');
             return false;
         } finally {
             setIsLoading(false);
@@ -123,19 +207,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     const logout = () => {
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('userRole');
+        authService.logout();
         setUser(null);
         setIsAuthenticated(false);
-        toast.success('You have been logged out');
+        toast.success('Logged out successfully');
     };
 
     const value = {
         user,
         isAuthenticated,
         isLoading,
-        login,
-        register,
+        requestLoginOTP,
+        verifyLoginOTP,
+        requestRegistrationOTP,
+        verifyRegistrationOTP,
+        completeProfile,
         logout,
     };
 
