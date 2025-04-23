@@ -1,5 +1,5 @@
 // src/components/vendor/TopRiders.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDelivery } from '../../context/DeliveryContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -20,6 +20,9 @@ const TopRiders: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Track if component is mounted to prevent state updates after unmount
+    const isMounted = useRef(true);
+
     useEffect(() => {
         const fetchTopRiders = async () => {
             setIsLoading(true);
@@ -27,16 +30,29 @@ const TopRiders: React.FC = () => {
 
             try {
                 const data = await getTopRiders(5);
-                setRiders(data);
+
+                // Only update state if component is still mounted
+                if (isMounted.current) {
+                    setRiders(data);
+                }
             } catch (err) {
                 console.error('Error fetching top riders:', err);
-                setError('Failed to load rider data');
+                if (isMounted.current) {
+                    setError('Failed to load rider data');
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted.current) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchTopRiders();
+
+        // Clean up function
+        return () => {
+            isMounted.current = false;
+        };
     }, [getTopRiders]);
 
     // Format time from minutes to hours and minutes
@@ -86,7 +102,15 @@ const TopRiders: React.FC = () => {
                     <CardTitle className="text-lg">Top Performing Riders</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="text-center text-red-500">{error}</div>
+                    <div className="text-center text-red-500">
+                        <p>{error}</p>
+                        <button
+                            className="mt-2 text-primary underline"
+                            onClick={() => getTopRiders(5).then(data => setRiders(data)).catch(err => setError(String(err)))}
+                        >
+                            Try again
+                        </button>
+                    </div>
                 </CardContent>
             </Card>
         );

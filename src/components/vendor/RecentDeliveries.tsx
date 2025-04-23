@@ -1,5 +1,5 @@
 // src/components/vendor/RecentDeliveries.tsx
-import React from 'react';
+import React, { memo } from 'react';
 import { Delivery } from '@/types';
 import { Badge } from '../ui/badge';
 import { Card, CardContent } from '../ui/card';
@@ -11,7 +11,8 @@ interface RecentDeliveriesProps {
     isLoading: boolean;
 }
 
-const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoading }) => {
+// Using memo to prevent unnecessary re-renders
+const RecentDeliveries: React.FC<RecentDeliveriesProps> = memo(({ deliveries, isLoading }) => {
     // Generate WhatsApp message for rider
     const handleShareWithRider = (delivery: Delivery) => {
         if (delivery.rider) {
@@ -121,6 +122,8 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
             </CardContent>
         </Card>
     );
-};
+});
+
+RecentDeliveries.displayName = 'RecentDeliveries';
 
 export default RecentDeliveries;

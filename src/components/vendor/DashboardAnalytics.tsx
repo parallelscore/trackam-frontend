@@ -1,9 +1,10 @@
 // src/components/vendor/DashboardAnalytics.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDelivery } from '../../context/DeliveryContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { debounce } from 'lodash'; // Assuming lodash is available or installed
 
 type TimeRange = 'week' | 'month' | 'year';
 
@@ -21,33 +22,147 @@ const DashboardAnalytics: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchAnalytics = async () => {
+    // Use this to track if component is mounted
+    const isMounted = useRef(true);
+
+    // Track previous time range to avoid duplicate fetches
+    const prevTimeRangeRef = useRef<TimeRange>(timeRange);
+
+    // Debounced fetch function to prevent multiple rapid API calls
+    const debouncedFetchAnalytics = useCallback(
+        debounce(async (range: TimeRange) => {
+            if (prevTimeRangeRef.current === range && chartData.length > 0) {
+                return; // Skip if the time range hasn't changed and we have data
+            }
+
             setIsLoading(true);
             setError(null);
 
             try {
-                const data = await getDeliveryAnalytics(timeRange);
+                const data = await getDeliveryAnalytics(range);
 
-                // Map API response to chart data format
-                const chartData = data.map((item: any) => ({
-                    name: item.name,
-                    completed: item.completed,
-                    inProgress: item.inProgress,
-                    cancelled: item.cancelled
-                }));
-
-                setChartData(chartData);
+                // Only update state if component is still mounted
+                if (isMounted.current) {
+                    setChartData(data);
+                    prevTimeRangeRef.current = range;
+                }
             } catch (err) {
                 console.error('Error fetching delivery analytics:', err);
-                setError('Failed to load analytics data');
+                if (isMounted.current) {
+                    setError('Failed to load analytics data');
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted.current) {
+                    setIsLoading(false);
+                }
             }
-        };
+        }, 300),
+        [getDeliveryAnalytics, chartData.length]
+    );
 
-        fetchAnalytics();
-    }, [getDeliveryAnalytics, timeRange]);
+    // Fetch analytics data when time range changes
+    useEffect(() => {
+        debouncedFetchAnalytics(timeRange);
+
+        // Cleanup function to prevent state updates on unmounted component
+        return () => {
+            isMounted.current = false;
+        };
+    }, [timeRange, debouncedFetchAnalytics]);
+
+    // Handle time range button clicks
+    const handleTimeRangeChange = useCallback((range: TimeRange) => {
+        setTimeRange(range);
+    }, []);
+
+    // Render skeleton loader when data is loading
+    if (isLoading && chartData.length === 0) {
+        return (
+            <Card className="w-full">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">Delivery Analytics</CardTitle>
+                    <div className="flex space-x-2">
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'week' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('week')}
+                            disabled={isLoading}
+                        >
+                            Week
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'month' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('month')}
+                            disabled={isLoading}
+                        >
+                            Month
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'year' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('year')}
+                            disabled={isLoading}
+                        >
+                            Year
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex justify-center items-center h-72">
+                        <div className="animate-pulse space-y-4 w-full">
+                            <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+                            <div className="h-64 bg-gray-200 rounded w-full"></div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    // Display error message
+    if (error) {
+        return (
+            <Card className="w-full">
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg">Delivery Analytics</CardTitle>
+                    <div className="flex space-x-2">
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'week' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('week')}
+                        >
+                            Week
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'month' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('month')}
+                        >
+                            Month
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant={timeRange === 'year' ? 'default' : 'outline'}
+                            onClick={() => handleTimeRangeChange('year')}
+                        >
+                            Year
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex justify-center items-center h-72">
+                        <div className="text-center text-red-500">
+                            <p>{error}</p>
+                            <button className="mt-2 text-primary underline" onClick={() => debouncedFetchAnalytics(timeRange)}>
+                                Try again
+                            </button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="w-full">
@@ -57,41 +172,42 @@ const DashboardAnalytics: React.FC = () => {
                     <Button
                         size="sm"
                         variant={timeRange === 'week' ? 'default' : 'outline'}
-                        onClick={() => setTimeRange('week')}
+                        onClick={() => handleTimeRangeChange('week')}
+                        disabled={isLoading}
                     >
                         Week
                     </Button>
                     <Button
                         size="sm"
                         variant={timeRange === 'month' ? 'default' : 'outline'}
-                        onClick={() => setTimeRange('month')}
+                        onClick={() => handleTimeRangeChange('month')}
+                        disabled={isLoading}
                     >
                         Month
                     </Button>
                     <Button
                         size="sm"
                         variant={timeRange === 'year' ? 'default' : 'outline'}
-                        onClick={() => setTimeRange('year')}
+                        onClick={() => handleTimeRangeChange('year')}
+                        disabled={isLoading}
                     >
                         Year
                     </Button>
                 </div>
             </CardHeader>
             <CardContent>
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-72">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                    </div>
-                ) : error ? (
-                    <div className="flex justify-center items-center h-72">
-                        <p className="text-red-500">{error}</p>
-                    </div>
-                ) : chartData.length === 0 ? (
+                {chartData.length === 0 ? (
                     <div className="text-center py-12">
                         <p className="text-gray-500">No delivery data available for the selected time range.</p>
                     </div>
                 ) : (
-                    <div className="h-72">
+                    <div className="h-72 relative">
+                        {/* Add overlay spinner for loading state when data exists but is being updated */}
+                        {isLoading && (
+                            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            </div>
+                        )}
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart
                                 data={chartData}
