@@ -1,6 +1,6 @@
 // src/services/deliveryService.ts
 import axios from 'axios';
-import { determineApiUrl } from './authService'; // Import from your authService
+import { determineApiUrl } from './authService';
 
 // Define base API URL from environment or determine dynamically
 const API_URL = import.meta.env.VITE_API_URL || determineApiUrl();
@@ -111,6 +111,70 @@ const deliveryService = {
             return {
                 success: false,
                 error: error.response?.data?.detail || 'Failed to fetch delivery. Please try again.',
+            };
+        }
+    },
+
+    // Cancel a delivery
+    cancelDelivery: async (trackingId: string) => {
+        try {
+            const response = await apiClient.post(`/deliveries/${trackingId}/cancel`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.response?.data?.detail || 'Failed to cancel delivery. Please try again.',
+            };
+        }
+    },
+
+    // Get dashboard statistics
+    getDashboardStats: async (period: 'day' | 'week' | 'month' | 'all' = 'all') => {
+        try {
+            const response = await apiClient.get(`/deliveries/stats/dashboard?period=${period}`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.response?.data?.detail || 'Failed to fetch dashboard statistics. Please try again.',
+            };
+        }
+    },
+
+    // Get delivery analytics for charts
+    getDeliveryAnalytics: async (timeRange: 'week' | 'month' | 'year' = 'week') => {
+        try {
+            const response = await apiClient.get(`/deliveries/stats/analytics?time_range=${timeRange}`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.response?.data?.detail || 'Failed to fetch delivery analytics. Please try again.',
+            };
+        }
+    },
+
+    // Get top riders
+    getTopRiders: async (limit: number = 5) => {
+        try {
+            const response = await apiClient.get(`/deliveries/stats/top-riders?limit=${limit}`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                error: error.response?.data?.detail || 'Failed to fetch top riders. Please try again.',
             };
         }
     },

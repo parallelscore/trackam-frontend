@@ -1,3 +1,4 @@
+// src/components/vendor/CreateDeliveryForm.tsx
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { CreateDeliveryFormData } from '@/types';
@@ -16,12 +17,33 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
 import QRCode from 'react-qr-code';
 
-const CreateDeliveryForm: React.FC = () => {
+interface CreateDeliveryFormProps {
+    onSuccess?: () => void;
+}
+
+const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) => {
     const { createDelivery, isLoading } = useDelivery();
     const [createdDelivery, setCreatedDelivery] = useState<any>(null);
     const [formSubmitted, setFormSubmitted] = useState(false);
 
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateDeliveryFormData>();
+    const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateDeliveryFormData>({
+        defaultValues: {
+            customer: {
+                name: '',
+                phoneNumber: '',
+                address: ''
+            },
+            rider: {
+                name: '',
+                phoneNumber: ''
+            },
+            package: {
+                description: '',
+                size: undefined,
+                specialInstructions: ''
+            }
+        }
+    });
 
     const onSubmit = async (data: CreateDeliveryFormData) => {
         try {
@@ -61,12 +83,32 @@ const CreateDeliveryForm: React.FC = () => {
         setFormSubmitted(false);
     };
 
-    const renderSuccessCard = () => {
-        const riderWhatsAppMessage = `Hello ${createdDelivery.rider.name}, you have a new delivery. Use this link to start tracking: ${createdDelivery.tracking.riderLink} and your OTP is: ${createdDelivery.tracking.otp}`;
-        const customerWhatsAppMessage = `Hello ${createdDelivery.customer.name}, your delivery is being processed. Track your package here: ${createdDelivery.tracking.customerLink}`;
+    const handleDone = () => {
+        if (onSuccess && typeof onSuccess === 'function') {
+            onSuccess();
+        } else {
+            setCreatedDelivery(null);
+            setFormSubmitted(false);
+        }
+    };
 
-        const riderWhatsAppLink = generateWhatsAppLink(createdDelivery.rider.phoneNumber, riderWhatsAppMessage);
-        const customerWhatsAppLink = generateWhatsAppLink(createdDelivery.customer.phoneNumber, customerWhatsAppMessage);
+    const renderSuccessCard = () => {
+        if (!createdDelivery) return null;
+
+        // Safely access properties with optional chaining
+        const riderName = createdDelivery.rider?.name || 'Rider';
+        const riderPhone = createdDelivery.rider?.phoneNumber || '';
+        const customerName = createdDelivery.customer?.name || 'Customer';
+        const customerPhone = createdDelivery.customer?.phoneNumber || '';
+        const riderLink = createdDelivery.tracking?.riderLink || '';
+        const customerLink = createdDelivery.tracking?.customerLink || '';
+        const otp = createdDelivery.tracking?.otp || '';
+
+        const riderWhatsAppMessage = `Hello ${riderName}, you have a new delivery. Use this link to start tracking: ${riderLink} - Your OTP is: ${otp}`;
+        const customerWhatsAppMessage = `Hello ${customerName}, your delivery is being processed. Track your package here: ${customerLink}`;
+
+        const riderWhatsAppLink = generateWhatsAppLink(riderPhone, riderWhatsAppMessage);
+        const customerWhatsAppLink = generateWhatsAppLink(customerPhone, customerWhatsAppMessage);
 
         return (
             <Card className="w-full max-w-3xl mx-auto border-green-200 shadow-md">
@@ -85,14 +127,14 @@ const CreateDeliveryForm: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg border-b pb-2">Rider Information</h3>
-                            <p><span className="font-medium">Name:</span> {createdDelivery.rider.name}</p>
-                            <p><span className="font-medium">Phone:</span> {createdDelivery.rider.phoneNumber}</p>
-                            <p><span className="font-medium">OTP:</span> <span className="font-bold">{createdDelivery.tracking.otp}</span></p>
+                            <p><span className="font-medium">Name:</span> {riderName}</p>
+                            <p><span className="font-medium">Phone:</span> {riderPhone}</p>
+                            <p><span className="font-medium">OTP:</span> <span className="font-bold">{otp}</span></p>
 
                             <div className="mt-4">
                                 <h4 className="font-medium mb-2">Rider QR Code:</h4>
                                 <div className="flex justify-center">
-                                    <QRCode value={createdDelivery.tracking.riderLink} size={120} />
+                                    {riderLink && <QRCode value={riderLink} size={120} />}
                                 </div>
                             </div>
 
@@ -113,14 +155,14 @@ const CreateDeliveryForm: React.FC = () => {
 
                         <div className="space-y-4">
                             <h3 className="font-semibold text-lg border-b pb-2">Customer Information</h3>
-                            <p><span className="font-medium">Name:</span> {createdDelivery.customer.name}</p>
-                            <p><span className="font-medium">Phone:</span> {createdDelivery.customer.phoneNumber}</p>
-                            <p><span className="font-medium">Address:</span> {createdDelivery.customer.address}</p>
+                            <p><span className="font-medium">Name:</span> {customerName}</p>
+                            <p><span className="font-medium">Phone:</span> {customerPhone}</p>
+                            <p><span className="font-medium">Address:</span> {createdDelivery.customer?.address || ''}</p>
 
                             <div className="mt-4">
                                 <h4 className="font-medium mb-2">Customer QR Code:</h4>
                                 <div className="flex justify-center">
-                                    <QRCode value={createdDelivery.tracking.customerLink} size={120} />
+                                    {customerLink && <QRCode value={customerLink} size={120} />}
                                 </div>
                             </div>
 
@@ -141,12 +183,18 @@ const CreateDeliveryForm: React.FC = () => {
                     </div>
                 </CardContent>
 
-                <CardFooter className="flex justify-center p-6 bg-gray-50">
+                <CardFooter className="flex justify-center gap-4 p-6 bg-gray-50">
                     <Button
                         onClick={handleCreateAnother}
-                        className="px-6"
+                        variant="outline"
                     >
                         Create Another Delivery
+                    </Button>
+                    <Button
+                        onClick={handleDone}
+                        className="px-6"
+                    >
+                        Done
                     </Button>
                 </CardFooter>
             </Card>
