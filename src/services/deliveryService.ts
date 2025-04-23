@@ -44,10 +44,14 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch deliveries. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch deliveries. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -75,10 +79,14 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to create delivery. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to create delivery. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -91,10 +99,14 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch delivery. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch delivery. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -107,10 +119,13 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch delivery. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch delivery. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -123,10 +138,13 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to cancel delivery. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to cancel delivery. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -139,10 +157,13 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch dashboard statistics. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch dashboard statistics. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -155,10 +176,13 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch delivery analytics. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch delivery analytics. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -171,10 +195,13 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                'Failed to fetch top riders. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch top riders. Please try again.',
+                error: errorMessage,
             };
         }
     },
