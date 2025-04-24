@@ -3,17 +3,18 @@ import { Delivery } from '@/types';
 import { Button } from '../ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
 import { formatDateTime } from '@/utils/utils.ts';
-import { useDelivery } from '../../context/DeliveryContext';
+import DeliveryConfirmation from './DeliveryConfirmation';
+import DeliveryComplete from './DeliveryComplete';
 
-interface PackageDetailsProps {
+interface EnhancedPackageDetailsProps {
     delivery: Delivery;
 }
 
-const PackageDetails: React.FC<PackageDetailsProps> = ({ delivery }) => {
-    const { completeDelivery, isLoading } = useDelivery();
+const PackageDetails: React.FC<EnhancedPackageDetailsProps> = ({ delivery }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [isConfirmed, setIsConfirmed] = useState(delivery.status === 'completed');
     const [showConfirmation, setShowConfirmation] = useState(false);
+    const [isConfirmed, setIsConfirmed] = useState(delivery.status === 'completed');
+    const [showCompletionScreen, setShowCompletionScreen] = useState(false);
 
     const toggleExpand = () => {
         setIsExpanded(!isExpanded);
@@ -23,21 +24,40 @@ const PackageDetails: React.FC<PackageDetailsProps> = ({ delivery }) => {
         setShowConfirmation(true);
     };
 
-    const confirmReceipt = async () => {
-        try {
-            const result = await completeDelivery(delivery.trackingId);
-            if (result.success) {
-                setIsConfirmed(true);
-                setShowConfirmation(false);
-            }
-        } catch (error) {
-            console.error('Error confirming delivery:', error);
-        }
+    const handleConfirmationComplete = () => {
+        setShowConfirmation(false);
+        setIsConfirmed(true);
+        setShowCompletionScreen(true);
     };
 
-    const cancelConfirmation = () => {
+    const handleCancelConfirmation = () => {
         setShowConfirmation(false);
     };
+
+    const handleCloseCompletionScreen = () => {
+        setShowCompletionScreen(false);
+    };
+
+    // If showing the confirmation modal
+    if (showConfirmation) {
+        return (
+            <DeliveryConfirmation
+                delivery={delivery}
+                onConfirmed={handleConfirmationComplete}
+                onCancel={handleCancelConfirmation}
+            />
+        );
+    }
+
+    // If showing the completion screen
+    if (showCompletionScreen) {
+        return (
+            <DeliveryComplete
+                delivery={delivery}
+                onClose={handleCloseCompletionScreen}
+            />
+        );
+    }
 
     return (
         <Card className="overflow-hidden">
@@ -107,45 +127,25 @@ const PackageDetails: React.FC<PackageDetailsProps> = ({ delivery }) => {
                         </div>
                     </CardContent>
 
-                    {showConfirmation && (
-                        <div className="p-4 bg-yellow-50 border-t border-yellow-200">
-                            <h3 className="font-bold text-yellow-800 mb-2">Confirm Package Receipt</h3>
-                            <p className="text-sm text-yellow-800 mb-4">
-                                Are you sure you have received the package? This action cannot be undone.
-                            </p>
-                            <div className="flex gap-3">
-                                <Button
-                                    variant="outline"
-                                    onClick={cancelConfirmation}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    className="bg-yellow-600 hover:bg-yellow-700"
-                                    onClick={confirmReceipt}
-                                    disabled={isLoading}
-                                >
-                                    Yes, I Received It
-                                </Button>
-                            </div>
-                        </div>
-                    )}
-
                     <CardFooter className="border-t flex justify-between bg-gray-50">
                         {!isConfirmed && delivery.status === 'in_progress' && (
                             <Button
                                 variant="accent"
                                 className="w-full"
                                 onClick={handleConfirmReceipt}
-                                disabled={isLoading}
                             >
-                                {isLoading ? 'Processing...' : 'Confirm Package Received'}
+                                Confirm Package Received
                             </Button>
                         )}
 
                         {isConfirmed && (
                             <div className="w-full text-center p-2 bg-green-50 text-green-700 rounded-md">
-                                Package delivery confirmed! Thank you.
+                                <div className="flex items-center justify-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>Package delivery confirmed!</span>
+                                </div>
                             </div>
                         )}
 

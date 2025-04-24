@@ -1,3 +1,4 @@
+// src/pages/TrackingPage.tsx - Updated with enhanced flow
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
@@ -7,12 +8,14 @@ import PackageDetails from '../components/customer/PackageDetails';
 import { useDelivery } from '../context/DeliveryContext';
 import { Card, CardContent } from '../components/ui/card';
 import { calculateDistance } from '../utils/utils';
+import { Button } from '../components/ui/button';
 
 const TrackingPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
     const { getDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
     const [estimatedTime, setEstimatedTime] = useState<string | undefined>(undefined);
     const [distance, setDistance] = useState<number | null>(null);
+    const [hasLocationAccess, setHasLocationAccess] = useState(false);
 
     // Set up polling for delivery updates
     useEffect(() => {
@@ -67,6 +70,38 @@ const TrackingPage: React.FC = () => {
         }
     }, [currentDelivery]);
 
+    // Check if location access is granted for customer location sharing
+    useEffect(() => {
+        navigator.permissions
+            .query({ name: 'geolocation' })
+            .then(permissionStatus => {
+                setHasLocationAccess(permissionStatus.state === 'granted');
+
+                permissionStatus.onchange = () => {
+                    setHasLocationAccess(permissionStatus.state === 'granted');
+                };
+            })
+            .catch(error => {
+                console.error('Error checking location permission:', error);
+            });
+    }, []);
+
+    const handleShareMyLocation = () => {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    setHasLocationAccess(true);
+                    // Here you would typically send this location to the backend
+                    // For now, we'll just update the UI state
+                    console.log('Location shared:', position.coords);
+                },
+                (error) => {
+                    console.error('Geolocation error:', error);
+                }
+            );
+        }
+    };
+
     const renderContent = () => {
         if (isLoading && !currentDelivery) {
             return (
@@ -112,13 +147,31 @@ const TrackingPage: React.FC = () => {
                     estimatedTime={estimatedTime}
                 />
 
-                <div className="rounded-lg overflow-hidden border h-[400px]">
-                    <TrackingMap
-                        riderLocation={currentDelivery.rider?.currentLocation}
-                        destinationLocation={currentDelivery.customer.location}
-                        isTracking={currentDelivery.status === 'in_progress'}
-                        height="400px"
-                    />
+                {/* Map Section */}
+                <div className="space-y-2">
+                    <div className="rounded-lg overflow-hidden border h-[400px]">
+                        <TrackingMap
+                            riderLocation={currentDelivery.rider?.currentLocation}
+                            destinationLocation={currentDelivery.customer.location}
+                            isTracking={currentDelivery.status === 'in_progress'}
+                            height="400px"
+                        />
+                    </div>
+
+                    {/* Location sharing prompt */}
+                    {currentDelivery.status === 'in_progress' && !hasLocationAccess && (
+                        <div className="p-3 bg-blue-50 text-blue-800 text-sm rounded-md flex items-center justify-between">
+                            <span>Share your location to help the rider find you more easily</span>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-blue-300 text-blue-700"
+                                onClick={handleShareMyLocation}
+                            >
+                                Share My Location
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <PackageDetails delivery={currentDelivery} />

@@ -1,15 +1,20 @@
+// src/pages/RiderPage.tsx - Updated with enhanced flow
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
-import OtpVerification from '../components/rider/OtpVerification';
+import RiderOtpVerification from '../components/rider/RiderOtpVerification';
 import RiderTracker from '../components/rider/RiderTracker';
 import { useDelivery } from '../context/DeliveryContext';
 import { Card, CardContent } from '../components/ui/card';
 
 const RiderPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
+    const [searchParams] = useSearchParams();
     const { getDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
     const [isVerified, setIsVerified] = useState(false);
+    const [isAccepting] = useState<boolean>(
+        searchParams.get('accept') === 'true'
+    );
 
     useEffect(() => {
         const fetchDelivery = async () => {
@@ -76,7 +81,7 @@ const RiderPage: React.FC = () => {
 
         if (!isVerified) {
             return (
-                <OtpVerification
+                <RiderOtpVerification
                     trackingId={currentDelivery.trackingId}
                     onVerified={handleVerified}
                 />
@@ -86,19 +91,49 @@ const RiderPage: React.FC = () => {
         return <RiderTracker delivery={currentDelivery} />;
     };
 
+    // If the user is accepting the delivery and the delivery exists
+    // but the tracking isn't started yet, render the OTP verification
+    const renderAcceptingContent = () => {
+        if (isLoading) {
+            return (
+                <div className="flex justify-center items-center h-32">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                </div>
+            );
+        }
+
+        if (error || !currentDelivery) {
+            return (
+                <div className="text-center text-red-600">
+                    <p>Error: {error || 'Delivery not found'}</p>
+                    <p className="mt-2">Please try again later.</p>
+                </div>
+            );
+        }
+
+        return (
+            <RiderOtpVerification
+                trackingId={currentDelivery.trackingId}
+                onVerified={handleVerified}
+            />
+        );
+    };
+
     return (
         <Layout>
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-secondary">Rider Delivery Tracking</h1>
                     <p className="text-gray-600 mt-2">
-                        {isVerified
-                            ? 'Track your delivery in real-time and update the customer'
-                            : 'Verify your OTP to start the delivery tracking'}
+                        {isAccepting
+                            ? 'Verify your OTP to start the delivery tracking'
+                            : isVerified
+                                ? 'Track your delivery in real-time and update the customer'
+                                : 'Verify your OTP to start the delivery tracking'}
                     </p>
                 </div>
 
-                {renderContent()}
+                {isAccepting ? renderAcceptingContent() : renderContent()}
             </div>
         </Layout>
     );

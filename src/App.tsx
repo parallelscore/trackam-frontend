@@ -7,7 +7,10 @@ import { AuthProvider } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import VendorDashboard from './pages/VendorDashboard';
 import RiderPage from './pages/RiderPage';
+import RiderAcceptPage from './pages/RiderAcceptPage';
 import TrackingPage from './pages/TrackingPage';
+import EnhancedTrackingPage from './pages/EnhancedTrackingPage';
+import DeliveryConfirmedPage from './pages/DeliveryConfirmedPage';
 import TrackSearchPage from './pages/TrackSearchPage';
 import PhoneLoginPage from './pages/PhoneLoginPage';
 import LoginOtpPage from './pages/LoginOtpPage';
@@ -62,11 +65,14 @@ function App() {
                         <Route path="/vendor" element={<VendorDashboard />} />
 
                         {/* Rider routes */}
+                        <Route path="/rider/accept/:trackingId" element={<RiderAcceptPage />} />
                         <Route path="/rider/:trackingId" element={<RiderPage />} />
 
                         {/* Customer tracking routes */}
                         <Route path="/track" element={<TrackSearchPage />} />
                         <Route path="/track/:trackingId" element={<TrackingPage />} />
+                        <Route path="/enhanced-track/:trackingId" element={<EnhancedTrackingPage />} />
+                        <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
 
                         {/* Fallback route */}
                         <Route path="*" element={<HomePage />} />

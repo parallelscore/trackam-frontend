@@ -7,7 +7,7 @@ import { Delivery, OtpVerificationFormData } from '@/types';
 
 // Toggle between mock service (for development) and real service
 // Set to false when ready to use real API
-const USE_MOCK_SERVICE = false;
+const USE_MOCK_SERVICE = true;
 const service = USE_MOCK_SERVICE ? mockDeliveryService : deliveryService;
 
 interface DeliveryContextProps {
@@ -30,6 +30,8 @@ interface DeliveryContextProps {
     getDashboardStats: (period?: 'day' | 'week' | 'month' | 'all') => Promise<any>;
     getDeliveryAnalytics: (timeRange?: 'week' | 'month' | 'year') => Promise<any>;
     getTopRiders: (limit?: number) => Promise<any>;
+    acceptDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
+    declineDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const DeliveryContext = createContext<DeliveryContextProps | undefined>(undefined);
@@ -673,6 +675,106 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
+    // Accept a delivery assignment
+    const acceptDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                // Mock implementation - simulate accepting the delivery
+                const delivery = await getDeliveryByTrackingId(trackingId);
+
+                if (!delivery) {
+                    return { success: false, message: 'Delivery not found' };
+                }
+
+                // Update the delivery status
+                const updatedDelivery = {
+                    ...delivery,
+                    status: 'assigned',
+                    updatedAt: new Date().toISOString()
+                };
+
+                setCurrentDelivery(updatedDelivery);
+
+                return {
+                    success: true,
+                    message: 'Delivery assignment accepted'
+                };
+            } else {
+                // Real API call
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/rider/accept/${trackingId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    },
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    // Update current delivery if response includes it
+                    if (result.delivery) {
+                        setCurrentDelivery(result.delivery);
+                    } else {
+                        // Otherwise refresh the delivery data
+                        await getDeliveryByTrackingId(trackingId);
+                    }
+
+                    toast.success('Delivery assignment accepted');
+                    return { success: true, message: 'Delivery assignment accepted' };
+                } else {
+                    const errorMessage = result.detail || 'Failed to accept delivery';
+                    toast.error(errorMessage);
+                    setError(errorMessage);
+                    return { success: false, message: errorMessage };
+                }
+            }
+        } catch (error) {
+            console.error('Error accepting delivery:', error);
+            const errorMessage = 'Failed to accept delivery. Please try again.';
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, message: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Decline a delivery
+    const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                const result = await service.declineDelivery(trackingId);
+
+                if (result.success) {
+                    toast.success('Delivery declined successfully');
+                    return { success: true };
+                } else {
+                    toast.error(result.message || 'Failed to decline delivery');
+                    setError(result.message || 'Failed to decline delivery');
+                    return { success: false, message: result.message };
+                }
+            } else {
+                // Use actual API service when implemented
+                return { success: false, message: 'API not implemented yet' };
+            }
+        } catch (error) {
+            console.error('Error declining delivery:', error);
+            const errorMessage = 'Failed to decline delivery. Please try again.';
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, message: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Load initial deliveries
     useEffect(() => {
         // Only do this once
@@ -699,7 +801,9 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         cancelDelivery,
         getDashboardStats,
         getDeliveryAnalytics,
-        getTopRiders
+        getTopRiders,
+        acceptDelivery,
+        declineDelivery
     };
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;

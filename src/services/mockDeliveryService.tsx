@@ -125,6 +125,62 @@ const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: bool
     return { success: true, delivery: updatedDelivery };
 };
 
+// Accept a delivery by rider
+const acceptDelivery = async (trackingId: string): Promise<{ success: boolean; delivery?: Delivery; message?: string }> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+
+    if (deliveryIndex === -1) {
+        return { success: false, message: 'Delivery not found' };
+    }
+
+    if (deliveries[deliveryIndex].status !== 'created') {
+        return { success: false, message: 'Delivery cannot be accepted in its current state' };
+    }
+
+    // Update delivery status
+    const updatedDelivery = {
+        ...deliveries[deliveryIndex],
+        status: 'assigned' as const,
+        updatedAt: new Date().toISOString(),
+    };
+
+    // Update in-memory storage
+    deliveries[deliveryIndex] = updatedDelivery;
+
+    return { success: true, delivery: updatedDelivery };
+};
+
+// Decline a delivery by rider
+const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+
+    if (deliveryIndex === -1) {
+        return { success: false, message: 'Delivery not found' };
+    }
+
+    if (deliveries[deliveryIndex].status !== 'created' && deliveries[deliveryIndex].status !== 'assigned') {
+        return { success: false, message: 'Delivery cannot be declined in its current state' };
+    }
+
+    // In a real implementation, you'd probably reassign the delivery to another rider
+    // or notify the vendor to find another rider
+
+    // Update in-memory storage - just mark as cancelled for simplicity in our mock
+    deliveries[deliveryIndex] = {
+        ...deliveries[deliveryIndex],
+        status: 'cancelled' as const,
+        updatedAt: new Date().toISOString(),
+    };
+
+    return { success: true };
+};
+
 // Start tracking a delivery
 const startTracking = async (trackingId: string): Promise<{ success: boolean; delivery?: Delivery; message?: string }> => {
     // Simulate API delay
@@ -374,6 +430,8 @@ export const mockDeliveryService = {
     getAllDeliveries,
     getDeliveryByTrackingId,
     verifyOTP,
+    acceptDelivery,
+    declineDelivery,
     startTracking,
     updateRiderLocation,
     completeDelivery,
