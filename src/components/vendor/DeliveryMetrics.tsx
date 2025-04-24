@@ -35,7 +35,7 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
         };
 
         fetchMetrics();
-    }, [getDashboardStats, period]);
+    }, [period, error]);
 
     // Format time from minutes to hours and minutes
     const formatTime = (minutes: number) => {

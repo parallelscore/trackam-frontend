@@ -5,52 +5,50 @@ import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } f
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Delivery } from '@/types';
+import { DeliveryFilters, Delivery, DeliveryStatus } from '@/types';
 
 const ActiveDeliveries: React.FC = () => {
-    const { deliveries, totalDeliveries, currentPage, totalPages, isLoading, fetchDeliveries } = useDelivery();
+    const { deliveries, totalPages, isLoading, fetchDeliveries } = useDelivery();
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<DeliveryStatus | 'all'>('all');
     const [currentPageState, setCurrentPageState] = useState(1);
 
     // Effect to load deliveries when filters change
     useEffect(() => {
-        loadDeliveries();
-    }, [statusFilter, currentPageState]);
-
-    // Function to load deliveries with current filters
-    const loadDeliveries = async () => {
-        const filters: any = {
+        const filters: DeliveryFilters = {
             page: currentPageState,
             limit: 10,
         };
 
-        if (statusFilter !== 'all') {
-            filters.status = statusFilter;
+        const selectedStatus: DeliveryStatus | undefined =
+            statusFilter === 'all' ? undefined : statusFilter;
+
+        if (selectedStatus) {
+            filters.delivery_status = selectedStatus;         // now TS knows this is a DeliveryStatus
         }
 
-        if (searchTerm) {
-            filters.search = searchTerm;
+        if (searchTerm.trim()) {
+            filters.search = searchTerm.trim();
         }
+        console.log('⏩ About to fetchDeliveries with:', filters);
+        fetchDeliveries(filters);
+    }, [statusFilter, searchTerm, currentPageState]);
 
-        await fetchDeliveries(filters);
-    };
 
     // Handle search input change
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
+        setCurrentPageState(1);
     };
 
     // Handle search submission
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
-        setCurrentPageState(1); // Reset to first page
-        loadDeliveries();
     };
 
     // Handle status filter change
     const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        setStatusFilter(e.target.value);
+        setStatusFilter(e.target.value as DeliveryStatus | 'all');
         setCurrentPageState(1); // Reset to first page
     };
 

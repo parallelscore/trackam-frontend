@@ -47,7 +47,7 @@ const DashboardAnalytics: React.FC = () => {
         };
 
         fetchAnalytics();
-    }, [getDeliveryAnalytics, timeRange]);
+    }, [timeRange]);
 
     return (
         <Card className="w-full">

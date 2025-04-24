@@ -98,7 +98,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 setTotalPages(totalPages);
             } else {
                 // Using real API service
-                const result = await service.getDeliveries(filters || {});
+                const result = await deliveryService.getDeliveries(filters || {});
 
                 if (result.success) {
                     setDeliveries(result.data.items);
@@ -129,7 +129,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 toast.success('Delivery created successfully!');
                 return delivery;
             } else {
-                const result = await service.createDelivery(deliveryData);
+                const result = await deliveryService.createDelivery(deliveryData);
 
                 if (result.success) {
                     toast.success('Delivery created successfully!');
@@ -168,7 +168,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
 
                 return delivery;
             } else {
-                const result = await service.getDeliveryById(id);
+                const result = await deliveryService.getDeliveryById(id);
 
                 if (result.success) {
                     return result.data;
@@ -198,7 +198,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             if (USE_MOCK_SERVICE) {
                 delivery = await service.getDeliveryByTrackingId(trackingId);
             } else {
-                const result = await service.getDeliveryByTracking(trackingId);
+                const result = await deliveryService.getDeliveryByTracking(trackingId);
 
                 if (result.success) {
                     delivery = result.data;

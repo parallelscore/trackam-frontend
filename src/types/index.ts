@@ -1,5 +1,4 @@
 // User Types
-// User Types
 export interface User {
     id: string;
     phone_number: string;
@@ -117,4 +116,16 @@ export enum SocketEvent {
     DELIVERY_CREATED = 'delivery_created',
     RIDER_CONNECTED = 'rider_connected',
     CUSTOMER_CONNECTED = 'customer_connected',
+}
+
+/** Filters for fetching deliveries */
+export interface DeliveryFilters {
+    /** Only return deliveries in this status */
+    delivery_status?: DeliveryStatus;
+    /** Search term for ID, customer or rider */
+    search?: string;
+    /** Page number (1-based) */
+    page: number;
+    /** Items per page */
+    limit: number;
 }

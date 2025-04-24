@@ -37,7 +37,7 @@ const TopRiders: React.FC = () => {
         };
 
         fetchTopRiders();
-    }, [getTopRiders]);
+    }, []);
 
     // Format time from minutes to hours and minutes
     const formatTime = (minutes: number) => {

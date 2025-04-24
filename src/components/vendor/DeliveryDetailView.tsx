@@ -1,7 +1,7 @@
 // src/components/vendor/DeliveryDetailView.tsx
 import React from 'react';
 import { Delivery } from '@/types';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { getStatusColor, getStatusText, formatDateTime } from '@/utils/utils.ts';

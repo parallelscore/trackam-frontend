@@ -10,7 +10,6 @@ import {
     CardTitle,
     CardDescription,
     CardContent,
-    CardFooter
 } from '../components/ui/card';
 import {
     Form,
@@ -37,7 +36,7 @@ const ProfilePage: React.FC = () => {
     const { user, isAuthenticated, isLoading } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
-    const [isEmailVerified, setIsEmailVerified] = useState(false);
+    const [isEmailVerified] = useState(false);
 
     const {
         register,
@@ -68,8 +67,8 @@ const ProfilePage: React.FC = () => {
             };
 
             reader.readAsDataURL(file);
-        } else if (user?.profileImage) {
-            setProfileImageUrl(user.profileImage as string);
+        } else if (user?.profile_image_url) {
+            setProfileImageUrl(user.profile_image_url as string);
         }
     }, [profileImage, user]);
 

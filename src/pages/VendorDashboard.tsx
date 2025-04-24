@@ -36,7 +36,7 @@ const VendorDashboard: React.FC = () => {
     }, [isAuthenticated]);
 
     // Get the most recent deliveries for the Recent Deliveries component
-    const recentDeliveries = deliveries.slice(0, 5);
+    const recentDeliveries = deliveries.slice(0, 3);
 
     return (
         <Layout>
