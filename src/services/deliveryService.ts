@@ -45,6 +45,7 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
+
         } catch (error: unknown) {
             const errorMessage =
                 (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -79,6 +80,7 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
+
         } catch (error: unknown) {
             const errorMessage =
                 (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
@@ -98,6 +100,7 @@ const deliveryService = {
                 success: true,
                 data: response.data,
             };
+
         } catch (error: unknown) {
             const errorMessage =
                 (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||

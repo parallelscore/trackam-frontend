@@ -1,5 +1,5 @@
 // src/components/vendor/DeliveryMetrics.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { useDelivery } from '../../context/DeliveryContext';
 
@@ -18,6 +18,9 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Track if component is mounted to prevent state updates after unmount
+    const isMounted = useRef(true);
+
     useEffect(() => {
         const fetchMetrics = async () => {
             setIsLoading(true);
@@ -25,12 +28,18 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
 
             try {
                 const data = await getDashboardStats(period);
-                setMetrics(data);
+                if (isMounted.current) {
+                    setMetrics(data);
+                }
             } catch (err) {
                 console.error('Error fetching delivery metrics:', err);
-                setError('Failed to load metrics');
+                if (isMounted.current) {
+                    setError('Failed to load metrics');
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted.current) {
+                    setIsLoading(false);
+                }
             }
         };
 
@@ -53,16 +62,50 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
         return `${hours} hr ${remainingMinutes} min`;
     };
 
+    // Render skeleton loader
+    if (isLoading) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                    <Card key={i}>
+                        <CardContent className="p-6">
+                            <div className="animate-pulse space-y-2">
+                                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                                <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        );
+    }
+
+    // Display error message
+    if (error) {
+        return (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="md:col-span-4">
+                    <CardContent className="p-6 text-center text-red-500">
+                        <p>{error}</p>
+                        <button
+                            className="mt-2 text-primary underline"
+                            onClick={() => getDashboardStats(period).then(data => setMetrics(data)).catch(err => setError(String(err)))}
+                        >
+                            Try again
+                        </button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
                 <CardContent className="p-6">
                     <h3 className="text-lg font-medium text-secondary">{period === 'day' ? 'Today' : period === 'week' ? 'This Week' : period === 'month' ? 'This Month' : 'All Time'}</h3>
-                    {isLoading ? (
-                        <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-2"></div>
-                    ) : (
-                        <p className="text-3xl font-bold">{metrics.total_deliveries}</p>
-                    )}
+                    <p className="text-3xl font-bold">{metrics.total_deliveries}</p>
                     <p className="text-sm text-gray-500 mt-1">Total Deliveries</p>
                 </CardContent>
             </Card>
@@ -70,11 +113,7 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
             <Card>
                 <CardContent className="p-6">
                     <h3 className="text-lg font-medium text-secondary">Completion Rate</h3>
-                    {isLoading ? (
-                        <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-2"></div>
-                    ) : (
-                        <p className="text-3xl font-bold">{metrics.completion_rate}%</p>
-                    )}
+                    <p className="text-3xl font-bold">{metrics.completion_rate}%</p>
                     <p className="text-sm text-gray-500 mt-1">Successfully Delivered</p>
                 </CardContent>
             </Card>
@@ -82,11 +121,7 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
             <Card>
                 <CardContent className="p-6">
                     <h3 className="text-lg font-medium text-secondary">Avg Delivery Time</h3>
-                    {isLoading ? (
-                        <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-2"></div>
-                    ) : (
-                        <p className="text-3xl font-bold">{formatTime(metrics.avg_delivery_time)}</p>
-                    )}
+                    <p className="text-3xl font-bold">{formatTime(metrics.avg_delivery_time)}</p>
                     <p className="text-sm text-gray-500 mt-1">From Creation to Delivery</p>
                 </CardContent>
             </Card>
@@ -94,11 +129,7 @@ const DeliveryMetrics: React.FC<DeliveryMetricsProps> = ({ period = 'week' }) =>
             <Card>
                 <CardContent className="p-6">
                     <h3 className="text-lg font-medium text-secondary">Cancel Rate</h3>
-                    {isLoading ? (
-                        <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-2"></div>
-                    ) : (
-                        <p className="text-3xl font-bold">{metrics.cancel_rate}%</p>
-                    )}
+                    <p className="text-3xl font-bold">{metrics.cancel_rate}%</p>
                     <p className="text-sm text-gray-500 mt-1">Cancelled Deliveries</p>
                 </CardContent>
             </Card>

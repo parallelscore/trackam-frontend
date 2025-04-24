@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/vendor/ActiveDeliveries.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDelivery } from '../../context/DeliveryContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } from '@/utils/utils.ts';
@@ -7,11 +8,46 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { DeliveryFilters, Delivery, DeliveryStatus } from '@/types';
 
+
 const ActiveDeliveries: React.FC = () => {
     const { deliveries, totalPages, isLoading, fetchDeliveries } = useDelivery();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<DeliveryStatus | 'all'>('all');
     const [currentPageState, setCurrentPageState] = useState(1);
+    const [localLoading, setLocalLoading] = useState(false);
+
+    // Use this to track if component is mounted
+    const isMounted = useRef(true);
+
+    // Store previous filters to prevent redundant API calls
+    const prevFiltersRef = useRef({
+        searchTerm: '',
+        statusFilter: 'all',
+        currentPage: 1
+    });
+
+    // Debounced search function
+    const debouncedSearch = useCallback(
+        debounce((term: string, status: string, page: number) => {
+            // Skip if filters haven't changed
+            if (term === prevFiltersRef.current.searchTerm &&
+                status === prevFiltersRef.current.statusFilter &&
+                page === prevFiltersRef.current.currentPage) {
+                return;
+            }
+
+            // Update previous filters
+            prevFiltersRef.current = {
+                searchTerm: term,
+                statusFilter: status,
+                currentPage: page
+            };
+
+            // Load deliveries with current filters
+            loadDeliveries(term, status, page);
+        }, 300),
+        []
+    );
 
     // Effect to load deliveries when filters change
     useEffect(() => {
@@ -19,6 +55,7 @@ const ActiveDeliveries: React.FC = () => {
             page: currentPageState,
             limit: 10,
         };
+    }, []);
 
         const selectedStatus: DeliveryStatus | undefined =
             statusFilter === 'all' ? undefined : statusFilter;
@@ -44,6 +81,7 @@ const ActiveDeliveries: React.FC = () => {
     // Handle search submission
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
+
     };
 
     // Handle status filter change
@@ -84,18 +122,18 @@ const ActiveDeliveries: React.FC = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => handlePageChange(currentPageState - 1)}
-                        disabled={currentPageState === 1 || isLoading}
+                        disabled={currentPageState === 1 || isLoading || localLoading}
                     >
                         Previous
                     </Button>
                     <span className="text-sm">
-            Page {currentPageState} of {totalPages}
-          </span>
+                        Page {currentPageState} of {totalPages}
+                    </span>
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handlePageChange(currentPageState + 1)}
-                        disabled={currentPageState === totalPages || isLoading}
+                        disabled={currentPageState === totalPages || isLoading || localLoading}
                     >
                         Next
                     </Button>
@@ -103,6 +141,31 @@ const ActiveDeliveries: React.FC = () => {
             </div>
         );
     };
+
+    // Main loading indicator
+    const Loading = () => (
+        <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+        </div>
+    );
+
+    // Empty state
+    const EmptyState = () => (
+        <div className="text-center p-8 border border-dashed rounded-md">
+            <p className="text-gray-500">No deliveries found</p>
+            <Button
+                className="mt-4"
+                onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('all');
+                    setCurrentPageState(1);
+                    loadDeliveries('', 'all', 1);
+                }}
+            >
+                Reset Filters
+            </Button>
+        </div>
+    );
 
     return (
         <Card className="w-full">
@@ -138,107 +201,112 @@ const ActiveDeliveries: React.FC = () => {
                             </select>
                         </div>
 
-                        <Button type="submit" disabled={isLoading}>
-                            {isLoading ? 'Searching...' : 'Search'}
+                        <Button type="submit" disabled={isLoading || localLoading}>
+                            {(isLoading || localLoading) ? 'Searching...' : 'Search'}
                         </Button>
                     </form>
                 </div>
 
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                    </div>
-                ) : deliveries.length === 0 ? (
-                    <div className="text-center p-8 border border-dashed rounded-md">
-                        <p className="text-gray-500">No deliveries found</p>
-                    </div>
-                ) : (
-                    <div className="space-y-4">
-                        {deliveries.map((delivery) => (
-                            <div
-                                key={delivery.id}
-                                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                            >
-                                <div className="flex flex-col md:flex-row justify-between gap-2">
-                                    <div className="space-y-2">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="font-semibold">
-                                                Tracking ID: {delivery.trackingId}
-                                            </h3>
-                                            <Badge className={getStatusColor(delivery.status)}>
-                                                {getStatusText(delivery.status)}
-                                            </Badge>
+                {/* Add a semi-transparent loading overlay when updating content */}
+                <div className="relative">
+                    {(isLoading || localLoading) && deliveries.length > 0 && (
+                        <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                        </div>
+                    )}
+
+                    {(isLoading || localLoading) && deliveries.length === 0 ? (
+                        <Loading />
+                    ) : deliveries.length === 0 ? (
+                        <EmptyState />
+                    ) : (
+                        <div className="space-y-4">
+                            {deliveries.map((delivery) => (
+                                <div
+                                    key={delivery.id}
+                                    className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                                >
+                                    <div className="flex flex-col md:flex-row justify-between gap-2">
+                                        <div className="space-y-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <h3 className="font-semibold">
+                                                    Tracking ID: {delivery.trackingId}
+                                                </h3>
+                                                <Badge className={getStatusColor(delivery.status)}>
+                                                    {getStatusText(delivery.status)}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                                                <div>
+                                                    <span className="text-gray-600">Customer:</span> {delivery.customer.name}
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-600">Phone:</span> {delivery.customer.phoneNumber}
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-600">Rider:</span> {delivery.rider?.name || 'Not assigned'}
+                                                </div>
+                                                <div>
+                                                    <span className="text-gray-600">Package:</span> {delivery.package.description}
+                                                </div>
+                                                <div className="md:col-span-2">
+                                                    <span className="text-gray-600">Address:</span> {delivery.customer.address}
+                                                </div>
+                                            </div>
+
+                                            <div className="text-xs text-gray-500">
+                                                Created: {formatDateTime(delivery.createdAt)}
+                                            </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Customer:</span> {delivery.customer.name}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Phone:</span> {delivery.customer.phoneNumber}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Rider:</span> {delivery.rider?.name || 'Not assigned'}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Package:</span> {delivery.package.description}
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <span className="text-gray-600">Address:</span> {delivery.customer.address}
-                                            </div>
-                                        </div>
+                                        <div className="flex flex-row md:flex-col gap-2 mt-4 md:mt-0">
+                                            {delivery.rider && (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="text-green-600 border-green-600 hover:bg-green-50"
+                                                    onClick={() => handleShareWithRider(delivery)}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                                                    </svg>
+                                                    Rider
+                                                </Button>
+                                            )}
 
-                                        <div className="text-xs text-gray-500">
-                                            Created: {formatDateTime(delivery.createdAt)}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex flex-row md:flex-col gap-2 mt-4 md:mt-0">
-                                        {delivery.rider && (
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="text-green-600 border-green-600 hover:bg-green-50"
-                                                onClick={() => handleShareWithRider(delivery)}
+                                                className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                                                onClick={() => handleShareWithCustomer(delivery)}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
                                                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                                                 </svg>
-                                                Rider
+                                                Customer
                                             </Button>
-                                        )}
 
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="text-blue-600 border-blue-600 hover:bg-blue-50"
-                                            onClick={() => handleShareWithCustomer(delivery)}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                                                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                                            </svg>
-                                            Customer
-                                        </Button>
-
-                                        <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => window.open(`/track/${delivery.trackingId}`, '_blank')}
-                                        >
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M2 12h20" />
-                                                <path d="M12 2v20" />
-                                                <circle cx="12" cy="12" r="10" />
-                                                <circle cx="12" cy="12" r="4" />
-                                            </svg>
-                                            Track
-                                        </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => window.open(`/track/${delivery.trackingId}`, '_blank')}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                    <path d="M2 12h20" />
+                                                    <path d="M12 2v20" />
+                                                    <circle cx="12" cy="12" r="10" />
+                                                    <circle cx="12" cy="12" r="4" />
+                                                </svg>
+                                                Track
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
+                            ))}
+                        </div>
+                    )}
+                </div>
 
                 {/* Pagination */}
                 <Pagination />

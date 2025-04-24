@@ -1,5 +1,5 @@
 // src/components/vendor/DashboardStats.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { useDelivery } from '../../context/DeliveryContext';
 
@@ -18,6 +18,10 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Use this to track if component is mounted
+    const isMounted = useRef(true);
+
+    // Fetch stats only once on mount with the specified period
     useEffect(() => {
         const fetchStats = async () => {
             setIsLoading(true);
@@ -25,19 +29,20 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
 
             try {
                 const data = await getDashboardStats(period);
-                setStats(data);
+
+                // Only update state if component is still mounted
+                if (isMounted.current) {
+                    setStats(data);
+                }
             } catch (err) {
                 console.error('Error fetching dashboard stats:', err);
-                setError('Failed to load statistics');
-                // Set default/empty data to prevent retries
-                setStats({
-                    total_deliveries: 0,
-                    in_progress: 0,
-                    completed: 0,
-                    cancelled: 0
-                });
+                if (isMounted.current) {
+                    setError('Failed to load statistics');
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted.current) {
+                    setIsLoading(false);
+                }
             }
         };
 
@@ -57,11 +62,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-500">Total Deliveries</p>
-                            {isLoading ? (
-                                <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
-                            ) : (
-                                <p className="text-2xl font-bold text-secondary">{stats.total_deliveries}</p>
-                            )}
+                            <p className="text-2xl font-bold text-secondary">{stats.total_deliveries}</p>
                         </div>
                     </div>
                 </CardContent>
@@ -78,11 +79,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-500">In Progress</p>
-                            {isLoading ? (
-                                <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
-                            ) : (
-                                <p className="text-2xl font-bold text-accent">{stats.in_progress}</p>
-                            )}
+                            <p className="text-2xl font-bold text-accent">{stats.in_progress}</p>
                         </div>
                     </div>
                 </CardContent>
@@ -99,11 +96,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-500">Completed</p>
-                            {isLoading ? (
-                                <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
-                            ) : (
-                                <p className="text-2xl font-bold text-green-700">{stats.completed}</p>
-                            )}
+                            <p className="text-2xl font-bold text-green-700">{stats.completed}</p>
                         </div>
                     </div>
                 </CardContent>
@@ -120,11 +113,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
                         </div>
                         <div>
                             <p className="text-sm font-medium text-gray-500">Cancelled</p>
-                            {isLoading ? (
-                                <div className="h-8 w-16 bg-gray-200 animate-pulse rounded mt-1"></div>
-                            ) : (
-                                <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
-                            )}
+                            <p className="text-2xl font-bold text-red-600">{stats.cancelled}</p>
                         </div>
                     </div>
                 </CardContent>
