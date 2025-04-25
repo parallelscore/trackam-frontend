@@ -22,14 +22,14 @@ const DeliverySuccessView: React.FC<DeliverySuccessViewProps> = ({
                                                                  }) => {
     // Safely access properties with optional chaining
     const riderName = delivery.rider?.name || 'Rider';
-    const riderPhone = delivery.rider?.phoneNumber || '';
+    const riderPhone = delivery.rider?.phone_number || '';
     const customerName = delivery.customer?.name || 'Customer';
-    const customerPhone = delivery.customer?.phoneNumber || '';
+    const customerPhone = delivery.customer?.phone_number || '';
 
     // Generate correct URLs - update for rider acceptance
     const baseUrl = window.location.origin;
-    const riderAcceptUrl = `${baseUrl}/rider/accept/${delivery.trackingId}`;
-    const customerTrackUrl = `${baseUrl}/track/${delivery.trackingId}`;
+    const riderAcceptUrl = `${baseUrl}/rider/accept/${delivery.tracking_id}`;
+    const customerTrackUrl = `${baseUrl}/track/${delivery.tracking_id}`;
     const otp = delivery.tracking?.otp || '';
 
     // Create WhatsApp messages
@@ -75,7 +75,7 @@ Thank you for using TrackAm!`;
             <CardContent className="p-6 space-y-6">
                 <div className="text-center">
                     <span className="text-lg font-semibold block">Tracking ID:</span>
-                    <span className="text-3xl font-bold text-primary block mt-1">{delivery.trackingId}</span>
+                    <span className="text-3xl font-bold text-primary block mt-1">{delivery.tracking_id}</span>
                 </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
@@ -133,8 +133,8 @@ Thank you for using TrackAm!`;
                             {delivery.package?.size && (
                                 <p><span className="font-medium">Size:</span> {delivery.package.size}</p>
                             )}
-                            {delivery.package?.specialInstructions && (
-                                <p><span className="font-medium">Instructions:</span> {delivery.package.specialInstructions}</p>
+                            {delivery.package?.special_instructions && (
+                                <p><span className="font-medium">Instructions:</span> {delivery.package.special_instructions}</p>
                             )}
                         </div>
 

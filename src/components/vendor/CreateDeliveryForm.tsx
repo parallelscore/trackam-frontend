@@ -75,7 +75,7 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                 reset();
 
                 // Automatically send WhatsApp message to rider
-                if (delivery.rider?.phoneNumber) {
+                if (delivery.rider?.phone_number) {
                     sendWhatsAppToRider(delivery);
                 }
             }
@@ -89,7 +89,7 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
 
         // Generate correct acceptance URL
         const baseUrl = window.location.origin;
-        const riderAcceptUrl = `${baseUrl}/rider/accept/${delivery.trackingId}`;
+        const riderAcceptUrl = `${baseUrl}/rider/accept/${delivery.tracking.tracking_id}`;
 
         const riderMessage = `Hello ${delivery.rider.name}, you have a new delivery request for ${delivery.customer.name}. 
 

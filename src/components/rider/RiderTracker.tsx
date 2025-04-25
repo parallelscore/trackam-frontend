@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Delivery, Location } from '@/types';
-import { useDelivery } from '../../context/DeliveryContext';
+import { useRider } from '../../context/RiderContext';
 import useGeolocation from '../../hooks/useGeolocation';
 import useWebSocket from '../../hooks/useWebSocket';
 import TrackingMap from '../map/TrackingMap';
@@ -17,7 +17,7 @@ interface RiderTrackerProps {
 
 const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const navigate = useNavigate();
-    const { updateRiderLocation, completeDelivery, startTracking, isLoading } = useDelivery();
+    const { updateLocation, completeDelivery, startTracking, isLoading } = useRider();
     const [isBatterySaving, setIsBatterySaving] = useState(false);
     const [estimatedTimeMinutes, setEstimatedTimeMinutes] = useState<number | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
@@ -71,7 +71,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             if (location && isTracking && delivery.status === 'in_progress') {
                 try {
                     // Send location update through API
-                    await updateRiderLocation(delivery.trackingId, location);
+                    await updateLocation(delivery.trackingId, location);
 
                     // Also send through WebSocket for real-time updates
                     if (isConnected) {
@@ -96,7 +96,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         if (location && isTracking) {
             sendLocationUpdate();
         }
-    }, [location, isTracking, delivery.trackingId, delivery.status, isConnected, updateRiderLocation, send]);
+    }, [location, isTracking, delivery.trackingId, delivery.status, isConnected, updateLocation, send]);
 
     // Handle WebSocket ping to keep connection alive
     useEffect(() => {

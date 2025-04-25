@@ -1,8 +1,8 @@
-// src/components/rider/RiderOtpVerification.tsx
+// src/components/rider/RiderOtpVerification.tsx - Updated with RiderContext
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { OtpVerificationFormData } from '@/types';
-import { useDelivery } from '../../context/DeliveryContext';
+import { useRider } from '../../context/RiderContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
@@ -15,11 +15,10 @@ interface RiderOtpVerificationProps {
 }
 
 const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId, onVerified }) => {
-    const { verifyOTP, getDeliveryByTrackingId, startTracking, isLoading } = useDelivery();
+    const { verifyOTP, startTracking, currentDelivery, isLoading } = useRider();
     const [verificationError, setVerificationError] = useState<string | null>(null);
     const [resendDisabled, setResendDisabled] = useState(false);
     const [countdown, setCountdown] = useState(0);
-    const [delivery, setDelivery] = useState<any>(null);
     const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
     const { register, handleSubmit, formState: { errors }, reset } = useForm<OtpVerificationFormData>({
@@ -40,17 +39,7 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
                 };
             });
         }
-
-        // Fetch delivery details
-        const fetchDelivery = async () => {
-            const deliveryData = await getDeliveryByTrackingId(trackingId);
-            if (deliveryData) {
-                setDelivery(deliveryData);
-            }
-        };
-
-        fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId]);
+    }, []);
 
     const onSubmit = async (data: OtpVerificationFormData) => {
         setVerificationError(null);
@@ -70,8 +59,8 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
 
                 if (trackingResult.success) {
                     // Notify customer about the delivery
-                    if (delivery?.customer) {
-                        sendNotificationToCustomer(delivery);
+                    if (currentDelivery?.customer) {
+                        sendNotificationToCustomer(currentDelivery);
                     }
 
                     onVerified();
@@ -112,7 +101,7 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         }
     };
 
-    const handleResendOTP = () => {
+    const handleResendOTP = async () => {
         // This would typically make an API call to resend the OTP
         // For now, we'll just simulate it with a countdown timer
         setResendDisabled(true);

@@ -15,8 +15,8 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
     // Generate WhatsApp message for rider
     const handleShareWithRider = (delivery: Delivery) => {
         if (delivery.rider) {
-            const message = `Hello ${delivery.rider.name}, you have a delivery to make. Track it here: ${delivery.tracking.riderLink} - Your OTP is: ${delivery.tracking.otp}`;
-            const whatsappLink = generateWhatsAppLink(delivery.rider.phoneNumber, message);
+            const message = `Hello ${delivery.rider.name}, you have a delivery to make. Track it here: ${delivery.tracking.rider_link} - Your OTP is: ${delivery.tracking.otp}`;
+            const whatsappLink = generateWhatsAppLink(delivery.rider.phone_number, message);
             window.open(whatsappLink, '_blank');
         }
     };
@@ -69,7 +69,7 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
                                         <Badge className={getStatusColor(delivery.status)}>
                                             {getStatusText(delivery.status)}
                                         </Badge>
-                                        <span className="text-sm text-gray-500">ID: {delivery.trackingId}</span>
+                                        <span className="text-sm text-gray-500">ID: {delivery.tracking_id}</span>
                                     </div>
                                     <h3 className="font-medium">{delivery.package.description}</h3>
                                     <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -83,7 +83,7 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
-                                            <span>{formatDateTime(delivery.createdAt)}</span>
+                                            <span>{formatDateTime(delivery.created_at)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -92,7 +92,7 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => window.open(`/track/${delivery.trackingId}`, '_blank')}
+                                        onClick={() => window.open(`/track/${delivery.tracking_id}`, '_blank')}
                                     >
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />

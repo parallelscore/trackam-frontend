@@ -37,12 +37,12 @@ const TrackingPage: React.FC = () => {
     useEffect(() => {
         if (
             currentDelivery?.status === 'in_progress' &&
-            currentDelivery?.rider?.currentLocation &&
+            currentDelivery?.rider?.current_location &&
             currentDelivery?.customer?.location
         ) {
             const dist = calculateDistance(
-                currentDelivery.rider.currentLocation.latitude,
-                currentDelivery.rider.currentLocation.longitude,
+                currentDelivery.rider.current_location.latitude,
+                currentDelivery.rider.current_location.longitude,
                 currentDelivery.customer.location.latitude,
                 currentDelivery.customer.location.longitude
             );
@@ -151,7 +151,7 @@ const TrackingPage: React.FC = () => {
                 <div className="space-y-2">
                     <div className="rounded-lg overflow-hidden border h-[400px]">
                         <TrackingMap
-                            riderLocation={currentDelivery.rider?.currentLocation}
+                            riderLocation={currentDelivery.rider?.current_location}
                             destinationLocation={currentDelivery.customer.location}
                             isTracking={currentDelivery.status === 'in_progress'}
                             height="400px"

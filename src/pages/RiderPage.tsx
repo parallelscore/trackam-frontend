@@ -1,16 +1,29 @@
-// src/pages/RiderPage.tsx - Updated with enhanced flow
+// src/pages/RiderPage.tsx - Updated with RiderContext
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import RiderOtpVerification from '../components/rider/RiderOtpVerification';
 import RiderTracker from '../components/rider/RiderTracker';
 import { useDelivery } from '../context/DeliveryContext';
+import { useRider } from '../context/RiderContext';
 import { Card, CardContent } from '../components/ui/card';
 
 const RiderPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
     const [searchParams] = useSearchParams();
-    const { getDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
+    // const navigate = useNavigate();
+
+    // Get delivery info from DeliveryContext (for initial fetch)
+    const { getDeliveryByTrackingId } = useDelivery();
+
+    // Get rider-specific functionality from RiderContext
+    const {
+        currentDelivery,
+        setCurrentDelivery,
+        isLoading,
+        error
+    } = useRider();
+
     const [isVerified, setIsVerified] = useState(false);
     const [isAccepting] = useState<boolean>(
         searchParams.get('accept') === 'true'
@@ -19,12 +32,16 @@ const RiderPage: React.FC = () => {
     useEffect(() => {
         const fetchDelivery = async () => {
             if (trackingId) {
-                await getDeliveryByTrackingId(trackingId);
+                const deliveryData = await getDeliveryByTrackingId(trackingId);
+                if (deliveryData) {
+                    // Update the rider context with the fetched delivery
+                    setCurrentDelivery(deliveryData);
+                }
             }
         };
 
         fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId]);
+    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery]);
 
     // If the delivery status is 'accepted' or 'in_progress', it means the OTP has been verified
     useEffect(() => {
@@ -42,7 +59,7 @@ const RiderPage: React.FC = () => {
     };
 
     const renderContent = () => {
-        if (isLoading) {
+        if (isLoading && !currentDelivery) {
             return (
                 <Card>
                     <CardContent className="p-6">

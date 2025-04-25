@@ -75,6 +75,7 @@ const deliveryService = {
     }) => {
         try {
             const response = await apiClient.post('/deliveries', deliveryData);
+            console.log('Delivery creation response:', response.data);
             return {
                 success: true,
                 data: response.data,

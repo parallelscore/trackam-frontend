@@ -36,26 +36,26 @@ export type DeliveryStatus =
 // Delivery Types
 export interface Delivery {
     id: string;
-    trackingId: string;
+    tracking_id: string;
     status: DeliveryStatus;
-    createdAt: string;
-    updatedAt: string;
-    estimatedDeliveryTime?: string;
+    created_at: string;
+    updated_at: string;
+    estimated_delivery_time?: string;
 
     // Customer information
     customer: {
         name: string;
-        phoneNumber: string;
+        phone_number: string;
         address: string;
         location?: Location;
     };
 
     // Rider information
-    rider?: {
+    rider: {
         id: string;
         name: string;
-        phoneNumber: string;
-        currentLocation?: Location;
+        phone_number: string;
+        current_location?: Location;
     };
 
     // Vendor information
@@ -69,17 +69,17 @@ export interface Delivery {
         description: string;
         size?: 'small' | 'medium' | 'large';
         weight?: number;
-        specialInstructions?: string;
+        special_instructions?: string;
     };
 
     // Tracking information
     tracking: {
         otp: string;
-        otpExpiry: string;
-        riderLink: string;
-        customerLink: string;
+        otp_expiry: string;
+        rider_link: string;
+        customer_link: string;
         active: boolean;
-        locationHistory: Location[];
+        location_history: Location[];
     };
 }
 

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import { Delivery } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { getStatusColor, getStatusText, formatDateTime } from '@/utils/utils';
+import { useRider } from '../../context/RiderContext';
 
 interface DeliveryAcceptanceProps {
     delivery: Delivery;
@@ -14,8 +15,8 @@ interface DeliveryAcceptanceProps {
 }
 
 const DeliveryAcceptance: React.FC<DeliveryAcceptanceProps> = ({ delivery, onAccept, onDecline }) => {
-    const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(false);
+    // const navigate = useNavigate();
+    const { isLoading } = useRider();
     const [error, setError] = useState<string | null>(null);
     const [showAcceptConfirmation, setShowAcceptConfirmation] = useState(false);
     const [showDeclineConfirmation, setShowDeclineConfirmation] = useState(false);
@@ -29,18 +30,15 @@ const DeliveryAcceptance: React.FC<DeliveryAcceptanceProps> = ({ delivery, onAcc
     };
 
     const handleConfirmAccept = async () => {
-        setIsLoading(true);
         setError(null);
 
         try {
             await onAccept();
-            // Navigate to rider verification page
-            navigate(`/rider/${delivery.trackingId}`);
+            // Navigation will be handled by the parent component
         } catch (err) {
             console.error('Error accepting delivery:', err);
             setError('Failed to accept delivery. Please try again.');
         } finally {
-            setIsLoading(false);
             setShowAcceptConfirmation(false);
         }
     };
@@ -86,16 +84,16 @@ const DeliveryAcceptance: React.FC<DeliveryAcceptanceProps> = ({ delivery, onAcc
                         </div>
                     )}
 
-                    {delivery.package.specialInstructions && (
+                    {delivery.package.special_instructions && (
                         <div>
                             <h3 className="text-sm font-medium text-gray-600">Special Instructions</h3>
-                            <p className="italic">{delivery.package.specialInstructions}</p>
+                            <p className="italic">{delivery.package.special_instructions}</p>
                         </div>
                     )}
 
                     <div>
                         <h3 className="text-sm font-medium text-gray-600">Created</h3>
-                        <p>{formatDateTime(delivery.createdAt)}</p>
+                        <p>{formatDateTime(delivery.created_at)}</p>
                     </div>
                 </CardContent>
             </Card>
@@ -112,7 +110,7 @@ const DeliveryAcceptance: React.FC<DeliveryAcceptanceProps> = ({ delivery, onAcc
 
                     <div>
                         <h3 className="text-sm font-medium text-gray-600">Phone Number</h3>
-                        <p>{delivery.customer.phoneNumber}</p>
+                        <p>{delivery.customer.phone_number}</p>
                     </div>
 
                     <div>

@@ -61,7 +61,7 @@ const ActiveDeliveries: React.FC = () => {
     const handleShareWithRider = (delivery: Delivery) => {
         if (delivery.rider) {
             const message = `Hello ${delivery.rider.name}, you have a delivery to make. Track it here: ${delivery.tracking.riderLink} - Your OTP is: ${delivery.tracking.otp}`;
-            const whatsappLink = generateWhatsAppLink(delivery.rider.phoneNumber, message);
+            const whatsappLink = generateWhatsAppLink(delivery.rider.phone_number, message);
             window.open(whatsappLink, '_blank');
         }
     };
@@ -69,7 +69,7 @@ const ActiveDeliveries: React.FC = () => {
     // Generate WhatsApp message for customer
     const handleShareWithCustomer = (delivery: Delivery) => {
         const message = `Hello ${delivery.customer.name}, track your delivery here: ${delivery.tracking.customerLink}`;
-        const whatsappLink = generateWhatsAppLink(delivery.customer.phoneNumber, message);
+        const whatsappLink = generateWhatsAppLink(delivery.customer.phone_number, message);
         window.open(whatsappLink, '_blank');
     };
 
@@ -163,7 +163,7 @@ const ActiveDeliveries: React.FC = () => {
                                     <div className="space-y-2">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="font-semibold">
-                                                Tracking ID: {delivery.trackingId}
+                                                Tracking ID: {delivery.tracking_id}
                                             </h3>
                                             <Badge className={getStatusColor(delivery.status)}>
                                                 {getStatusText(delivery.status)}
@@ -175,7 +175,7 @@ const ActiveDeliveries: React.FC = () => {
                                                 <span className="text-gray-600">Customer:</span> {delivery.customer.name}
                                             </div>
                                             <div>
-                                                <span className="text-gray-600">Phone:</span> {delivery.customer.phoneNumber}
+                                                <span className="text-gray-600">Phone:</span> {delivery.customer.phone_number}
                                             </div>
                                             <div>
                                                 <span className="text-gray-600">Rider:</span> {delivery.rider?.name || 'Not assigned'}
@@ -189,7 +189,7 @@ const ActiveDeliveries: React.FC = () => {
                                         </div>
 
                                         <div className="text-xs text-gray-500">
-                                            Created: {formatDateTime(delivery.createdAt)}
+                                            Created: {formatDateTime(delivery.created_at)}
                                         </div>
                                     </div>
 
@@ -223,7 +223,7 @@ const ActiveDeliveries: React.FC = () => {
                                         <Button
                                             variant="outline"
                                             size="sm"
-                                            onClick={() => window.open(`/track/${delivery.trackingId}`, '_blank')}
+                                            onClick={() => window.open(`/track/${delivery.tracking_id}`, '_blank')}
                                         >
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                                 <path d="M2 12h20" />

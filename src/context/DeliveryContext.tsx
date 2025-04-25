@@ -7,7 +7,7 @@ import { Delivery, OtpVerificationFormData } from '@/types';
 
 // Toggle between mock service (for development) and real service
 // Set to false when ready to use real API
-const USE_MOCK_SERVICE = true;
+const USE_MOCK_SERVICE = false;
 const service = USE_MOCK_SERVICE ? mockDeliveryService : deliveryService;
 
 interface DeliveryContextProps {
@@ -65,7 +65,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         try {
             if (USE_MOCK_SERVICE) {
                 // Using mock service
-                const result = await service.getAllDeliveries();
+                const result = await mockDeliveryService.getAllDeliveries();
 
                 // Apply filters
                 let filteredDeliveries = [...result];
@@ -77,7 +77,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 if (filters?.search) {
                     const searchLower = filters.search.toLowerCase();
                     filteredDeliveries = filteredDeliveries.filter(d =>
-                        d.trackingId.toLowerCase().includes(searchLower) ||
+                        d.tracking_id.toLowerCase().includes(searchLower) ||
                         d.customer.name.toLowerCase().includes(searchLower) ||
                         (d.rider?.name && d.rider.name.toLowerCase().includes(searchLower))
                     );
