@@ -1,7 +1,7 @@
 // src/components/ui/tabs.tsx
 import * as React from "react"
 import * as TabsPrimitive from "@radix-ui/react-tabs"
-import { cn } from "../../utils/utils"
+import { cn } from "@/utils/utils.ts"
 
 const Tabs = TabsPrimitive.Root
 

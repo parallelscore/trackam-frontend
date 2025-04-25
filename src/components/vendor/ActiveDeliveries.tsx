@@ -1,7 +1,7 @@
 // src/components/vendor/ActiveDeliveries.tsx
 import React, { useState, useEffect } from 'react';
 import { useDelivery } from '../../context/DeliveryContext';
-import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
 import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } from '@/utils/utils.ts';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -10,95 +10,106 @@ import { Delivery, DeliveryFilters, DeliveryStatus } from '@/types';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 import { determineApiUrl } from '@/services/authService';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "../ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
+import { ChevronDown, MoreHorizontal, RefreshCw, Share, Eye, Table2, LayoutGrid } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
+
+type ViewMode = 'table' | 'card';
 
 const ActiveDeliveries: React.FC = () => {
     const { deliveries, totalPages, isLoading, fetchDeliveries } = useDelivery();
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<DeliveryStatus | 'all'>('all');
     const [currentPageState, setCurrentPageState] = useState(1);
-    const [activeActionMenu, setActiveActionMenu] = useState<string | null>(null);
-    const [isResending, setIsResending] = useState<string | null>(null); // Track which delivery is being resent
+    const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+    const [isResending, setIsResending] = useState<string | null>(null);
+    const [viewMode, setViewMode] = useState<ViewMode>('table');
 
-    // Effect to load deliveries when filters change
+    // Effect to set the view mode based on screen size
+    useEffect(() => {
+        const handleResize = () => {
+            // If screen is smaller than 768px (md breakpoint), use card view
+            // If screen is larger, use table view
+            setViewMode(window.innerWidth < 768 ? 'card' : 'table');
+        };
+
+        // Set initial view mode
+        handleResize();
+
+        // Listen for window resize events
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     useEffect(() => {
         const filters: DeliveryFilters = {
             page: currentPageState,
             limit: 10,
+            delivery_status: statusFilter === 'all' ? undefined : statusFilter,
+            search: searchTerm.trim() || undefined,
         };
-
-        const selectedStatus: DeliveryStatus | undefined =
-            statusFilter === 'all' ? undefined : statusFilter;
-
-        if (selectedStatus) {
-            filters.delivery_status = selectedStatus;
-        }
-
-        if (searchTerm.trim()) {
-            filters.search = searchTerm.trim();
-        }
 
         fetchDeliveries(filters);
     }, [statusFilter, searchTerm, currentPageState]);
 
-    // Handle search input change
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
         setCurrentPageState(1);
     };
 
-    // Handle search submission
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
     };
 
-    // Handle status filter change
     const handleStatusFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         setStatusFilter(e.target.value as DeliveryStatus | 'all');
-        setCurrentPageState(1); // Reset to first page
+        setCurrentPageState(1);
     };
 
-    // Handle pagination
     const handlePageChange = (page: number) => {
         setCurrentPageState(page);
     };
 
-    // Generate WhatsApp message for rider
+    const toggleRowExpansion = (id: string) => {
+        setExpandedRows(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
     const handleShareWithRider = (delivery: Delivery) => {
         if (delivery.rider) {
             const message = `Hello ${delivery.rider.name}, you have a delivery to make. Track it here: ${delivery.tracking.rider_link} - Your OTP is: ${delivery.tracking.otp}`;
             const whatsappLink = generateWhatsAppLink(delivery.rider.phone_number, message);
             window.open(whatsappLink, '_blank');
-            setActiveActionMenu(null);
         }
     };
 
-    // Generate WhatsApp message for customer
     const handleShareWithCustomer = (delivery: Delivery) => {
         const message = `Hello ${delivery.customer.name}, track your delivery here: ${delivery.tracking.customer_link}`;
         const whatsappLink = generateWhatsAppLink(delivery.customer.phone_number, message);
         window.open(whatsappLink, '_blank');
-        setActiveActionMenu(null);
     };
 
-    // Handle opening/closing action menu
-    const toggleActionMenu = (id: string) => {
-        if (activeActionMenu === id) {
-            setActiveActionMenu(null);
-        } else {
-            setActiveActionMenu(id);
-        }
-    };
-
-    // Track package
     const handleTrackPackage = (trackingId: string) => {
         window.open(`/track/${trackingId}`, '_blank');
-        setActiveActionMenu(null);
     };
 
-    // Resend notifications
     const handleResendNotifications = async (trackingId: string) => {
         setIsResending(trackingId);
-        setActiveActionMenu(null);
 
         try {
             const apiUrl = determineApiUrl();
@@ -125,64 +136,395 @@ const ActiveDeliveries: React.FC = () => {
             toast.error(
                 error.response?.data?.detail ||
                 error.response?.data?.message ||
-                'Failed to resend notifications. Please try again.'
+                'Failed to resend notifications'
             );
         } finally {
             setIsResending(null);
         }
     };
 
-    // Handle clicking outside to close menu
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (activeActionMenu && !(event.target as HTMLElement).closest('.action-menu')) {
-                setActiveActionMenu(null);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [activeActionMenu]);
-
-    // Pagination component
-    const Pagination = () => {
-        if (totalPages <= 1) return null;
-
+    // Render Table View
+    const renderTableView = () => {
         return (
-            <div className="flex justify-center mt-6">
-                <div className="flex items-center space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPageState - 1)}
-                        disabled={currentPageState === 1 || isLoading}
-                    >
-                        Previous
-                    </Button>
-                    <span className="text-sm">
-                        Page {currentPageState} of {totalPages}
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handlePageChange(currentPageState + 1)}
-                        disabled={currentPageState === totalPages || isLoading}
-                    >
-                        Next
-                    </Button>
-                </div>
+            <div className="rounded-md border overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-gray-50 hover:bg-gray-50">
+                            <TableHead className="w-8"></TableHead>
+                            <TableHead>Tracking ID</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Customer</TableHead>
+                            <TableHead>Rider</TableHead>
+                            <TableHead>Package</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {deliveries.map((delivery) => (
+                            <React.Fragment key={delivery.id}>
+                                <TableRow
+                                    className="cursor-pointer hover:bg-gray-50"
+                                    onClick={() => toggleRowExpansion(delivery.id)}
+                                >
+                                    <TableCell>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="p-0 h-6 w-6"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                toggleRowExpansion(delivery.id);
+                                            }}
+                                        >
+                                            <ChevronDown className={`h-4 w-4 transition-transform ${expandedRows.has(delivery.id) ? 'rotate-180' : ''}`} />
+                                        </Button>
+                                    </TableCell>
+                                    <TableCell className="font-medium">{delivery.tracking_id}</TableCell>
+                                    <TableCell>
+                                        <Badge className={getStatusColor(delivery.status)}>
+                                            {getStatusText(delivery.status)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell>{delivery.customer.name}</TableCell>
+                                    <TableCell>{delivery.rider?.name || 'Not assigned'}</TableCell>
+                                    <TableCell className="max-w-[150px] truncate" title={delivery.package.description}>
+                                        {delivery.package.description}
+                                    </TableCell>
+                                    <TableCell>{formatDateTime(delivery.created_at)}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0"
+                                                    disabled={isResending === delivery.tracking_id}
+                                                >
+                                                    {isResending === delivery.tracking_id ? (
+                                                        <RefreshCw className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    )}
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleTrackPackage(delivery.tracking_id);
+                                                }}>
+                                                    <Eye className="mr-2 h-4 w-4" />
+                                                    <span>Track Package</span>
+                                                </DropdownMenuItem>
+
+                                                {delivery.rider && (
+                                                    <DropdownMenuItem onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleShareWithRider(delivery);
+                                                    }}>
+                                                        <Share className="mr-2 h-4 w-4 text-green-600" />
+                                                        <span className="text-green-600">Share with Rider</span>
+                                                    </DropdownMenuItem>
+                                                )}
+
+                                                <DropdownMenuItem onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleShareWithCustomer(delivery);
+                                                }}>
+                                                    <Share className="mr-2 h-4 w-4 text-blue-600" />
+                                                    <span className="text-blue-600">Share with Customer</span>
+                                                </DropdownMenuItem>
+
+                                                <DropdownMenuItem onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleResendNotifications(delivery.tracking_id);
+                                                }}>
+                                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                                    <span>Resend Notifications</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+
+                                {expandedRows.has(delivery.id) && (
+                                    <TableRow className="bg-gray-50/50">
+                                        <TableCell colSpan={8} className="bg-gray-50/30">
+                                            <div className="py-4 px-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                {/* Customer Details - In a styled container */}
+                                                <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                                    <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                        </svg>
+                                                        Customer Details
+                                                    </h4>
+                                                    <div className="text-sm space-y-2">
+                                                        <div className="flex">
+                                                            <span className="text-gray-500 w-20 flex-shrink-0">Phone:</span>
+                                                            <span>{delivery.customer.phone_number}</span>
+                                                        </div>
+                                                        <div className="flex items-start">
+                                                            <span className="text-gray-500 w-20 flex-shrink-0">Address:</span>
+                                                            <span>{delivery.customer.address}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Rider Details - In a styled container */}
+                                                <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                                    <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                                        </svg>
+                                                        Rider Details
+                                                    </h4>
+                                                    {delivery.rider ? (
+                                                        <div className="text-sm space-y-2">
+                                                            <div className="flex">
+                                                                <span className="text-gray-500 w-20 flex-shrink-0">Phone:</span>
+                                                                <span>{delivery.rider.phone_number}</span>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-gray-500 text-sm italic">No rider assigned yet.</p>
+                                                    )}
+                                                </div>
+
+                                                {/* Package Details - In a styled container */}
+                                                <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                                    <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                        </svg>
+                                                        Package Details
+                                                    </h4>
+                                                    <div className="text-sm space-y-2">
+                                                        {delivery.package.size && (
+                                                            <div className="flex">
+                                                                <span className="text-gray-500 w-20 flex-shrink-0">Size:</span>
+                                                                <span className="capitalize">{delivery.package.size}</span>
+                                                            </div>
+                                                        )}
+                                                        {delivery.package.special_instructions && (
+                                                            <div className="flex items-start">
+                                                                <span className="text-gray-500 w-20 flex-shrink-0">Notes:</span>
+                                                                <span>{delivery.package.special_instructions}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        );
+    };
+
+    // Render Card View - Updated to match second slide design with single action button
+    const renderCardView = () => {
+        return (
+            <div className="space-y-4">
+                {deliveries.map((delivery) => (
+                    <div key={delivery.id} className="border rounded-lg overflow-hidden">
+                        <div
+                            className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50"
+                            onClick={() => toggleRowExpansion(delivery.id)}
+                        >
+                            <div className="flex items-center gap-2">
+                                <ChevronDown className={`h-4 w-4 transition-transform ${expandedRows.has(delivery.id) ? 'rotate-180' : ''}`} />
+                                <div>
+                                    <span className="font-medium">{delivery.tracking_id}</span>
+                                    <span className="text-xs text-gray-500 block md:inline md:ml-2">{formatDateTime(delivery.created_at)}</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Badge className={getStatusColor(delivery.status)}>
+                                    {getStatusText(delivery.status)}
+                                </Badge>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0"
+                                            disabled={isResending === delivery.tracking_id}
+                                        >
+                                            {isResending === delivery.tracking_id ? (
+                                                <RefreshCw className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleTrackPackage(delivery.tracking_id);
+                                        }}>
+                                            <Eye className="mr-2 h-4 w-4" />
+                                            <span>Track Package</span>
+                                        </DropdownMenuItem>
+
+                                        {delivery.rider && (
+                                            <DropdownMenuItem onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleShareWithRider(delivery);
+                                            }}>
+                                                <Share className="mr-2 h-4 w-4 text-green-600" />
+                                                <span className="text-green-600">Share with Rider</span>
+                                            </DropdownMenuItem>
+                                        )}
+
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleShareWithCustomer(delivery);
+                                        }}>
+                                            <Share className="mr-2 h-4 w-4 text-blue-600" />
+                                            <span className="text-blue-600">Share with Customer</span>
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleResendNotifications(delivery.tracking_id);
+                                        }}>
+                                            <RefreshCw className="mr-2 h-4 w-4" />
+                                            <span>Resend Notifications</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        </div>
+
+                        {expandedRows.has(delivery.id) && (
+                            <div className="p-4 border-t bg-gray-50/30">
+                                {/* On tablets and larger screens, display sections horizontally */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    {/* Customer Section */}
+                                    <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                        <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                            Customer Details
+                                        </h4>
+                                        <div className="text-sm space-y-2">
+                                            <div className="flex">
+                                                <span className="text-gray-500 w-16 flex-shrink-0">Name:</span>
+                                                <span>{delivery.customer.name}</span>
+                                            </div>
+                                            <div className="flex">
+                                                <span className="text-gray-500 w-16 flex-shrink-0">Phone:</span>
+                                                <span>{delivery.customer.phone_number}</span>
+                                            </div>
+                                            <div className="flex items-start">
+                                                <span className="text-gray-500 w-16 flex-shrink-0">Address:</span>
+                                                <span>{delivery.customer.address}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Rider Section */}
+                                    <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                        <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                            </svg>
+                                            Rider Details
+                                        </h4>
+                                        {delivery.rider ? (
+                                            <div className="text-sm space-y-2">
+                                                <div className="flex">
+                                                    <span className="text-gray-500 w-16 flex-shrink-0">Name:</span>
+                                                    <span>{delivery.rider.name}</span>
+                                                </div>
+                                                <div className="flex">
+                                                    <span className="text-gray-500 w-16 flex-shrink-0">Phone:</span>
+                                                    <span>{delivery.rider.phone_number}</span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <p className="text-gray-500 text-sm italic">No rider assigned yet.</p>
+                                        )}
+                                    </div>
+
+                                    {/* Package Section */}
+                                    <div className="bg-white p-3 rounded-md shadow-sm border border-gray-100">
+                                        <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
+                                            Package Details
+                                        </h4>
+                                        <div className="text-sm space-y-2">
+                                            <div className="flex items-start">
+                                                <span className="text-gray-500 w-16 flex-shrink-0">Description:</span>
+                                                <span>{delivery.package.description}</span>
+                                            </div>
+                                            {delivery.package.size && (
+                                                <div className="flex">
+                                                    <span className="text-gray-500 w-16 flex-shrink-0">Size:</span>
+                                                    <span className="capitalize">{delivery.package.size}</span>
+                                                </div>
+                                            )}
+                                            {delivery.package.special_instructions && (
+                                                <div className="flex items-start">
+                                                    <span className="text-gray-500 w-16 flex-shrink-0">Notes:</span>
+                                                    <span>{delivery.package.special_instructions}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* For special instructions that might be long, display them in a full-width section if needed */}
+                                {delivery.package.special_instructions && delivery.package.special_instructions.length > 50 && (
+                                    <div className="mt-4 bg-white p-3 rounded-md shadow-sm border border-gray-100 sm:col-span-3">
+                                        <h4 className="font-semibold text-gray-700 text-sm mb-2 flex items-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            Special Instructions
+                                        </h4>
+                                        <p className="text-sm">{delivery.package.special_instructions}</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ))}
             </div>
         );
     };
 
     return (
         <Card className="w-full">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-xl">Active Deliveries</CardTitle>
+                {/* Only show toggle on medium screens (tablets) where either view could be appropriate */}
+                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)} className="hidden sm:block md:block lg:hidden">
+                    <TabsList>
+                        <TabsTrigger value="table" className="flex items-center">
+                            <Table2 className="h-4 w-4 mr-2" />
+                            Table
+                        </TabsTrigger>
+                        <TabsTrigger value="card" className="flex items-center">
+                            <LayoutGrid className="h-4 w-4 mr-2" />
+                            Cards
+                        </TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </CardHeader>
 
             <CardContent>
-                <div className="mb-6 space-y-2">
+                <div className="mb-6 space-y-4">
+                    {/* Mobile View Toggle removed as view is now automatically determined by screen size */}
+
                     <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1">
                             <Input
@@ -224,125 +566,39 @@ const ActiveDeliveries: React.FC = () => {
                         <p className="text-gray-500">No deliveries found</p>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {deliveries.map((delivery) => (
-                            <div
-                                key={delivery.id}
-                                className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="space-y-2">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="font-semibold">
-                                                Tracking ID: {delivery.tracking_id}
-                                            </h3>
-                                            <Badge className={getStatusColor(delivery.status)}>
-                                                {getStatusText(delivery.status)}
-                                            </Badge>
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                                            <div>
-                                                <span className="text-gray-600">Customer:</span> {delivery.customer.name}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Phone:</span> {delivery.customer.phone_number}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Rider:</span> {delivery.rider?.name || 'Not assigned'}
-                                            </div>
-                                            <div>
-                                                <span className="text-gray-600">Package:</span> {delivery.package.description}
-                                            </div>
-                                            <div className="md:col-span-2">
-                                                <span className="text-gray-600">Address:</span> {delivery.customer.address}
-                                            </div>
-                                        </div>
-
-                                        <div className="text-xs text-gray-500">
-                                            Created: {formatDateTime(delivery.created_at)}
-                                        </div>
-                                    </div>
-
-                                    <div className="relative action-menu">
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => toggleActionMenu(delivery.id)}
-                                            className="whitespace-nowrap"
-                                            disabled={isResending === delivery.tracking_id}
-                                        >
-                                            {isResending === delivery.tracking_id ? (
-                                                <>
-                                                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </svg>
-                                                    Processing...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
-                                                    </svg>
-                                                    Actions
-                                                </>
-                                            )}
-                                        </Button>
-
-                                        {activeActionMenu === delivery.id && (
-                                            <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 z-10 border">
-                                                <button
-                                                    onClick={() => handleTrackPackage(delivery.tracking_id)}
-                                                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    <svg className="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                                                    </svg>
-                                                    Track Package
-                                                </button>
-
-                                                {delivery.rider && (
-                                                    <button
-                                                        onClick={() => handleShareWithRider(delivery)}
-                                                        className="flex w-full items-center px-4 py-2 text-sm text-green-600 hover:bg-gray-100"
-                                                    >
-                                                        <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                                                        </svg>
-                                                        Share with Rider
-                                                    </button>
-                                                )}
-
-                                                <button
-                                                    onClick={() => handleShareWithCustomer(delivery)}
-                                                    className="flex w-full items-center px-4 py-2 text-sm text-blue-600 hover:bg-gray-100"
-                                                >
-                                                    <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                                                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                                                    </svg>
-                                                    Share with Customer
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleResendNotifications(delivery.tracking_id)}
-                                                    className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                                >
-                                                    <svg className="h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                        <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                                                    </svg>
-                                                    Resend Notifications
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    <>
+                        {/* View mode is primarily determined by screen width,
+                        but can be manually overridden on medium-sized screens */}
+                        {viewMode === 'table' ? renderTableView() : renderCardView()}
+                    </>
                 )}
 
                 {/* Pagination */}
-                <Pagination />
+                {totalPages > 1 && (
+                    <div className="flex justify-center mt-6">
+                        <div className="flex items-center space-x-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(currentPageState - 1)}
+                                disabled={currentPageState === 1 || isLoading}
+                            >
+                                Previous
+                            </Button>
+                            <span className="text-sm">
+                                Page {currentPageState} of {totalPages}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handlePageChange(currentPageState + 1)}
+                                disabled={currentPageState === totalPages || isLoading}
+                            >
+                                Next
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
