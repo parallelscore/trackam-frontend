@@ -69,7 +69,7 @@ function App() {
 
                             {/* Rider routes */}
                             <Route path="/rider/accept/:trackingId" element={<RiderAcceptPage />} />
-                            <Route path="/rider/:trackingId" element={<RiderPage />} />
+                            <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
                             <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
 
                             {/* Customer tracking routes */}
