@@ -7,13 +7,15 @@ import { Button } from '../ui/button';
 import { getStatusColor, getStatusText, formatDateTime } from '@/utils/utils.ts';
 import WhatsAppShare from './WhatsAppShare';
 import TrackingMap from '../map/TrackingMap';
+import ResendNotificationsButton from './ResendNotificationsButton';
 
 interface DeliveryDetailViewProps {
     delivery: Delivery;
     onClose: () => void;
+    onRefresh?: () => void;
 }
 
-const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClose }) => {
+const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClose, onRefresh }) => {
     // Determine if a delivery can be canceled (only if not completed or already canceled)
     const canCancel = delivery.status !== 'completed' && delivery.status !== 'cancelled';
 
@@ -30,7 +32,7 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
             <Card>
                 <CardHeader className="pb-2">
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg">Tracking ID: {delivery.trackingId}</CardTitle>
+                        <CardTitle className="text-lg">Tracking ID: {delivery.tracking_id}</CardTitle>
                         <Badge className={getStatusColor(delivery.status)}>
                             {getStatusText(delivery.status)}
                         </Badge>
@@ -40,27 +42,27 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                     <div className="flex flex-col md:flex-row md:justify-between gap-4">
                         <div>
                             <p className="text-sm text-gray-500">Created</p>
-                            <p className="font-medium">{formatDateTime(delivery.createdAt)}</p>
+                            <p className="font-medium">{formatDateTime(delivery.created_at)}</p>
                         </div>
 
                         {delivery.status === 'completed' && (
                             <div>
                                 <p className="text-sm text-gray-500">Completed</p>
-                                <p className="font-medium">{formatDateTime(delivery.updatedAt)}</p>
+                                <p className="font-medium">{formatDateTime(delivery.updated_at)}</p>
                             </div>
                         )}
 
                         {delivery.status === 'cancelled' && (
                             <div>
                                 <p className="text-sm text-gray-500">Cancelled</p>
-                                <p className="font-medium">{formatDateTime(delivery.updatedAt)}</p>
+                                <p className="font-medium">{formatDateTime(delivery.updated_at)}</p>
                             </div>
                         )}
 
-                        {delivery.estimatedDeliveryTime && (
+                        {delivery.estimated_delivery_time && (
                             <div>
                                 <p className="text-sm text-gray-500">Estimated Delivery</p>
-                                <p className="font-medium">{formatDateTime(delivery.estimatedDeliveryTime)}</p>
+                                <p className="font-medium">{formatDateTime(delivery.estimated_delivery_time)}</p>
                             </div>
                         )}
                     </div>
@@ -74,14 +76,14 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
             </Card>
 
             {/* Tracking Map */}
-            {delivery.rider?.currentLocation && delivery.customer.location && (
+            {delivery.rider?.current_location && delivery.customer.location && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg">Live Tracking</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0 h-[300px]">
                         <TrackingMap
-                            riderLocation={delivery.rider.currentLocation}
+                            riderLocation={delivery.rider.current_location}
                             destinationLocation={delivery.customer.location}
                             isTracking={delivery.status === 'in_progress'}
                             height="300px"
@@ -104,7 +106,7 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Phone Number</p>
-                            <p className="font-medium">{delivery.customer.phoneNumber}</p>
+                            <p className="font-medium">{delivery.customer.phone_number}</p>
                         </div>
                         <div>
                             <p className="text-sm text-gray-500">Delivery Address</p>
@@ -127,7 +129,7 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">Phone Number</p>
-                                    <p className="font-medium">{delivery.rider.phoneNumber}</p>
+                                    <p className="font-medium">{delivery.rider.phone_number}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-gray-500">OTP</p>
@@ -157,10 +159,10 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                             <p className="font-medium capitalize">{delivery.package.size}</p>
                         </div>
                     )}
-                    {delivery.package.specialInstructions && (
+                    {delivery.package.special_instructions && (
                         <div>
                             <p className="text-sm text-gray-500">Special Instructions</p>
-                            <p className="font-medium">{delivery.package.specialInstructions}</p>
+                            <p className="font-medium">{delivery.package.special_instructions}</p>
                         </div>
                     )}
                 </CardContent>
@@ -178,13 +180,20 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                     <div className="flex flex-wrap gap-3">
                         <Button
                             variant="outline"
-                            onClick={() => window.open(`/track/${delivery.trackingId}`, '_blank')}
+                            onClick={() => window.open(`/track/${delivery.tracking_id}`, '_blank')}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
                             </svg>
                             Track Package
                         </Button>
+
+                        {/* Resend Notifications Button */}
+                        <ResendNotificationsButton
+                            delivery={delivery}
+                            onSuccess={onRefresh}
+                            variant="outline"
+                        />
 
                         {canCancel && (
                             <Button variant="destructive">
@@ -203,7 +212,7 @@ const DeliveryDetailView: React.FC<DeliveryDetailViewProps> = ({ delivery, onClo
                                 )}`;
                                 const link = document.createElement('a');
                                 link.href = url;
-                                link.download = `delivery-${delivery.trackingId}.json`;
+                                link.download = `delivery-${delivery.tracking_id}.json`;
                                 link.click();
                             }}
                         >

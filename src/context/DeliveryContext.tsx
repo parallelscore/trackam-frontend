@@ -32,6 +32,7 @@ interface DeliveryContextProps {
     getTopRiders: (limit?: number) => Promise<any>;
     acceptDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
     declineDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
+    resendNotifications: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const DeliveryContext = createContext<DeliveryContextProps | undefined>(undefined);
@@ -776,6 +777,56 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
+    const resendNotifications = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                // Mock implementation
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                toast.success('Notifications resent successfully');
+                return { success: true, message: 'Notifications resent successfully' };
+            } else {
+                // Real API call
+                const apiUrl = determineApiUrl();
+                const token = localStorage.getItem('token');
+
+                const response = await axios.post(
+                    `${apiUrl}/deliveries/${trackingId}/resend-notifications`,
+                    {},
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    }
+                );
+
+                if (response.data.success) {
+                    toast.success('Notifications resent successfully');
+                    return { success: true, message: 'Notifications resent successfully' };
+                } else {
+                    const errorMsg = response.data.message || 'Failed to resend notifications';
+                    toast.error(errorMsg);
+                    setError(errorMsg);
+                    return { success: false, message: errorMsg };
+                }
+            }
+        } catch (error: any) {
+            console.error('Error resending notifications:', error);
+            const errorMessage =
+                error.response?.data?.detail ||
+                error.response?.data?.message ||
+                'Failed to resend notifications. Please try again.';
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, message: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Load initial deliveries
     useEffect(() => {
         // Only do this once
@@ -804,7 +855,8 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         getDeliveryAnalytics,
         getTopRiders,
         acceptDelivery,
-        declineDelivery
+        declineDelivery,
+        resendNotifications
     };
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;

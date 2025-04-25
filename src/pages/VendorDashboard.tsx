@@ -1,6 +1,6 @@
 // src/pages/VendorDashboard.tsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import CreateDeliveryForm from '../components/vendor/CreateDeliveryForm';
 import ActiveDeliveries from '../components/vendor/ActiveDeliveries';
@@ -16,9 +16,13 @@ import { useDelivery } from '../context/DeliveryContext';
 
 const VendorDashboard: React.FC = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { isAuthenticated, user, isLoading: authLoading } = useAuth();
     const { deliveries, fetchDeliveries, isLoading: deliveriesLoading } = useDelivery();
     const [activeTab, setActiveTab] = useState<'overview' | 'deliveries' | 'create'>('overview');
+
+    // Get current path to determine if we're already on create delivery page
+    const isCreateDeliveryPage = location.pathname.includes('/vendor') && activeTab === 'create';
 
     // Check authentication
     useEffect(() => {
@@ -50,17 +54,20 @@ const VendorDashboard: React.FC = () => {
                         </p>
                     </div>
 
-                    <div className="mt-4 md:mt-0">
-                        <Button
-                            onClick={() => setActiveTab('create')}
-                            className="bg-accent text-white"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                            </svg>
-                            Create New Delivery
-                        </Button>
-                    </div>
+                    {/* Only show the button if not already on create delivery page */}
+                    {!isCreateDeliveryPage && (
+                        <div className="mt-4 md:mt-0">
+                            <Button
+                                onClick={() => setActiveTab('create')}
+                                className="bg-accent text-white"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                </svg>
+                                Create New Delivery
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Dashboard Navigation */}

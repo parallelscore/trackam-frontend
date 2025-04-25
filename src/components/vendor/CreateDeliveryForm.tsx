@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { CreateDeliveryFormData } from '@/types';
 import { useDelivery } from '../../context/DeliveryContext';
-import { generateWhatsAppLink } from '@/utils/utils.ts';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -26,6 +25,10 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
     const [createdDelivery, setCreatedDelivery] = useState<any>(null);
     const [formSubmitted, setFormSubmitted] = useState(false);
     const [whatsappSent, setWhatsappSent] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [loadingProgress, setLoadingProgress] = useState(0);
+    const [loadingText, setLoadingText] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
     const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateDeliveryFormData>({
         defaultValues: {
@@ -46,8 +49,30 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
         }
     });
 
+    const simulateProgressBar = async () => {
+        // Start with 15% progress immediately
+        setLoadingProgress(15);
+        setLoadingText('Preparing delivery...');
+
+        // Increase progress to 40% after 0.5 seconds
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setLoadingProgress(40);
+        setLoadingText('Creating delivery...');
+
+        // Increase progress to 75% after 1 second
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setLoadingProgress(75);
+        setLoadingText('Setting up tracking...');
+    };
+
     const onSubmit = async (data: CreateDeliveryFormData) => {
         try {
+            setError(null);
+            setIsSubmitting(true);
+
+            // Start the progress simulation
+            simulateProgressBar();
+
             // Transform the data to match the backend schema
             const formattedData = {
                 customer: {
@@ -70,41 +95,30 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
             const delivery = await createDelivery(formattedData);
 
             if (delivery) {
+                // Finish the progress bar
+                setLoadingProgress(100);
+                setLoadingText('Completing setup...');
+
+                // Wait a brief moment to show the progress bar completion
+                await new Promise(resolve => setTimeout(resolve, 400));
+
                 setCreatedDelivery(delivery);
                 setFormSubmitted(true);
                 reset();
 
-                // Automatically send WhatsApp message to rider
-                if (delivery.rider?.phone_number) {
-                    sendWhatsAppToRider(delivery);
-                }
+                // We no longer automatically send WhatsApp messages here
+                // Just transition to the success view
+            } else {
+                setLoadingProgress(0);
+                setError('Failed to create delivery. Please try again.');
             }
         } catch (error) {
             console.error('Error creating delivery:', error);
+            setLoadingProgress(0);
+            setError('Failed to create delivery. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
-    };
-
-    const sendWhatsAppToRider = (delivery: any) => {
-        if (!delivery.rider) return;
-
-        // Generate correct acceptance URL
-        const baseUrl = window.location.origin;
-        const riderAcceptUrl = `${baseUrl}/rider/accept/${delivery.tracking.tracking_id}`;
-
-        const riderMessage = `Hello ${delivery.rider.name}, you have a new delivery request for ${delivery.customer.name}. 
-
-Package: ${delivery.package.description}
-Delivery Address: ${delivery.customer.address}
-    
-Click this link to accept or decline the delivery: ${riderAcceptUrl}
-
-Your OTP code when you accept: ${delivery.tracking.otp}
-
-Thank you!`;
-
-        const whatsappLink = generateWhatsAppLink(delivery.rider.phoneNumber, riderMessage);
-        window.open(whatsappLink, '_blank');
-        setWhatsappSent(true);
     };
 
     const handleCreateAnother = () => {
@@ -141,6 +155,27 @@ Thank you!`;
             </CardHeader>
 
             <CardContent>
+                {error && (
+                    <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+                        {error}
+                    </div>
+                )}
+
+                {isSubmitting && (
+                    <div className="mb-6">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-sm font-medium text-gray-700">{loadingText}</span>
+                            <span className="text-sm font-medium text-gray-700">{loadingProgress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2.5">
+                            <div
+                                className="bg-primary h-2.5 rounded-full transition-all duration-500 ease-in-out"
+                                style={{ width: `${loadingProgress}%` }}
+                            ></div>
+                        </div>
+                    </div>
+                )}
+
                 <Form className="space-y-8" onSubmit={handleSubmit(onSubmit)}>
                     {/* Customer Information Section */}
                     <FormSection title="Customer Information">
@@ -151,6 +186,7 @@ Thank you!`;
                                     id="customer.name"
                                     placeholder="Enter customer name"
                                     {...register('customer.name', { required: 'Customer name is required' })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.customer?.name && (
@@ -171,6 +207,7 @@ Thank you!`;
                                             message: 'Enter a valid Nigerian phone number'
                                         }
                                     })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.customer?.phoneNumber && (
@@ -185,6 +222,7 @@ Thank you!`;
                                     id="customer.address"
                                     placeholder="Enter delivery address"
                                     {...register('customer.address', { required: 'Delivery address is required' })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.customer?.address && (
@@ -202,6 +240,7 @@ Thank you!`;
                                     id="rider.name"
                                     placeholder="Enter rider name"
                                     {...register('rider.name', { required: 'Rider name is required' })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.rider?.name && (
@@ -222,6 +261,7 @@ Thank you!`;
                                             message: 'Enter a valid Nigerian phone number'
                                         }
                                     })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.rider?.phoneNumber && (
@@ -239,6 +279,7 @@ Thank you!`;
                                     id="package.description"
                                     placeholder="Describe the package"
                                     {...register('package.description', { required: 'Package description is required' })}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                             {errors.package?.description && (
@@ -253,6 +294,7 @@ Thank you!`;
                                     id="package.size"
                                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                                     {...register('package.size')}
+                                    disabled={isSubmitting}
                                 >
                                     <option value="">Select Size (Optional)</option>
                                     <option value="small">Small</option>
@@ -269,6 +311,7 @@ Thank you!`;
                                     id="package.specialInstructions"
                                     placeholder="Any special instructions (Optional)"
                                     {...register('package.specialInstructions')}
+                                    disabled={isSubmitting}
                                 />
                             </FormControl>
                         </FormItem>
@@ -278,9 +321,19 @@ Thank you!`;
                         <Button
                             type="submit"
                             className="px-8 py-6 text-lg"
-                            disabled={isLoading}
+                            disabled={isSubmitting || isLoading}
                         >
-                            {isLoading ? 'Creating...' : 'Create Delivery'}
+                            {isSubmitting ? (
+                                <span className="flex items-center">
+                                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Creating...
+                                </span>
+                            ) : (
+                                'Create Delivery'
+                            )}
                         </Button>
                     </div>
                 </Form>

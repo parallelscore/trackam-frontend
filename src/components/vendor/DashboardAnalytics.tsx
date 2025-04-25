@@ -12,6 +12,7 @@ interface ChartData {
     completed: number;
     inProgress: number;
     cancelled: number;
+    created: number; // Added created status
 }
 
 const DashboardAnalytics: React.FC = () => {
@@ -30,11 +31,13 @@ const DashboardAnalytics: React.FC = () => {
                 const data = await getDeliveryAnalytics(timeRange);
 
                 // Map API response to chart data format
+                // Adding created deliveries status to the chart data
                 const chartData = data.map((item: any) => ({
                     name: item.name,
                     completed: item.completed,
                     inProgress: item.inProgress,
-                    cancelled: item.cancelled
+                    cancelled: item.cancelled,
+                    created: item.created || 0 // Include created deliveries (adding fallback for backward compatibility)
                 }));
 
                 setChartData(chartData);
@@ -119,6 +122,13 @@ const DashboardAnalytics: React.FC = () => {
                                     type="monotone"
                                     dataKey="cancelled"
                                     stroke="#FF4D4F"
+                                    strokeWidth={2}
+                                />
+                                {/* Add new line for created deliveries */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="created"
+                                    stroke="#1A2C56"
                                     strokeWidth={2}
                                 />
                             </LineChart>
