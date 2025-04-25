@@ -6,7 +6,7 @@ import { mockDeliveryService } from '../services/mockDeliveryService';
 import { Delivery, OtpVerificationFormData, Location } from '@/types';
 
 // Toggle between mock service (for development) and real service
-const USE_MOCK_SERVICE = false;
+const USE_MOCK_SERVICE = false; // Set to true to use mock service for testing
 
 interface RiderContextProps {
     currentDelivery: Delivery | null;
@@ -47,8 +47,13 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
         try {
             if (USE_MOCK_SERVICE) {
-                // Use mock service
-                const result = await mockDeliveryService.verifyOTP(data);
+                // Use mock service - adapt to use matching snake_case field names
+                const adaptedData = {
+                    trackingId: data.trackingId,
+                    otp: data.otp
+                };
+
+                const result = await mockDeliveryService.verifyOTP(adaptedData);
 
                 if (result.success && result.delivery) {
                     setCurrentDelivery(result.delivery);
@@ -265,7 +270,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
         try {
             if (USE_MOCK_SERVICE) {
-                // Use mock service for now - this is not fully implemented in mock service
+                // Use mock service
                 const result = await mockDeliveryService.declineDelivery(trackingId);
 
                 if (result.success) {

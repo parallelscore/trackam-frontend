@@ -7,7 +7,6 @@ import { AuthProvider } from './context/AuthContext';
 // Pages
 import HomePage from './pages/HomePage';
 import VendorDashboard from './pages/VendorDashboard';
-import RiderPage from './pages/RiderPage';
 import RiderAcceptPage from './pages/RiderAcceptPage';
 import RiderCompletePage from './pages/RiderCompletePage';
 import TrackingPage from './pages/TrackingPage';
@@ -68,7 +67,7 @@ function App() {
                             <Route path="/vendor" element={<VendorDashboard />} />
 
                             {/* Rider routes */}
-                            <Route path="/rider/accept/:trackingId" element={<RiderAcceptPage />} />
+                            <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
                             <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
                             <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
 

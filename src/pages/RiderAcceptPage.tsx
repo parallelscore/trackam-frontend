@@ -5,6 +5,7 @@ import DeliveryAcceptance from '../components/rider/DeliveryAcceptance';
 import { Card, CardContent } from '../components/ui/card';
 import { useDelivery } from '../context/DeliveryContext';
 import { useRider } from '../context/RiderContext';
+import { Delivery } from '@/types';
 
 const RiderAcceptPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
@@ -12,19 +13,32 @@ const RiderAcceptPage: React.FC = () => {
     const { getDeliveryByTrackingId } = useDelivery();
     const { acceptDelivery, declineDelivery, isLoading, error, setCurrentDelivery } = useRider();
     const [loadingDelivery, setLoadingDelivery] = useState(true);
-    const [deliveryData, setDeliveryData] = useState<any>(null);
+    const [deliveryData, setDeliveryData] = useState<Delivery | null>(null);
 
     useEffect(() => {
         const fetchDelivery = async () => {
             if (trackingId) {
                 setLoadingDelivery(true);
-                const result = await getDeliveryByTrackingId(trackingId);
-                if (result) {
-                    setDeliveryData(result);
-                    // Also set in RiderContext for consistency
-                    setCurrentDelivery(result);
+                console.log(`Fetching delivery with tracking ID: ${trackingId}`);
+                try {
+                    const result = await getDeliveryByTrackingId(trackingId);
+                    console.log("Fetch result:", result);
+
+                    if (result) {
+                        setDeliveryData(result);
+                        // Also set in RiderContext for consistency
+                        if (typeof setCurrentDelivery === 'function') {
+                            setCurrentDelivery(result);
+                        }
+                        console.log("Delivery data set successfully");
+                    } else {
+                        console.log("No delivery found for this tracking ID");
+                    }
+                } catch (error) {
+                    console.error("Error fetching delivery:", error);
+                } finally {
+                    setLoadingDelivery(false);
                 }
-                setLoadingDelivery(false);
             }
         };
 

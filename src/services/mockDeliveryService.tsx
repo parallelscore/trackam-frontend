@@ -3,7 +3,8 @@ import {
     Delivery,
     CreateDeliveryFormData,
     Location,
-    OtpVerificationFormData
+    OtpVerificationFormData,
+    DeliveryStatus
 } from '@/types';
 import { generateTrackingId } from '../utils/utils';
 
@@ -21,32 +22,32 @@ const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> =
     await new Promise(resolve => setTimeout(resolve, 800));
 
     const id = uuidv4();
-    const trackingId = generateTrackingId();
+    const tracking_id = generateTrackingId();
     const otp = generateOTP();
 
     // Generate tracking links
     const baseUrl = window.location.origin;
-    const riderLink = `${baseUrl}/rider/${trackingId}`;
-    const customerLink = `${baseUrl}/track/${trackingId}`;
+    const rider_link = `${baseUrl}/rider/${tracking_id}`;
+    const customer_link = `${baseUrl}/track/${tracking_id}`;
 
-    // Create new delivery object
+    // Create new delivery object with snake_case property names
     const newDelivery: Delivery = {
         id,
-        trackingId,
+        tracking_id,
         status: 'created',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
 
         customer: {
             name: data.customer.name,
-            phoneNumber: data.customer.phoneNumber,
+            phone_number: data.customer.phoneNumber,
             address: data.customer.address,
         },
 
         rider: {
             id: uuidv4(),
             name: data.rider.name,
-            phoneNumber: data.rider.phoneNumber,
+            phone_number: data.rider.phoneNumber,
         },
 
         vendor: {
@@ -57,16 +58,16 @@ const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> =
         package: {
             description: data.package.description,
             size: data.package.size,
-            specialInstructions: data.package.specialInstructions,
+            special_instructions: data.package.specialInstructions,
         },
 
         tracking: {
             otp,
-            otpExpiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes expiry
-            riderLink,
-            customerLink,
+            otp_expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes expiry
+            rider_link,
+            customer_link,
             active: false,
-            locationHistory: [],
+            location_history: [],
         },
     };
 
@@ -88,7 +89,13 @@ const getDeliveryByTrackingId = async (trackingId: string): Promise<Delivery | n
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const delivery = deliveries.find(d => d.trackingId === trackingId);
+    console.log("Looking for delivery with trackingId:", trackingId);
+    console.log("Available deliveries:", deliveries);
+
+    // Make sure we're using the correct property name from your types
+    const delivery = deliveries.find(d => d.tracking_id === trackingId);
+
+    console.log("Found delivery:", delivery);
     return delivery || null;
 };
 
@@ -97,7 +104,7 @@ const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: bool
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 700));
 
-    const delivery = deliveries.find(d => d.trackingId === data.trackingId);
+    const delivery = deliveries.find(d => d.tracking_id === data.trackingId);
 
     if (!delivery) {
         return { success: false, message: 'Delivery not found' };
@@ -107,16 +114,16 @@ const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: bool
         return { success: false, message: 'Invalid OTP' };
     }
 
-    const otpExpiry = new Date(delivery.tracking.otpExpiry);
+    const otpExpiry = new Date(delivery.tracking.otp_expiry);
     if (otpExpiry < new Date()) {
         return { success: false, message: 'OTP has expired' };
     }
 
     // Update delivery status
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...delivery,
-        status: 'accepted' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'accepted' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
     };
 
     // Update in-memory storage
@@ -130,7 +137,7 @@ const acceptDelivery = async (trackingId: string): Promise<{ success: boolean; d
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
@@ -141,10 +148,10 @@ const acceptDelivery = async (trackingId: string): Promise<{ success: boolean; d
     }
 
     // Update delivery status
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...deliveries[deliveryIndex],
-        status: 'assigned' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'assigned' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
     };
 
     // Update in-memory storage
@@ -158,7 +165,7 @@ const declineDelivery = async (trackingId: string): Promise<{ success: boolean; 
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
@@ -168,14 +175,11 @@ const declineDelivery = async (trackingId: string): Promise<{ success: boolean; 
         return { success: false, message: 'Delivery cannot be declined in its current state' };
     }
 
-    // In a real implementation, you'd probably reassign the delivery to another rider
-    // or notify the vendor to find another rider
-
     // Update in-memory storage - just mark as cancelled for simplicity in our mock
     deliveries[deliveryIndex] = {
         ...deliveries[deliveryIndex],
-        status: 'cancelled' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'cancelled' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
     };
 
     return { success: true };
@@ -186,17 +190,17 @@ const startTracking = async (trackingId: string): Promise<{ success: boolean; de
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
     }
 
     // Update delivery status
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...deliveries[deliveryIndex],
-        status: 'in_progress' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'in_progress' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
         tracking: {
             ...deliveries[deliveryIndex].tracking,
             active: true,
@@ -214,23 +218,23 @@ const updateRiderLocation = async (trackingId: string, location: Location): Prom
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
     }
 
     // Update rider location
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...deliveries[deliveryIndex],
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         rider: {
-            ...deliveries[deliveryIndex].rider!,
-            currentLocation: location,
+            ...deliveries[deliveryIndex].rider,
+            current_location: location,
         },
         tracking: {
             ...deliveries[deliveryIndex].tracking,
-            locationHistory: [...deliveries[deliveryIndex].tracking.locationHistory, location],
+            location_history: [...deliveries[deliveryIndex].tracking.location_history, location],
         },
     };
 
@@ -245,17 +249,17 @@ const completeDelivery = async (trackingId: string): Promise<{ success: boolean;
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
     }
 
     // Update delivery status
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...deliveries[deliveryIndex],
-        status: 'completed' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'completed' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
         tracking: {
             ...deliveries[deliveryIndex].tracking,
             active: false,
@@ -273,17 +277,17 @@ const cancelDelivery = async (trackingId: string): Promise<{ success: boolean; d
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 700));
 
-    const deliveryIndex = deliveries.findIndex(d => d.trackingId === trackingId);
+    const deliveryIndex = deliveries.findIndex(d => d.tracking_id === trackingId);
 
     if (deliveryIndex === -1) {
         return { success: false, message: 'Delivery not found' };
     }
 
     // Update delivery status
-    const updatedDelivery = {
+    const updatedDelivery: Delivery = {
         ...deliveries[deliveryIndex],
-        status: 'cancelled' as const,
-        updatedAt: new Date().toISOString(),
+        status: 'cancelled' as DeliveryStatus,
+        updated_at: new Date().toISOString(),
         tracking: {
             ...deliveries[deliveryIndex].tracking,
             active: false,
@@ -302,13 +306,13 @@ const preloadSampleDeliveries = () => {
         const sampleDeliveries: Partial<Delivery>[] = [
             {
                 id: uuidv4(),
-                trackingId: 'ABC123',
+                tracking_id: 'ABC123',
                 status: 'in_progress',
-                createdAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-                updatedAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+                created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+                updated_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
                 customer: {
                     name: 'John Doe',
-                    phoneNumber: '+2348012345678',
+                    phone_number: '+2348012345678',
                     address: '123 Lagos Street, Ikeja, Lagos',
                     location: {
                         latitude: 6.5955,
@@ -319,8 +323,8 @@ const preloadSampleDeliveries = () => {
                 rider: {
                     id: uuidv4(),
                     name: 'Rider A',
-                    phoneNumber: '+2348023456789',
-                    currentLocation: {
+                    phone_number: '+2348023456789',
+                    current_location: {
                         latitude: 6.5800,
                         longitude: 3.3400,
                         timestamp: Date.now(),
@@ -336,11 +340,11 @@ const preloadSampleDeliveries = () => {
                 },
                 tracking: {
                     otp: '123456',
-                    otpExpiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-                    riderLink: `${window.location.origin}/rider/ABC123`,
-                    customerLink: `${window.location.origin}/track/ABC123`,
+                    otp_expiry: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+                    rider_link: `${window.location.origin}/rider/ABC123`,
+                    customer_link: `${window.location.origin}/track/ABC123`,
                     active: true,
-                    locationHistory: [
+                    location_history: [
                         {
                             latitude: 6.5750,
                             longitude: 3.3350,
@@ -356,13 +360,13 @@ const preloadSampleDeliveries = () => {
             },
             {
                 id: uuidv4(),
-                trackingId: 'XYZ789',
+                tracking_id: 'XYZ789',
                 status: 'completed',
-                createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-                updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+                created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+                updated_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
                 customer: {
                     name: 'Jane Smith',
-                    phoneNumber: '+2348087654321',
+                    phone_number: '+2348087654321',
                     address: '456 Abuja Road, Wuse, Abuja',
                     location: {
                         latitude: 9.0765,
@@ -373,8 +377,8 @@ const preloadSampleDeliveries = () => {
                 rider: {
                     id: uuidv4(),
                     name: 'Rider B',
-                    phoneNumber: '+2348076543210',
-                    currentLocation: {
+                    phone_number: '+2348076543210',
+                    current_location: {
                         latitude: 9.0765,
                         longitude: 7.3986,
                         timestamp: Date.now() - 3 * 60 * 60 * 1000,
@@ -387,15 +391,15 @@ const preloadSampleDeliveries = () => {
                 package: {
                     description: 'Electronics',
                     size: 'medium',
-                    specialInstructions: 'Handle with care',
+                    special_instructions: 'Handle with care',
                 },
                 tracking: {
                     otp: '654321',
-                    otpExpiry: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-                    riderLink: `${window.location.origin}/rider/XYZ789`,
-                    customerLink: `${window.location.origin}/track/XYZ789`,
+                    otp_expiry: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+                    rider_link: `${window.location.origin}/rider/XYZ789`,
+                    customer_link: `${window.location.origin}/track/XYZ789`,
                     active: false,
-                    locationHistory: [
+                    location_history: [
                         {
                             latitude: 9.0700,
                             longitude: 7.3900,
@@ -412,6 +416,51 @@ const preloadSampleDeliveries = () => {
                             timestamp: Date.now() - 3 * 60 * 60 * 1000,
                         },
                     ],
+                },
+            },
+            // Add another delivery in 'created' status for testing acceptance
+            {
+                id: uuidv4(),
+                tracking_id: 'NEW123',
+                status: 'created',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                customer: {
+                    name: 'Test Customer',
+                    phone_number: '+2348011112222',
+                    address: '789 Test Street, Lagos Island, Lagos',
+                    location: {
+                        latitude: 6.4550,
+                        longitude: 3.4206,
+                        timestamp: Date.now(),
+                    },
+                },
+                rider: {
+                    id: uuidv4(),
+                    name: 'Rider C',
+                    phone_number: '+2348033334444',
+                    current_location: {
+                        latitude: 6.4500,
+                        longitude: 3.4100,
+                        timestamp: Date.now(),
+                    },
+                },
+                vendor: {
+                    id: 'vendor-1',
+                    name: 'Sample Vendor',
+                },
+                package: {
+                    description: 'Clothing items',
+                    size: 'medium',
+                    special_instructions: 'Leave at reception if customer not available',
+                },
+                tracking: {
+                    otp: '123789',
+                    otp_expiry: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+                    rider_link: `${window.location.origin}/rider/NEW123`,
+                    customer_link: `${window.location.origin}/track/NEW123`,
+                    active: false,
+                    location_history: [],
                 },
             },
         ];

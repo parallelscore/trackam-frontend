@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
 import { Delivery } from '@/types';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
@@ -15,7 +14,6 @@ interface DeliveryAcceptanceProps {
 }
 
 const DeliveryAcceptance: React.FC<DeliveryAcceptanceProps> = ({ delivery, onAccept, onDecline }) => {
-    // const navigate = useNavigate();
     const { isLoading } = useRider();
     const [error, setError] = useState<string | null>(null);
     const [showAcceptConfirmation, setShowAcceptConfirmation] = useState(false);

@@ -202,11 +202,12 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             } else {
                 const result = await deliveryService.getDeliveryByTracking(trackingId);
 
-                if (result.success) {
+                if (result && result.success) {
                     delivery = result.data;
                 } else {
-                    toast.error(result.error || 'Failed to fetch delivery');
-                    setError(result.error || 'Failed to fetch delivery');
+                    const errorMsg = result?.error || 'Failed to fetch delivery';
+                    toast.error(errorMsg);
+                    setError(errorMsg);
                     return null;
                 }
             }
