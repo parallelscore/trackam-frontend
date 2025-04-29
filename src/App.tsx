@@ -8,6 +8,7 @@ import { AuthProvider } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import VendorDashboard from './pages/VendorDashboard';
 import RiderAcceptPage from './pages/RiderAcceptPage';
+import RiderPage from './pages/RiderPage';
 import RiderCompletePage from './pages/RiderCompletePage';
 import TrackingPage from './pages/TrackingPage';
 import EnhancedTrackingPage from './pages/EnhancedTrackingPage';
@@ -66,10 +67,10 @@ function App() {
                             {/* Vendor routes */}
                             <Route path="/vendor" element={<VendorDashboard />} />
 
-                            {/* Rider routes */}
+                            {/* Rider routes - more specific routes must come before general ones */}
                             <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
                             <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
-                            <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
+                            <Route path="/rider/:trackingId" element={<RiderPage />} />
 
                             {/* Customer tracking routes */}
                             <Route path="/track" element={<TrackSearchPage />} />

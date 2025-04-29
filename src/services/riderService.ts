@@ -29,7 +29,7 @@ const riderService = {
     verifyOTP: async (data: OtpVerificationFormData) => {
         try {
             const response = await apiClient.post('/rider/verify-otp', {
-                tracking_id: data.trackingId,
+                tracking_id: data.tracking_id,
                 otp: data.otp
             });
 

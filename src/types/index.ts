@@ -103,8 +103,8 @@ export interface CreateDeliveryFormData {
 
 // OTP Verification Form
 export interface OtpVerificationFormData {
+    tracking_id: string;
     otp: string;
-    trackingId: string;
 }
 
 // Socket Events
