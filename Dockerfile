@@ -1,5 +1,5 @@
 # Use the official Node.js image as the base image
-FROM node:20-alpine
+FROM node:20-alpine as build
 
 ARG VITE_PUBLIC_URL
 
@@ -13,21 +13,23 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install the dependencies
-RUN npm install --legacy-peer-deps
+RUN npm ci
 
 # Copy the rest of the app
 COPY . .
 
 # Build the production version of the app
-RUN npm run dev
+RUN npm run build
 
 # Use Nginx to serve the production build
 FROM nginx:stable-alpine
 
 # Copy the build output from the Node.js container
-COPY --from=0 /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist /usr/share/nginx/html
 RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx/nginx.conf /etc/nginx/conf.d
+
+# Copy the Nginx configuration file
+COPY nginx/nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 80
 EXPOSE 80

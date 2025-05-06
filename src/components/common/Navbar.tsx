@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { cn } from '../../utils/utils';
+import { cn } from '@/utils/utils.ts';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../ui/button';
 
 const Navbar: React.FC = () => {
     const location = useLocation();
@@ -113,7 +112,7 @@ const Navbar: React.FC = () => {
                                 >
                                     <span className="sr-only">Open user menu</span>
                                     <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                                        {user?.name?.charAt(0) || 'U'}
+                                        {user?.first_name?.charAt(0) || 'U'}
                                     </div>
                                 </button>
 
@@ -183,7 +182,7 @@ const Navbar: React.FC = () => {
                             >
                                 <span className="sr-only">Open user menu</span>
                                 <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center">
-                                    {user?.name?.charAt(0) || 'U'}
+                                    {user?.first_name?.charAt(0) || 'U'}
                                 </div>
                             </button>
                         )}
