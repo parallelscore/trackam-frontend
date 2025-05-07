@@ -28,6 +28,7 @@ const riderService = {
     // Verify rider OTP
     verifyOTP: async (data: OtpVerificationFormData) => {
         try {
+            console.log('Verifying OTP with data:', data);
             const response = await apiClient.post('/rider/verify-otp', {
                 tracking_id: data.tracking_id,
                 otp: data.otp
@@ -51,9 +52,10 @@ const riderService = {
     },
 
     // Accept a delivery assignment
-    acceptDelivery: async (trackingId: string) => {
+    acceptDelivery: async (tracking_id: string) => {
         try {
-            const response = await apiClient.post(`/rider/accept/${trackingId}`);
+            console.log('Accepting delivery with tracking ID:', tracking_id);
+            const response = await apiClient.post(`/rider/accept/${tracking_id}`);
 
             return {
                 success: true,
