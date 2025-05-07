@@ -1,14 +1,39 @@
 // src/context/DeliveryContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import deliveryService from '../services/deliveryService';
 import { mockDeliveryService } from '../services/mockDeliveryService';
-import { Delivery, OtpVerificationFormData } from '@/types';
+import { Delivery } from '@/types';
+import { USE_MOCK_SERVICE } from '../config/serviceConfig';
 
-// Toggle between mock service (for development) and real service
-// Set to false when ready to use real API
-const USE_MOCK_SERVICE = false;
-const service = USE_MOCK_SERVICE ? mockDeliveryService : deliveryService;
+
+interface DashboardStats {
+    total_deliveries: number;
+    in_progress: number;
+    completed: number;
+    cancelled: number;
+    completion_rate: number;
+    avg_delivery_time: number;
+    cancel_rate: number;
+}
+
+interface DeliveryAnalyticsItem {
+    name: string;
+    completed: number;
+    inProgress: number;
+    cancelled: number;
+}
+
+interface RiderStats {
+    id: string;
+    name: string;
+    phoneNumber: string;
+    totalDeliveries: number;
+    completedDeliveries: number;
+    completionRate: number;
+    averageDeliveryTimeMinutes: number;
+}
+
 
 interface DeliveryContextProps {
     deliveries: Delivery[];
@@ -21,18 +46,10 @@ interface DeliveryContextProps {
     fetchDeliveries: (filters?: { status?: string; search?: string; page?: number; limit?: number }) => Promise<void>;
     getDeliveryById: (id: string) => Promise<Delivery | null>;
     getDeliveryByTrackingId: (trackingId: string) => Promise<Delivery | null>;
-    createDelivery: (deliveryData: any) => Promise<Delivery | null>;
-    verifyOTP: (data: OtpVerificationFormData) => Promise<{ success: boolean; message?: string }>;
-    startTracking: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
-    updateRiderLocation: (trackingId: string, location: any) => Promise<{ success: boolean; message?: string }>;
-    completeDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
-    cancelDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
-    getDashboardStats: (period?: 'day' | 'week' | 'month' | 'all') => Promise<any>;
-    getDeliveryAnalytics: (timeRange?: 'week' | 'month' | 'year') => Promise<any>;
-    getTopRiders: (limit?: number) => Promise<any>;
-    acceptDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
-    declineDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
-    resendNotifications: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
+    createDelivery: (deliveryData: Delivery) => Promise<Delivery | null>;
+    getDashboardStats: (period?: 'day' | 'week' | 'month' | 'all') => Promise<DashboardStats>;
+    getDeliveryAnalytics: (timeRange?: 'week' | 'month' | 'year') => Promise<DeliveryAnalyticsItem[]>;
+    getTopRiders: (limit?: number) => Promise<RiderStats[]>;
 }
 
 const DeliveryContext = createContext<DeliveryContextProps | undefined>(undefined);
@@ -80,13 +97,13 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                     filteredDeliveries = filteredDeliveries.filter(d =>
                         d.tracking_id.toLowerCase().includes(searchLower) ||
                         d.customer.name.toLowerCase().includes(searchLower) ||
-                        (d.rider?.name && d.rider.name.toLowerCase().includes(searchLower))
+                        d.rider?.name?.toLowerCase().includes(searchLower)
                     );
                 }
 
                 // Pagination
-                const page = filters?.page || 1;
-                const limit = filters?.limit || 10;
+                const page = filters?.page ?? 1;
+                const limit = filters?.limit ?? 10;
                 const totalItems = filteredDeliveries.length;
                 const totalPages = Math.ceil(totalItems / limit);
 
@@ -100,8 +117,8 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 setCurrentPage(page);
                 setTotalPages(totalPages);
             } else {
-                // Using real API service
-                const result = await deliveryService.getDeliveries(filters || {});
+                // Using a real API service
+                const result = await deliveryService.getDeliveries(filters ?? {});
 
                 if (result.success) {
                     setDeliveries(result.data.items);
@@ -109,8 +126,8 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                     setCurrentPage(result.data.page);
                     setTotalPages(result.data.pages);
                 } else {
-                    toast.error(result.error || 'Failed to fetch deliveries');
-                    setError(result.error || 'Failed to fetch deliveries');
+                    toast.error(result.error ?? 'Failed to fetch deliveries');
+                    setError(result.error ?? 'Failed to fetch deliveries');
                 }
             }
         } catch (error) {
@@ -122,24 +139,24 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
     };
 
     // Create a new delivery
-    const createDelivery = async (deliveryData: any): Promise<Delivery | null> => {
+    const createDelivery = async (deliveryData: Delivery): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
 
         try {
             if (USE_MOCK_SERVICE) {
-                const delivery = await service.createDelivery(deliveryData);
+                const delivery = await mockDeliveryService.createDelivery(deliveryData);
                 toast.success('Delivery created successfully!');
                 return delivery;
             } else {
                 const result = await deliveryService.createDelivery(deliveryData);
 
-                if (result.success) {
+                if (result?.success) {
                     toast.success('Delivery created successfully!');
                     return result.data;
                 } else {
-                    toast.error(result.error || 'Failed to create delivery');
-                    setError(result.error || 'Failed to create delivery');
+                    toast.error(result?.error ?? 'Failed to create delivery');
+                    setError(result?.error ?? 'Failed to create delivery');
                     return null;
                 }
             }
@@ -161,7 +178,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         try {
             if (USE_MOCK_SERVICE) {
                 // For mock service, we'll find it in the existing deliveries
-                const deliveries = await service.getAllDeliveries();
+                const deliveries = await mockDeliveryService.getAllDeliveries();
                 const delivery = deliveries.find(d => d.id === id) || null;
 
                 if (!delivery) {
@@ -173,11 +190,11 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             } else {
                 const result = await deliveryService.getDeliveryById(id);
 
-                if (result.success) {
+                if (result?.success) {
                     return result.data;
                 } else {
-                    toast.error(result.error || 'Failed to fetch delivery');
-                    setError(result.error || 'Failed to fetch delivery');
+                    toast.error(result?.error ?? 'Failed to fetch delivery');
+                    setError(result?.error ?? 'Failed to fetch delivery');
                     return null;
                 }
             }
@@ -199,14 +216,14 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             let delivery;
 
             if (USE_MOCK_SERVICE) {
-                delivery = await service.getDeliveryByTrackingId(trackingId);
+                delivery = await mockDeliveryService.getDeliveryByTrackingId(trackingId);
             } else {
                 const result = await deliveryService.getDeliveryByTracking(trackingId);
 
-                if (result && result.success) {
+                if (result?.success) {
                     delivery = result.data;
                 } else {
-                    const errorMsg = result?.error || 'Failed to fetch delivery';
+                    const errorMsg = result?.error ?? 'Failed to fetch delivery';
                     toast.error(errorMsg);
                     setError(errorMsg);
                     return null;
@@ -229,151 +246,9 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Verify OTP
-    const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await service.verifyOTP(data);
-
-            if (result.success) {
-                toast.success('OTP verified successfully!');
-            } else {
-                toast.error(result.message || 'Failed to verify OTP');
-                setError(result.message || 'Failed to verify OTP');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error verifying OTP:', error);
-            const errorMessage = 'Failed to verify OTP. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Start tracking a delivery
-    const startTracking = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await service.startTracking(trackingId);
-
-            if (result.success) {
-                toast.success('Tracking started successfully!');
-                if (result.delivery) {
-                    setCurrentDelivery(result.delivery);
-                }
-            } else {
-                toast.error(result.message || 'Failed to start tracking');
-                setError(result.message || 'Failed to start tracking');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error starting tracking:', error);
-            const errorMessage = 'Failed to start tracking. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Update rider location
-    const updateRiderLocation = async (trackingId: string, location: any): Promise<{ success: boolean; message?: string }> => {
-        try {
-            const result = await service.updateRiderLocation(trackingId, location);
-
-            if (result.success && result.delivery) {
-                setCurrentDelivery(result.delivery);
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error updating rider location:', error);
-            return { success: false, message: 'Failed to update location' };
-        }
-    };
-
-    // Complete a delivery
-    const completeDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            const result = await service.completeDelivery(trackingId);
-
-            if (result.success) {
-                toast.success('Delivery completed successfully!');
-                if (result.delivery) {
-                    setCurrentDelivery(result.delivery);
-                }
-            } else {
-                toast.error(result.message || 'Failed to complete delivery');
-                setError(result.message || 'Failed to complete delivery');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error completing delivery:', error);
-            const errorMessage = 'Failed to complete delivery. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Cancel a delivery
-    const cancelDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            let result;
-
-            if (USE_MOCK_SERVICE) {
-                result = await service.cancelDelivery(trackingId);
-            } else {
-                result = await deliveryService.cancelDelivery(trackingId);
-            }
-
-            if (result.success) {
-                toast.success('Delivery cancelled successfully!');
-
-                if (result.delivery) {
-                    setCurrentDelivery(result.delivery);
-                }
-
-                // Refresh the deliveries list to show the updated status
-                await fetchDeliveries();
-            } else {
-                toast.error(result.message || 'Failed to cancel delivery');
-                setError(result.message || 'Failed to cancel delivery');
-            }
-
-            return result;
-        } catch (error) {
-            console.error('Error cancelling delivery:', error);
-            const errorMessage = 'Failed to cancel delivery. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
 
     // Get dashboard statistics
-    const getDashboardStats = async (period: 'day' | 'week' | 'month' | 'all' = 'all'): Promise<any> => {
+    const getDashboardStats = async (period: 'day' | 'week' | 'month' | 'all' = 'all'): Promise<DashboardStats> => {
         setIsLoading(true);
         setError(null);
 
@@ -381,7 +256,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             if (USE_MOCK_SERVICE) {
                 // Mock implementation
                 // Calculate stats from existing deliveries
-                const allDeliveries = await service.getAllDeliveries();
+                const allDeliveries = await mockDeliveryService.getAllDeliveries();
 
                 const now = new Date();
                 let filteredDeliveries = [...allDeliveries];
@@ -390,19 +265,19 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 if (period === 'day') {
                     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
                     filteredDeliveries = allDeliveries.filter(d => {
-                        const deliveryDate = new Date(d.createdAt).getTime();
+                        const deliveryDate = new Date(d.created_at).getTime();
                         return deliveryDate >= today;
                     });
                 } else if (period === 'week') {
                     const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).getTime();
                     filteredDeliveries = allDeliveries.filter(d => {
-                        const deliveryDate = new Date(d.createdAt).getTime();
+                        const deliveryDate = new Date(d.created_at).getTime();
                         return deliveryDate >= oneWeekAgo;
                     });
                 } else if (period === 'month') {
                     const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).getTime();
                     filteredDeliveries = allDeliveries.filter(d => {
-                        const deliveryDate = new Date(d.createdAt).getTime();
+                        const deliveryDate = new Date(d.created_at).getTime();
                         return deliveryDate >= oneMonthAgo;
                     });
                 }
@@ -423,8 +298,8 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 filteredDeliveries
                     .filter(d => d.status === 'completed')
                     .forEach(d => {
-                        const startTime = new Date(d.createdAt).getTime();
-                        const endTime = new Date(d.updatedAt).getTime();
+                        const startTime = new Date(d.created_at).getTime();
+                        const endTime = new Date(d.updated_at).getTime();
                         const diffMinutes = Math.round((endTime - startTime) / (60 * 1000));
 
                         if (diffMinutes > 0) {
@@ -450,10 +325,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 // Using real API
                 const result = await deliveryService.getDashboardStats(period);
 
-                if (result.success) {
+                if (result?.success) {
                     return result.data;
                 } else {
-                    throw new Error(result.error || 'Failed to fetch dashboard statistics');
+                    throw new Error(result?.error ?? 'Failed to fetch dashboard statistics');
                 }
             }
         } catch (error) {
@@ -466,19 +341,19 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
     };
 
     // Get delivery analytics for charts
-    const getDeliveryAnalytics = async (timeRange: 'week' | 'month' | 'year' = 'week'): Promise<any> => {
+    const getDeliveryAnalytics = async (timeRange: 'week' | 'month' | 'year' = 'week'): Promise<DeliveryAnalyticsItem[]> => {
         setIsLoading(true);
         setError(null);
 
         try {
             if (USE_MOCK_SERVICE) {
                 // Mock implementation
-                const allDeliveries = await service.getAllDeliveries();
+                const allDeliveries = await mockDeliveryService.getAllDeliveries();
                 const now = new Date();
-                let data = [];
+                const data = [];
 
                 if (timeRange === 'week') {
-                    // Get data for last 7 days
+                    // Get data for the last 7 days
                     for (let i = 6; i >= 0; i--) {
                         const date = new Date(now);
                         date.setDate(date.getDate() - i);
@@ -488,7 +363,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
 
                         // Count deliveries for this day
                         const dayDeliveries = allDeliveries.filter(d => {
-                            const deliveryDate = new Date(d.createdAt).getTime();
+                            const deliveryDate = new Date(d.created_at).getTime();
                             return deliveryDate >= dayStart && deliveryDate <= dayEnd;
                         });
 
@@ -515,7 +390,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
 
                         // Count deliveries for this week
                         const weekDeliveries = allDeliveries.filter(d => {
-                            const deliveryDate = new Date(d.createdAt).getTime();
+                            const deliveryDate = new Date(d.created_at).getTime();
                             return deliveryDate >= weekStart.getTime() && deliveryDate <= weekEnd.getTime();
                         });
 
@@ -542,7 +417,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
 
                         // Count deliveries for this month
                         const monthDeliveries = allDeliveries.filter(d => {
-                            const deliveryDate = new Date(d.createdAt).getTime();
+                            const deliveryDate = new Date(d.created_at).getTime();
                             return deliveryDate >= monthStart && deliveryDate <= monthEnd;
                         });
 
@@ -564,10 +439,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 // Using real API
                 const result = await deliveryService.getDeliveryAnalytics(timeRange);
 
-                if (result.success) {
+                if (result?.success) {
                     return result.data;
                 } else {
-                    throw new Error(result.error || 'Failed to fetch delivery analytics');
+                    throw new Error(result?.error ?? 'Failed to fetch delivery analytics');
                 }
             }
         } catch (error) {
@@ -580,21 +455,21 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
     };
 
     // Get top riders
-    const getTopRiders = async (limit: number = 5): Promise<any> => {
+    const getTopRiders = async (limit: number = 5): Promise<RiderStats[]> => {
         setIsLoading(true);
         setError(null);
 
         try {
             if (USE_MOCK_SERVICE) {
                 // Mock implementation
-                const allDeliveries = await service.getAllDeliveries();
+                const allDeliveries = await mockDeliveryService.getAllDeliveries();
 
                 // Group deliveries by rider
                 const riderMap = new Map();
 
                 allDeliveries.forEach(delivery => {
                     // Skip if no rider assigned
-                    if (!delivery.rider || !delivery.rider.id) return;
+                    if (!delivery.rider?.id) return;
 
                     const riderId = delivery.rider.id;
 
@@ -603,7 +478,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                         riderMap.set(riderId, {
                             id: riderId,
                             name: delivery.rider.name,
-                            phoneNumber: delivery.rider.phoneNumber,
+                            phoneNumber: delivery.rider.phone_number,
                             totalDeliveries: 0,
                             completedDeliveries: 0,
                             completionRate: 0,
@@ -620,8 +495,8 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                         riderStats.completedDeliveries++;
 
                         // Calculate delivery time for completed deliveries
-                        const startTime = new Date(delivery.createdAt).getTime();
-                        const endTime = new Date(delivery.updatedAt).getTime();
+                        const startTime = new Date(delivery.created_at).getTime();
+                        const endTime = new Date(delivery.updated_at).getTime();
                         const diffMinutes = Math.round((endTime - startTime) / (60 * 1000));
 
                         if (diffMinutes > 0) {
@@ -636,7 +511,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 // Calculate average delivery time
                 riderMap.forEach(rider => {
                     if (rider.deliveryTimes.length > 0) {
-                        const totalTime = rider.deliveryTimes.reduce((acc, time) => acc + time, 0);
+                        const totalTime = rider.deliveryTimes.reduce((acc: number, time: number) => acc + time, 0);
                         rider.averageDeliveryTimeMinutes = Math.round(totalTime / rider.deliveryTimes.length);
                     }
 
@@ -645,7 +520,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 });
 
                 // Convert to array and sort
-                let topRiders = Array.from(riderMap.values())
+                const topRiders = Array.from(riderMap.values())
                     .filter(rider => rider.totalDeliveries >= 2) // Filter out riders with too few deliveries
                     .sort((a, b) => {
                         // Sort by completion rate first
@@ -655,17 +530,17 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                         // Then by total deliveries
                         return b.totalDeliveries - a.totalDeliveries;
                     })
-                    .slice(0, limit); // Get top N
+                    .slice(0, limit); // Get to top N
 
                 return topRiders;
             } else {
                 // Using real API
                 const result = await deliveryService.getTopRiders(limit);
 
-                if (result.success) {
+                if (result?.success) {
                     return result.data;
                 } else {
-                    throw new Error(result.error || 'Failed to fetch top riders');
+                    throw new Error(result?.error ?? 'Failed to fetch top riders');
                 }
             }
         } catch (error) {
@@ -677,164 +552,13 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Accept a delivery assignment
-    const acceptDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            if (USE_MOCK_SERVICE) {
-                // Mock implementation - simulate accepting the delivery
-                const delivery = await getDeliveryByTrackingId(trackingId);
-
-                if (!delivery) {
-                    return { success: false, message: 'Delivery not found' };
-                }
-
-                // Update the delivery status
-                const updatedDelivery = {
-                    ...delivery,
-                    status: 'assigned',
-                    updatedAt: new Date().toISOString()
-                };
-
-                setCurrentDelivery(updatedDelivery);
-
-                return {
-                    success: true,
-                    message: 'Delivery assignment accepted'
-                };
-            } else {
-                // Real API call
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/rider/accept/${trackingId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`,
-                    },
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    // Update current delivery if response includes it
-                    if (result.delivery) {
-                        setCurrentDelivery(result.delivery);
-                    } else {
-                        // Otherwise refresh the delivery data
-                        await getDeliveryByTrackingId(trackingId);
-                    }
-
-                    toast.success('Delivery assignment accepted');
-                    return { success: true, message: 'Delivery assignment accepted' };
-                } else {
-                    const errorMessage = result.detail || 'Failed to accept delivery';
-                    toast.error(errorMessage);
-                    setError(errorMessage);
-                    return { success: false, message: errorMessage };
-                }
-            }
-        } catch (error) {
-            console.error('Error accepting delivery:', error);
-            const errorMessage = 'Failed to accept delivery. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Decline a delivery
-    const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            if (USE_MOCK_SERVICE) {
-                const result = await service.declineDelivery(trackingId);
-
-                if (result.success) {
-                    toast.success('Delivery declined successfully');
-                    return { success: true };
-                } else {
-                    toast.error(result.message || 'Failed to decline delivery');
-                    setError(result.message || 'Failed to decline delivery');
-                    return { success: false, message: result.message };
-                }
-            } else {
-                // Use actual API service when implemented
-                return { success: false, message: 'API not implemented yet' };
-            }
-        } catch (error) {
-            console.error('Error declining delivery:', error);
-            const errorMessage = 'Failed to decline delivery. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const resendNotifications = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            if (USE_MOCK_SERVICE) {
-                // Mock implementation
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                toast.success('Notifications resent successfully');
-                return { success: true, message: 'Notifications resent successfully' };
-            } else {
-                // Real API call
-                const apiUrl = determineApiUrl();
-                const token = localStorage.getItem('token');
-
-                const response = await axios.post(
-                    `${apiUrl}/deliveries/${trackingId}/resend-notifications`,
-                    {},
-                    {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        }
-                    }
-                );
-
-                if (response.data.success) {
-                    toast.success('Notifications resent successfully');
-                    return { success: true, message: 'Notifications resent successfully' };
-                } else {
-                    const errorMsg = response.data.message || 'Failed to resend notifications';
-                    toast.error(errorMsg);
-                    setError(errorMsg);
-                    return { success: false, message: errorMsg };
-                }
-            }
-        } catch (error: any) {
-            console.error('Error resending notifications:', error);
-            const errorMessage =
-                error.response?.data?.detail ||
-                error.response?.data?.message ||
-                'Failed to resend notifications. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
     // Load initial deliveries
     useEffect(() => {
         // Only do this once
         fetchDeliveries();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const value = {
+    const value = useMemo(() => ({
         deliveries,
         currentDelivery,
         totalDeliveries,
@@ -846,18 +570,21 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         getDeliveryById,
         getDeliveryByTrackingId,
         createDelivery,
-        verifyOTP,
-        startTracking,
-        updateRiderLocation,
-        completeDelivery,
-        cancelDelivery,
         getDashboardStats,
         getDeliveryAnalytics,
         getTopRiders,
-        acceptDelivery,
-        declineDelivery,
-        resendNotifications
-    };
+    }), [
+        deliveries,
+        currentDelivery,
+        totalDeliveries,
+        currentPage,
+        totalPages,
+        isLoading,
+        error,
+        // We don't need to include function dependencies as they won't change between renders
+        // unless we're recreating them inside the component body (which we're not)
+    ]);
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;
 };
+
