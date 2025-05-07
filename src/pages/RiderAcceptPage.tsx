@@ -8,13 +8,13 @@ import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { getStatusColor, getStatusText, formatDateTime } from '../utils/utils';
 import { requestLocationPermission, getLocationErrorMessage, notifyVendorOfDecline } from '../utils/riderUtils';
 import { useDelivery } from '../context/DeliveryContext';
-import {useRider} from '../context/RiderContext';
+import { useRider } from '../context/RiderContext';
 
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
-    const { acceptDelivery } = useRider();
-    const { getDeliveryByTrackingId, declineDelivery, isLoading } = useDelivery();
+    const { acceptDelivery, declineDelivery, isLoading: riderLoading } = useRider();
+    const { getDeliveryByTrackingId, isLoading: deliveryLoading } = useDelivery();
 
     const [delivery, setDelivery] = useState<any>(null);
     const [loadingDelivery, setLoadingDelivery] = useState(true);
@@ -23,8 +23,9 @@ const RiderAcceptPage: React.FC = () => {
 
     const [showAcceptConfirmation, setShowAcceptConfirmation] = useState(false);
     const [showDeclineConfirmation, setShowDeclineConfirmation] = useState(false);
-    const [isAccepted, setIsAccepted] = useState(false);
-    const [isDeclined, setIsDeclined] = useState(false);
+
+    // Combine loading states
+    const isLoading = riderLoading || deliveryLoading;
 
     useEffect(() => {
         const fetchDelivery = async () => {
@@ -36,14 +37,25 @@ const RiderAcceptPage: React.FC = () => {
 
                 if (deliveryData) {
                     setDelivery(deliveryData);
-                    // Check if already accepted
-                    if (deliveryData.status === 'accepted' ||
-                        deliveryData.status === 'in_progress' ||
-                        deliveryData.status === 'completed') {
-                        setIsAccepted(true);
-                    } else if (deliveryData.status === 'cancelled') {
-                        setIsDeclined(true);
+
+                    // Redirect based on delivery status
+                    const status = deliveryData.status;
+
+                    // If already accepted or in progress, redirect to tracking page
+                    if (status === 'accepted' || status === 'in_progress') {
+                        navigate(`/rider/${tracking_id}`);
+                        return;
                     }
+
+                    // If completed, redirect to a completion page
+                    if (status === 'completed') {
+                        navigate('/rider/deliveries');
+                        return;
+                    }
+
+                    // If cancelled, show the cancelled state in this component
+                    // (we'll handle this in the render method)
+
                 } else {
                     setError('Delivery not found');
                 }
@@ -56,7 +68,7 @@ const RiderAcceptPage: React.FC = () => {
         };
 
         fetchDelivery();
-    }, [tracking_id]);
+    }, [tracking_id, navigate]);
 
     const handleAcceptClick = () => {
         setShowAcceptConfirmation(true);
@@ -78,7 +90,6 @@ const RiderAcceptPage: React.FC = () => {
                     const result = await acceptDelivery(tracking_id);
 
                     if (result.success) {
-                        setIsAccepted(true);
                         // Navigate to the rider tracking page
                         navigate(`/rider/${tracking_id}`);
                     } else {
@@ -102,10 +113,15 @@ const RiderAcceptPage: React.FC = () => {
         if (!tracking_id) return;
 
         try {
+            // Use the updated declineDelivery method from RiderContext
             const result = await declineDelivery(tracking_id);
 
             if (result.success) {
-                setIsDeclined(true);
+                // Update delivery state to reflect cancelled status
+                setDelivery({
+                    ...delivery,
+                    status: 'cancelled'
+                });
 
                 // Notify the vendor about the decline
                 if (delivery?.vendor) {
@@ -120,6 +136,14 @@ const RiderAcceptPage: React.FC = () => {
         } finally {
             setShowDeclineConfirmation(false);
         }
+    };
+
+    const handleReturnHome = () => {
+        navigate('/');
+    };
+
+    const handleViewDeliveries = () => {
+        navigate('/rider/deliveries');
     };
 
     if (loadingDelivery || isLoading) {
@@ -167,7 +191,8 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
-    if (isDeclined) {
+    // Handle different delivery statuses
+    if (delivery.status === 'cancelled') {
         return (
             <Layout>
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -180,10 +205,13 @@ const RiderAcceptPage: React.FC = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <p className="mt-2">You have declined this delivery</p>
+                                <p className="mt-2">This delivery has been declined</p>
                                 <p className="text-sm text-gray-600 mt-2">The vendor has been notified.</p>
                             </div>
-                            <Button onClick={() => navigate('/')}>Return Home</Button>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                                <Button onClick={handleReturnHome}>Return Home</Button>
+                                <Button variant="outline" onClick={handleViewDeliveries}>View Other Deliveries</Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -191,6 +219,36 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
+    if (delivery.status === 'completed') {
+        return (
+            <Layout>
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-bold text-secondary text-center">Delivery Completed</h1>
+                    </div>
+                    <Card>
+                        <CardContent className="p-6 text-center">
+                            <div className="text-green-600 mb-4">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <p className="mt-2">This delivery has been completed</p>
+                                <p className="text-sm text-gray-600 mt-2">
+                                    Completed at: {formatDateTime(delivery.updated_at)}
+                                </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
+                                <Button onClick={handleReturnHome}>Return Home</Button>
+                                <Button variant="outline" onClick={handleViewDeliveries}>View Other Deliveries</Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
+        );
+    }
+
+    // For 'created' or 'assigned' statuses, show the accept/decline UI
     return (
         <Layout>
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -330,6 +388,7 @@ const RiderAcceptPage: React.FC = () => {
                                         variant="outline"
                                         className="flex-1"
                                         onClick={() => setShowDeclineConfirmation(false)}
+                                        disabled={isLoading}
                                     >
                                         Cancel
                                     </Button>
@@ -337,8 +396,9 @@ const RiderAcceptPage: React.FC = () => {
                                         variant="destructive"
                                         className="flex-1"
                                         onClick={handleConfirmDecline}
+                                        disabled={isLoading}
                                     >
-                                        Yes, Decline
+                                        {isLoading ? 'Processing...' : 'Yes, Decline'}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -349,12 +409,14 @@ const RiderAcceptPage: React.FC = () => {
                                 variant="outline"
                                 className="flex-1"
                                 onClick={handleDeclineClick}
+                                disabled={isLoading}
                             >
                                 Decline
                             </Button>
                             <Button
                                 className="flex-1"
                                 onClick={handleAcceptClick}
+                                disabled={isLoading}
                             >
                                 Accept Delivery
                             </Button>
