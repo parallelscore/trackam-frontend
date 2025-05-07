@@ -49,7 +49,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
             if (USE_MOCK_SERVICE) {
                 // Use mock service - adapt to use matching snake_case field names
                 const adaptedData = {
-                    trackingId: data.trackingId,
+                    trackingId: data.tracking_id,
                     otp: data.otp
                 };
 
@@ -66,6 +66,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 return result;
             } else {
                 // Use real service
+                console.log('Verifying OTP with datas:', data);
                 const result = await riderService.verifyOTP(data);
 
                 if (result.success) {
@@ -112,6 +113,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 return result;
             } else {
                 // Use real service
+                console.log('Accepting delivery with tracking IDs:', trackingId);
                 const result = await riderService.acceptDelivery(trackingId);
 
                 if (result.success) {
