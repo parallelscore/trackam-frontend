@@ -6,26 +6,50 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { getStatusColor, getStatusText, formatDateTime } from '../utils/utils';
-import { requestLocationPermission, getLocationErrorMessage, notifyVendorOfDecline } from '../utils/riderUtils';
+import {
+    requestLocationPermission,
+    getLocationErrorMessage,
+    notifyVendorOfDecline,
+    getLocationSettingsUrl,
+    isGeolocationSupported
+} from '../utils/riderUtils';
 import { useDelivery } from '../context/DeliveryContext';
 import { useRider } from '../context/RiderContext';
 
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
-    const { acceptDelivery, declineDelivery, isLoading: riderLoading } = useRider();
-    const { getDeliveryByTrackingId, isLoading: deliveryLoading } = useDelivery();
+    const { acceptDelivery, declineDelivery } = useRider();
+    const { getDeliveryByTrackingId, isLoading } = useDelivery();
 
     const [delivery, setDelivery] = useState<any>(null);
     const [loadingDelivery, setLoadingDelivery] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
+    const [locationRetries, setLocationRetries] = useState(0);
+    const [platformName, setPlatformName] = useState<string>('');
 
     const [showAcceptConfirmation, setShowAcceptConfirmation] = useState(false);
     const [showDeclineConfirmation, setShowDeclineConfirmation] = useState(false);
+    const [isAccepted, setIsAccepted] = useState(false);
+    const [isDeclined, setIsDeclined] = useState(false);
+    const [showLocationSettings, setShowLocationSettings] = useState(false);
 
-    // Combine loading states
-    const isLoading = riderLoading || deliveryLoading;
+    // Detect platform
+    useEffect(() => {
+        const userAgent = navigator.userAgent;
+        if (/iPhone|iPad|iPod/.test(userAgent)) {
+            setPlatformName('iOS');
+        } else if (/Android/.test(userAgent)) {
+            setPlatformName('Android');
+        } else if (/Mac/.test(userAgent)) {
+            setPlatformName('macOS');
+        } else if (/Windows/.test(userAgent)) {
+            setPlatformName('Windows');
+        } else {
+            setPlatformName('your device');
+        }
+    }, []);
 
     useEffect(() => {
         const fetchDelivery = async () => {
@@ -37,25 +61,14 @@ const RiderAcceptPage: React.FC = () => {
 
                 if (deliveryData) {
                     setDelivery(deliveryData);
-
-                    // Redirect based on delivery status
-                    const status = deliveryData.status;
-
-                    // If already accepted or in progress, redirect to tracking page
-                    if (status === 'accepted' || status === 'in_progress') {
-                        navigate(`/rider/${tracking_id}`);
-                        return;
+                    // Check if already accepted
+                    if (deliveryData.status === 'accepted' ||
+                        deliveryData.status === 'in_progress' ||
+                        deliveryData.status === 'completed') {
+                        setIsAccepted(true);
+                    } else if (deliveryData.status === 'cancelled') {
+                        setIsDeclined(true);
                     }
-
-                    // If completed, redirect to a completion page
-                    if (status === 'completed') {
-                        navigate('/rider/deliveries');
-                        return;
-                    }
-
-                    // If cancelled, show the cancelled state in this component
-                    // (we'll handle this in the render method)
-
                 } else {
                     setError('Delivery not found');
                 }
@@ -68,7 +81,7 @@ const RiderAcceptPage: React.FC = () => {
         };
 
         fetchDelivery();
-    }, [tracking_id, navigate]);
+    }, [tracking_id]);
 
     const handleAcceptClick = () => {
         setShowAcceptConfirmation(true);
@@ -78,34 +91,56 @@ const RiderAcceptPage: React.FC = () => {
         setShowDeclineConfirmation(true);
     };
 
+    const handleLocationSuccess = async (position: GeolocationPosition) => {
+        if (!tracking_id) return;
+
+        try {
+            const result = await acceptDelivery(tracking_id);
+
+            if (result.success) {
+                setIsAccepted(true);
+                // Navigate to the rider tracking page
+                navigate(`/rider/${tracking_id}`);
+            } else {
+                setError(result.message || 'Failed to accept delivery');
+            }
+        } catch (err) {
+            console.error('Error accepting delivery:', err);
+            setError('An unexpected error occurred');
+        }
+        setShowAcceptConfirmation(false);
+    };
+
+    const handleLocationError = (error: GeolocationPositionError) => {
+        console.error('Geolocation error:', error);
+        setLocationError(getLocationErrorMessage(error));
+
+        // Check if error is permission denied
+        if (error.code === error.PERMISSION_DENIED) {
+            setShowLocationSettings(true);
+        }
+
+        setShowAcceptConfirmation(false);
+    };
+
     const handleConfirmAccept = async () => {
         if (!tracking_id) return;
 
         setLocationError(null);
 
-        // Request location permission before proceeding
-        requestLocationPermission(
-            async () => {
-                try {
-                    const result = await acceptDelivery(tracking_id);
+        // Check if geolocation is supported first
+        if (!isGeolocationSupported()) {
+            setLocationError("Your browser does not support location services. Please use a modern browser.");
+            setShowAcceptConfirmation(false);
+            return;
+        }
 
-                    if (result.success) {
-                        // Navigate to the rider tracking page
-                        navigate(`/rider/${tracking_id}`);
-                    } else {
-                        setError(result.message || 'Failed to accept delivery');
-                    }
-                } catch (err) {
-                    console.error('Error accepting delivery:', err);
-                    setError('An unexpected error occurred');
-                }
-                setShowAcceptConfirmation(false);
-            },
-            (error) => {
-                console.error('Geolocation error:', error);
-                setLocationError(getLocationErrorMessage(error));
-                setShowAcceptConfirmation(false);
-            }
+        // Request location permission with retry mechanism
+        requestLocationPermission(
+            handleLocationSuccess,
+            handleLocationError,
+            3,  // 3 retries
+            1500 // 1.5 seconds between retries
         );
     };
 
@@ -113,15 +148,10 @@ const RiderAcceptPage: React.FC = () => {
         if (!tracking_id) return;
 
         try {
-            // Use the updated declineDelivery method from RiderContext
             const result = await declineDelivery(tracking_id);
 
             if (result.success) {
-                // Update delivery state to reflect cancelled status
-                setDelivery({
-                    ...delivery,
-                    status: 'cancelled'
-                });
+                setIsDeclined(true);
 
                 // Notify the vendor about the decline
                 if (delivery?.vendor) {
@@ -138,12 +168,11 @@ const RiderAcceptPage: React.FC = () => {
         }
     };
 
-    const handleReturnHome = () => {
-        navigate('/');
-    };
-
-    const handleViewDeliveries = () => {
-        navigate('/rider/deliveries');
+    const handleRetryLocation = () => {
+        setLocationRetries(prev => prev + 1);
+        setLocationError(null);
+        setShowLocationSettings(false);
+        handleConfirmAccept();
     };
 
     if (loadingDelivery || isLoading) {
@@ -191,8 +220,7 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
-    // Handle different delivery statuses
-    if (delivery.status === 'cancelled') {
+    if (isDeclined) {
         return (
             <Layout>
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -205,13 +233,10 @@ const RiderAcceptPage: React.FC = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <p className="mt-2">This delivery has been declined</p>
+                                <p className="mt-2">You have declined this delivery</p>
                                 <p className="text-sm text-gray-600 mt-2">The vendor has been notified.</p>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
-                                <Button onClick={handleReturnHome}>Return Home</Button>
-                                <Button variant="outline" onClick={handleViewDeliveries}>View Other Deliveries</Button>
-                            </div>
+                            <Button onClick={() => navigate('/')}>Return Home</Button>
                         </CardContent>
                     </Card>
                 </div>
@@ -219,36 +244,6 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
-    if (delivery.status === 'completed') {
-        return (
-            <Layout>
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                    <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-secondary text-center">Delivery Completed</h1>
-                    </div>
-                    <Card>
-                        <CardContent className="p-6 text-center">
-                            <div className="text-green-600 mb-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                </svg>
-                                <p className="mt-2">This delivery has been completed</p>
-                                <p className="text-sm text-gray-600 mt-2">
-                                    Completed at: {formatDateTime(delivery.updated_at)}
-                                </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
-                                <Button onClick={handleReturnHome}>Return Home</Button>
-                                <Button variant="outline" onClick={handleViewDeliveries}>View Other Deliveries</Button>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            </Layout>
-        );
-    }
-
-    // For 'created' or 'assigned' statuses, show the accept/decline UI
     return (
         <Layout>
             <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -272,8 +267,27 @@ const RiderAcceptPage: React.FC = () => {
 
                     {locationError && (
                         <Alert variant="destructive">
-                            <AlertTitle>Location Error</AlertTitle>
-                            <AlertDescription>{locationError}</AlertDescription>
+                            <AlertTitle>Location Access Required</AlertTitle>
+                            <AlertDescription className="space-y-2">
+                                <p>{locationError}</p>
+                                {showLocationSettings && (
+                                    <div className="text-sm mt-2">
+                                        <h4 className="font-semibold">How to enable location on {platformName}:</h4>
+                                        <p className="mt-1">{getLocationSettingsUrl()}</p>
+
+                                        <div className="flex justify-center mt-3">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleRetryLocation}
+                                                className="text-primary"
+                                            >
+                                                Try Again
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </AlertDescription>
                         </Alert>
                     )}
 
@@ -355,7 +369,10 @@ const RiderAcceptPage: React.FC = () => {
                             <CardContent className="pt-6">
                                 <AlertTitle className="font-bold text-center mb-2">Confirm Acceptance</AlertTitle>
                                 <AlertDescription className="text-center mb-4">
-                                    Are you sure you want to accept this delivery?
+                                    <p>Are you sure you want to accept this delivery?</p>
+                                    <p className="text-sm text-amber-600 mt-2">
+                                        We'll need access to your location to track the delivery.
+                                    </p>
                                 </AlertDescription>
                                 <div className="flex gap-3">
                                     <Button
@@ -388,7 +405,6 @@ const RiderAcceptPage: React.FC = () => {
                                         variant="outline"
                                         className="flex-1"
                                         onClick={() => setShowDeclineConfirmation(false)}
-                                        disabled={isLoading}
                                     >
                                         Cancel
                                     </Button>
@@ -396,9 +412,8 @@ const RiderAcceptPage: React.FC = () => {
                                         variant="destructive"
                                         className="flex-1"
                                         onClick={handleConfirmDecline}
-                                        disabled={isLoading}
                                     >
-                                        {isLoading ? 'Processing...' : 'Yes, Decline'}
+                                        Yes, Decline
                                     </Button>
                                 </div>
                             </CardContent>
@@ -409,14 +424,12 @@ const RiderAcceptPage: React.FC = () => {
                                 variant="outline"
                                 className="flex-1"
                                 onClick={handleDeclineClick}
-                                disabled={isLoading}
                             >
                                 Decline
                             </Button>
                             <Button
                                 className="flex-1"
                                 onClick={handleAcceptClick}
-                                disabled={isLoading}
                             >
                                 Accept Delivery
                             </Button>
