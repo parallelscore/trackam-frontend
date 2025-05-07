@@ -137,6 +137,49 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         }
     };
 
+    // Decline a delivery
+    const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                // Use mock service
+                const result = await mockDeliveryService.declineDelivery(trackingId);
+
+                if (result.success) {
+                    toast.success('Delivery declined successfully');
+                } else {
+                    toast.error(result.message ?? 'Failed to decline delivery');
+                    setError(result.message ?? 'Failed to decline delivery');
+                }
+
+                return result;
+            } else {
+                // Use real service
+                const result = await riderService.declineDelivery(trackingId);
+
+                if (result.success) {
+                    toast.success('Delivery declined successfully');
+                } else {
+                    toast.error(result.message ?? 'Failed to decline delivery');
+                    setError(result.message ?? 'Failed to decline delivery');
+                }
+
+                return result;
+            }
+        } catch (error) {
+            console.error('Error declining delivery:', error);
+            const errorMessage = 'Failed to decline delivery. Please try again.';
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, message: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+
     // Start tracking a delivery
     const startTracking = async (trackingId: string): Promise<{ success: boolean; message?: string; delivery?: Delivery }> => {
         setIsLoading(true);
@@ -255,41 +298,6 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         } catch (error) {
             console.error('Error completing delivery:', error);
             const errorMessage = 'Failed to complete delivery. Please try again.';
-            toast.error(errorMessage);
-            setError(errorMessage);
-            return { success: false, message: errorMessage };
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Decline a delivery
-    const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            if (USE_MOCK_SERVICE) {
-                // Use mock service
-                const result = await mockDeliveryService.declineDelivery(trackingId);
-
-                if (result.success) {
-                    toast.success('Delivery declined successfully');
-                } else {
-                    toast.error(result.message ?? 'Failed to decline delivery');
-                    setError(result.message ?? 'Failed to decline delivery');
-                }
-
-                return result;
-            } else {
-                // Would use real service here - currently not implemented in backend
-                // For now, just simulate success
-                toast.success('Delivery declined successfully');
-                return { success: true, message: 'Delivery declined successfully' };
-            }
-        } catch (error) {
-            console.error('Error declining delivery:', error);
-            const errorMessage = 'Failed to decline delivery. Please try again.';
             toast.error(errorMessage);
             setError(errorMessage);
             return { success: false, message: errorMessage };
