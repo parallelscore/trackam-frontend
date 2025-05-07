@@ -40,6 +40,7 @@ jobs:
           tags: ${{ secrets.DOCKER_USERNAME }}/${{ secrets.DOCKER_IMAGE_NAME }}:dev
           build-args: |
             VITE_PUBLIC_URL=${{ secrets.VITE_PUBLIC_URL }}
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
 
   Deploy-to-Kubernetes:
     needs: publish-the-docker-image

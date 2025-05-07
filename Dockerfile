@@ -2,9 +2,11 @@
 FROM node:20-alpine as build
 
 ARG VITE_PUBLIC_URL
+ARG VITE_API_URL
 
 # Set the environment variable
 ENV VITE_PUBLIC_URL=$VITE_PUBLIC_URL
+ENV VITE_API_URL=$VITE_API_URL
 
 # Set the working directory
 WORKDIR /app
@@ -23,6 +25,14 @@ RUN npm run build
 
 # Use Nginx to serve the production build
 FROM nginx:stable-alpine
+
+ARG VITE_PUBLIC_URL
+ARG VITE_API_URL
+
+# Set the environment variable
+ENV VITE_PUBLIC_URL=$VITE_PUBLIC_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 
 # Copy the build output from the Node.js container
 COPY --from=build /app/dist /usr/share/nginx/html
