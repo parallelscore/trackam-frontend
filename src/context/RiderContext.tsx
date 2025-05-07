@@ -1,14 +1,12 @@
 // src/context/RiderContext.tsx
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useState, ReactNode, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import riderService from '../services/riderService';
 import { mockDeliveryService } from '../services/mockDeliveryService';
 import { Delivery, OtpVerificationFormData, Location } from '@/types';
+import { USE_MOCK_SERVICE } from '../config/serviceConfig';
 
-// Toggle between mock service (for development) and real service
-const USE_MOCK_SERVICE = false; // Set to true to use mock service for testing
-
-interface RiderContextProps {
+export interface RiderContextProps {
     currentDelivery: Delivery | null;
     isLoading: boolean;
     error: string | null;
@@ -21,15 +19,7 @@ interface RiderContextProps {
     setCurrentDelivery: (delivery: Delivery | null) => void;
 }
 
-const RiderContext = createContext<RiderContextProps | undefined>(undefined);
-
-export const useRider = (): RiderContextProps => {
-    const context = useContext(RiderContext);
-    if (!context) {
-        throw new Error('useRider must be used within a RiderProvider');
-    }
-    return context;
-};
+export const RiderContext = createContext<RiderContextProps | undefined>(undefined);
 
 interface RiderProviderProps {
     children: ReactNode;
@@ -47,9 +37,9 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
         try {
             if (USE_MOCK_SERVICE) {
-                // Use mock service - adapt to use matching snake_case field names
+                // Use mock service - ensure we use the correct property names
                 const adaptedData = {
-                    trackingId: data.tracking_id,
+                    tracking_id: data.tracking_id,
                     otp: data.otp
                 };
 
@@ -59,8 +49,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     setCurrentDelivery(result.delivery);
                     toast.success('OTP verified successfully');
                 } else {
-                    toast.error(result.message || 'Failed to verify OTP');
-                    setError(result.message || 'Failed to verify OTP');
+                    toast.error(result.message ?? 'Failed to verify OTP');
+                    setError(result.message ?? 'Failed to verify OTP');
                 }
 
                 return result;
@@ -70,13 +60,13 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 const result = await riderService.verifyOTP(data);
 
                 if (result.success) {
-                    if (result.data && result.data.delivery) {
+                    if (result.data?.delivery) {
                         setCurrentDelivery(result.data.delivery);
                     }
                     toast.success('OTP verified successfully');
                 } else {
-                    toast.error(result.message || 'Failed to verify OTP');
-                    setError(result.message || 'Failed to verify OTP');
+                    toast.error(result.message ?? 'Failed to verify OTP');
+                    setError(result.message ?? 'Failed to verify OTP');
                 }
 
                 return result;
@@ -106,8 +96,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     setCurrentDelivery(result.delivery);
                     toast.success('Delivery assignment accepted');
                 } else {
-                    toast.error(result.message || 'Failed to accept delivery');
-                    setError(result.message || 'Failed to accept delivery');
+                    toast.error(result.message ?? 'Failed to accept delivery');
+                    setError(result.message ?? 'Failed to accept delivery');
                 }
 
                 return result;
@@ -117,13 +107,13 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 const result = await riderService.acceptDelivery(trackingId);
 
                 if (result.success) {
-                    if (result.data && result.data.delivery) {
+                    if (result.data?.delivery) {
                         setCurrentDelivery(result.data.delivery);
                     }
                     toast.success('Delivery assignment accepted');
                 } else {
-                    toast.error(result.message || 'Failed to accept delivery');
-                    setError(result.message || 'Failed to accept delivery');
+                    toast.error(result.message ?? 'Failed to accept delivery');
+                    setError(result.message ?? 'Failed to accept delivery');
                 }
 
                 return result;
@@ -153,8 +143,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     setCurrentDelivery(result.delivery);
                     toast.success('Tracking started successfully');
                 } else {
-                    toast.error(result.message || 'Failed to start tracking');
-                    setError(result.message || 'Failed to start tracking');
+                    toast.error(result.message ?? 'Failed to start tracking');
+                    setError(result.message ?? 'Failed to start tracking');
                 }
 
                 return result;
@@ -168,8 +158,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     }
                     toast.success('Tracking started successfully');
                 } else {
-                    toast.error(result.message || 'Failed to start tracking');
-                    setError(result.message || 'Failed to start tracking');
+                    toast.error(result.message ?? 'Failed to start tracking');
+                    setError(result.message ?? 'Failed to start tracking');
                 }
 
                 return result;
@@ -198,7 +188,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
                 return result;
             } else {
-                // Use real service - convert Location to expected format
+                // Use real service - convert Location to the expected format
                 const locationData = {
                     tracking_id: trackingId,
                     ...location
@@ -233,8 +223,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     setCurrentDelivery(result.delivery);
                     toast.success('Delivery completed successfully');
                 } else {
-                    toast.error(result.message || 'Failed to complete delivery');
-                    setError(result.message || 'Failed to complete delivery');
+                    toast.error(result.message ?? 'Failed to complete delivery');
+                    setError(result.message ?? 'Failed to complete delivery');
                 }
 
                 return result;
@@ -248,8 +238,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     }
                     toast.success('Delivery completed successfully');
                 } else {
-                    toast.error(result.message || 'Failed to complete delivery');
-                    setError(result.message || 'Failed to complete delivery');
+                    toast.error(result.message ?? 'Failed to complete delivery');
+                    setError(result.message ?? 'Failed to complete delivery');
                 }
 
                 return result;
@@ -278,8 +268,8 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 if (result.success) {
                     toast.success('Delivery declined successfully');
                 } else {
-                    toast.error(result.message || 'Failed to decline delivery');
-                    setError(result.message || 'Failed to decline delivery');
+                    toast.error(result.message ?? 'Failed to decline delivery');
+                    setError(result.message ?? 'Failed to decline delivery');
                 }
 
                 return result;
@@ -300,7 +290,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         }
     };
 
-    const value = {
+    const value = useMemo(() => ({
         currentDelivery,
         isLoading,
         error,
@@ -311,7 +301,13 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         completeDelivery,
         declineDelivery,
         setCurrentDelivery
-    };
+    }), [
+        currentDelivery,
+        isLoading,
+        error,
+        // Functions don't need to be in dependencies as they don't change between renders
+    ]);
 
     return <RiderContext.Provider value={value}>{children}</RiderContext.Provider>;
 };
+
