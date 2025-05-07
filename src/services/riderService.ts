@@ -74,6 +74,29 @@ const riderService = {
         }
     },
 
+    // Decline a delivery assignment
+    declineDelivery: async (tracking_id: string) => {
+        try {
+            console.log('Declining delivery with tracking ID:', tracking_id);
+            const response = await apiClient.post(`/rider/decline/${tracking_id}`);
+
+            return {
+                success: true,
+                data: response.data,
+                message: 'Delivery declined successfully',
+            };
+        } catch (error: any) {
+            const errorMessage =
+                error.response?.data?.detail ||
+                'Failed to decline delivery. Please try again.';
+            return {
+                success: false,
+                error: errorMessage,
+                message: errorMessage,
+            };
+        }
+    },
+
     // Start tracking a delivery
     startTracking: async (trackingId: string) => {
         try {
