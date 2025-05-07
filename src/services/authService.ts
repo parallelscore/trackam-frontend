@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Dynamically determine API URL based on current environment
+// Dynamically determine API URL based on the current environment
 export const determineApiUrl = () => {
     const hostname = window.location.hostname;
 
@@ -14,7 +14,7 @@ export const determineApiUrl = () => {
 };
 
 // Define base API URL from environment or use default
-const API_URL = import.meta.env.VITE_API_URL || determineApiUrl();
+const API_URL = import.meta.env.VITE_API_URL ?? determineApiUrl();
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
@@ -45,10 +45,13 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to send OTP. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to send OTP. Please try again.',
+                error: errorMessage
             };
         }
     },
@@ -72,11 +75,14 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
-            console.error('OTP verification error:', error.response?.data || error);
+        } catch (error: unknown) {
+            console.error("Registration OTP verification error:", error);
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Invalid OTP. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Invalid OTP. Please try again.',
+                error: errorMessage
             };
         }
     },
@@ -91,10 +97,13 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to send OTP. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to send OTP. Please try again.',
+                error: errorMessage,
             };
         }
     },
@@ -117,10 +126,13 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Invalid OTP. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Invalid OTP. Please try again.',
+                error: errorMessage
             };
         }
     },
@@ -141,11 +153,15 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
-            console.error("Profile completion error:", error.response?.data || error);
+        } catch (error: unknown) {
+            console.error("Profile completion error:", error);
+
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to complete profile. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to update profile. Please try again.',
+                error: errorMessage
             };
         }
     },
@@ -159,10 +175,13 @@ const authService = {
                 success: true,
                 data: response.data,
             };
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to fetch user data. Please try again.';
             return {
                 success: false,
-                error: error.response?.data?.detail || 'Failed to fetch user data.',
+                error: errorMessage,
             };
         }
     },
@@ -173,7 +192,7 @@ const authService = {
         localStorage.removeItem('user_id');
     },
 
-    // Check if user is authenticated
+    // Check if the user is authenticated
     isAuthenticated: () => {
         return !!localStorage.getItem('token');
     },
