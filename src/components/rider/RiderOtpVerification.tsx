@@ -6,8 +6,9 @@ import { useRider } from '../../context/RiderContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
-import { Form, FormItem, FormLabel, FormControl, FormErrorMessage, FormDescription } from '../ui/form';
+import { Form, FormItem, FormLabel, FormControl, FormErrorMessage } from '../ui/form';
 import { generateWhatsAppLink } from '@/utils/utils';
+import { Delivery } from '@/types';
 
 interface RiderOtpVerificationProps {
     trackingId: string;
@@ -21,9 +22,9 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
     const [countdown, setCountdown] = useState(0);
     const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<OtpVerificationFormData>({
+    const { register, handleSubmit, formState: { errors } } = useForm<OtpVerificationFormData>({
         defaultValues: {
-            trackingId,
+            tracking_id: trackingId, // Changed from trackingId to tracking_id
             otp: '',
         },
     });
@@ -50,10 +51,16 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         }
 
         try {
-            // First verify the OTP
-            console.log( 'Verifying OTP with data:', data);
-            const otpResult = await verifyOTP(data);
-            console.log( 'OTP verification result:', otpResult);
+            // Make sure tracking_id is set correctly
+            const otpData = {
+                ...data,
+                tracking_id: trackingId, // Explicitly set tracking_id to ensure it's correct
+            };
+
+            // First, verify the OTP
+            console.log('Verifying OTP with data:', otpData);
+            const otpResult = await verifyOTP(otpData);
+            console.log('OTP verification result:', otpResult);
 
             if (otpResult.success) {
                 // OTP is verified, now start tracking
@@ -78,10 +85,10 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         }
     };
 
-    const sendNotificationToCustomer = (delivery: any) => {
-        const customerMessage = `Hello ${delivery.customer.name}, your package "${delivery.package.description}" is now on its way! Your rider ${delivery.rider.name} has started the delivery. Track your package here: ${delivery.tracking.customerLink}`;
+    const sendNotificationToCustomer = (delivery: Delivery) => {
+        const customerMessage = `Hello ${delivery.customer.name}, your package "${delivery.package.description}" is now on its way! Your rider ${delivery.rider.name} has started the delivery. Track your package here: ${delivery.tracking.customer_link}`;
 
-        const whatsappLink = generateWhatsAppLink(delivery.customer.phoneNumber, customerMessage);
+        const whatsappLink = generateWhatsAppLink(delivery.customer.phone_number, customerMessage);
 
         // Open WhatsApp in a new tab
         window.open(whatsappLink, '_blank');
@@ -104,7 +111,7 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
     };
 
     const handleResendOTP = async () => {
-        // This would typically make an API call to resend the OTP
+        // This would typically make an API call to resend the OTP.
         // For now, we'll just simulate it with a countdown timer
         setResendDisabled(true);
         setCountdown(30);
@@ -121,7 +128,7 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         }, 1000);
 
         // Future implementation would call an API endpoint
-        // For now just reset the error
+        // For now reset the error
         setVerificationError(null);
     };
 
@@ -167,6 +174,13 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
                 </div>
 
                 <Form onSubmit={handleSubmit(onSubmit)}>
+                    {/* Hidden field for tracking_id */}
+                    <input
+                        type="hidden"
+                        {...register('tracking_id')}
+                        value={trackingId}
+                    />
+
                     <FormItem>
                         <FormLabel htmlFor="otp">One-Time Password (OTP)</FormLabel>
                         <FormControl>
