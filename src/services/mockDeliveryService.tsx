@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import {
     Delivery,
-    CreateDeliveryFormData,
     Location,
     OtpVerificationFormData,
     DeliveryStatus
@@ -17,7 +16,7 @@ const generateOTP = (): string => {
 };
 
 // Create a new delivery
-const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> => {
+const createDelivery = async (data: Delivery): Promise<Delivery> => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -30,7 +29,7 @@ const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> =
     const rider_link = `${baseUrl}/rider/${tracking_id}`;
     const customer_link = `${baseUrl}/track/${tracking_id}`;
 
-    // Create new delivery object with snake_case property names
+    // Create a new delivery object with snake_case property names
     const newDelivery: Delivery = {
         id,
         tracking_id,
@@ -40,14 +39,14 @@ const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> =
 
         customer: {
             name: data.customer.name,
-            phone_number: data.customer.phoneNumber,
+            phone_number: data.customer.phone_number,
             address: data.customer.address,
         },
 
         rider: {
             id: uuidv4(),
             name: data.rider.name,
-            phone_number: data.rider.phoneNumber,
+            phone_number: data.rider.phone_number,
         },
 
         vendor: {
@@ -58,7 +57,7 @@ const createDelivery = async (data: CreateDeliveryFormData): Promise<Delivery> =
         package: {
             description: data.package.description,
             size: data.package.size,
-            special_instructions: data.package.specialInstructions,
+            special_instructions: data.package.special_instructions,
         },
 
         tracking: {
@@ -104,7 +103,7 @@ const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: bool
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 700));
 
-    const delivery = deliveries.find(d => d.tracking_id === data.trackingId);
+    const delivery = deliveries.find(d => d.tracking_id === data.tracking_id);
 
     if (!delivery) {
         return { success: false, message: 'Delivery not found' };
