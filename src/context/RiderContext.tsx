@@ -1,5 +1,5 @@
 // src/context/RiderContext.tsx
-import React, { createContext, useState, ReactNode, useMemo } from 'react';
+import React, { createContext, useState, useContext, ReactNode, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import riderService from '../services/riderService';
 import { mockDeliveryService } from '../services/mockDeliveryService';
@@ -19,7 +19,15 @@ export interface RiderContextProps {
     setCurrentDelivery: (delivery: Delivery | null) => void;
 }
 
-export const RiderContext = createContext<RiderContextProps | undefined>(undefined);
+const RiderContext = createContext<RiderContextProps | undefined>(undefined);
+
+export const useRider = (): RiderContextProps => {
+    const context = useContext(RiderContext);
+    if (!context) {
+        throw new Error('useRider must be used within a RiderProvider');
+    }
+    return context;
+};
 
 interface RiderProviderProps {
     children: ReactNode;
