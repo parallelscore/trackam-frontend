@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/common/Layout';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { getStatusColor, getStatusText, formatDateTime } from '../utils/utils';
 import { requestLocationPermission, getLocationErrorMessage, notifyVendorOfDecline } from '../utils/riderUtils';
 import { useDelivery } from '../context/DeliveryContext';
+import {useRider} from '../context/RiderContext';
 
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
-    const { getDeliveryByTrackingId, acceptDelivery, declineDelivery, isLoading } = useDelivery();
+    const { acceptDelivery } = useRider();
+    const { getDeliveryByTrackingId, declineDelivery, isLoading } = useDelivery();
 
     const [delivery, setDelivery] = useState<any>(null);
     const [loadingDelivery, setLoadingDelivery] = useState(true);
