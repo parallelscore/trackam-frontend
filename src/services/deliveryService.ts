@@ -3,7 +3,7 @@ import axios from 'axios';
 import { determineApiUrl } from './authService';
 
 // Define base API URL from environment or determine dynamically
-const API_URL = import.meta.env.VITE_API_URL || determineApiUrl();
+const API_URL = import.meta.env.VITE_API_URL ?? determineApiUrl();
 
 // Create axios instance with default configuration
 const apiClient = axios.create({
@@ -47,7 +47,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch deliveries. Please try again.';
             return {
                 success: false,
@@ -82,7 +82,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to create delivery. Please try again.';
             return {
                 success: false,
@@ -101,7 +101,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch delivery. Please try again.';
             return {
                 success: false,
@@ -120,27 +120,8 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch delivery. Please try again.';
-            return {
-                success: false,
-                error: errorMessage,
-            };
-        }
-    },
-
-    // Cancel a delivery
-    cancelDelivery: async (trackingId: string) => {
-        try {
-            const response = await apiClient.post(`/deliveries/${trackingId}/cancel`);
-            return {
-                success: true,
-                data: response.data,
-            };
-        } catch (error: unknown) {
-            const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-                'Failed to cancel delivery. Please try again.';
             return {
                 success: false,
                 error: errorMessage,
@@ -158,7 +139,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch dashboard statistics. Please try again.';
             return {
                 success: false,
@@ -177,7 +158,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch delivery analytics. Please try again.';
             return {
                 success: false,
@@ -196,7 +177,7 @@ const deliveryService = {
             };
         } catch (error: unknown) {
             const errorMessage =
-                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
                 'Failed to fetch top riders. Please try again.';
             return {
                 success: false,
