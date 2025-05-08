@@ -1,4 +1,4 @@
-// src/pages/RiderPage.tsx - Updated with RiderContext
+// src/pages/RiderPage.tsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
@@ -7,11 +7,12 @@ import RiderTracker from '../components/rider/RiderTracker';
 import { useDelivery } from '../context/DeliveryContext';
 import { useRider } from '../context/RiderContext';
 import { Card, CardContent } from '../components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
+import { Button } from '../components/ui/button';
 
 const RiderPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
     const [searchParams] = useSearchParams();
-    // const navigate = useNavigate();
 
     // Get delivery info from DeliveryContext (for initial fetch)
     const { getDeliveryByTrackingId } = useDelivery();
@@ -21,7 +22,8 @@ const RiderPage: React.FC = () => {
         currentDelivery,
         setCurrentDelivery,
         isLoading,
-        error
+        error,
+        locationPermissionGranted
     } = useRider();
 
     const [isVerified, setIsVerified] = useState(false);
@@ -58,99 +60,113 @@ const RiderPage: React.FC = () => {
         setIsVerified(true);
     };
 
-    const renderContent = () => {
-        if (isLoading && !currentDelivery) {
-            return (
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="flex justify-center items-center h-32">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                        </div>
-                    </CardContent>
-                </Card>
-            );
-        }
-
-        if (error) {
-            return (
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="text-center text-red-600">
-                            <p>Error: {error}</p>
-                            <p className="mt-2">Please try again later.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            );
-        }
-
-        if (!currentDelivery) {
-            return (
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="text-center">
-                            <p>No delivery found with tracking ID: {trackingId}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            );
-        }
-
-        if (!isVerified) {
-            return (
-                <RiderOtpVerification
-                    trackingId={currentDelivery.trackingId}
-                    onVerified={handleVerified}
-                />
-            );
-        }
-
-        return <RiderTracker delivery={currentDelivery} />;
-    };
-
-    // If the user is accepting the delivery and the delivery exists
-    // but the tracking isn't started yet, render the OTP verification
-    const renderAcceptingContent = () => {
-        if (isLoading) {
-            return (
-                <div className="flex justify-center items-center h-32">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                </div>
-            );
-        }
-
-        if (error || !currentDelivery) {
-            return (
-                <div className="text-center text-red-600">
-                    <p>Error: {error || 'Delivery not found'}</p>
-                    <p className="mt-2">Please try again later.</p>
-                </div>
-            );
-        }
-
+    // If location permission hasn't been granted, we need to redirect back to the accept page
+    if (!locationPermissionGranted && trackingId && !isVerified) {
         return (
-            <RiderOtpVerification
-                trackingId={currentDelivery.trackingId}
-                onVerified={handleVerified}
-            />
+            <Layout>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <Card>
+                        <CardContent className="p-6">
+                            <Alert variant="warning" className="mb-6">
+                                <AlertTitle className="text-amber-800">Location Permission Required</AlertTitle>
+                                <AlertDescription className="text-amber-700">
+                                    <p className="mb-4">You need to accept this delivery and grant location permission first.</p>
+                                    <p>Please return to the acceptance page to continue the process.</p>
+                                </AlertDescription>
+                            </Alert>
+                            <div className="flex justify-center">
+                                <Button onClick={() => window.location.href = `/rider/accept/${trackingId}`}>
+                                    Return to Acceptance Page
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
         );
-    };
+    }
 
+    if (isLoading && !currentDelivery) {
+        return (
+            <Layout>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex justify-center items-center h-32">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
+        );
+    }
+
+    if (error) {
+        return (
+            <Layout>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="text-center text-red-600">
+                                <p>Error: {error}</p>
+                                <p className="mt-2">Please try again later.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
+        );
+    }
+
+    if (!currentDelivery) {
+        return (
+            <Layout>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="text-center">
+                                <p>No delivery found with tracking ID: {trackingId}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
+        );
+    }
+
+    // If not verified, show OTP verification
+    // Since location is already granted, we only need to verify OTP
+    if (!isVerified) {
+        return (
+            <Layout>
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="mb-6">
+                        <h1 className="text-2xl font-bold text-secondary text-center">Verify Your Identity</h1>
+                        <p className="text-gray-600 mt-2 text-center">
+                            Please enter the OTP code sent to you via WhatsApp
+                        </p>
+                    </div>
+                    <RiderOtpVerification
+                        trackingId={currentDelivery.trackingId}
+                        onVerified={handleVerified}
+                    />
+                </div>
+            </Layout>
+        );
+    }
+
+    // If verified, show the tracker
     return (
         <Layout>
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-secondary">Rider Delivery Tracking</h1>
+                    <h1 className="text-2xl font-bold text-secondary">Delivery Tracking</h1>
                     <p className="text-gray-600 mt-2">
-                        {isAccepting
-                            ? 'Verify your OTP to start the delivery tracking'
-                            : isVerified
-                                ? 'Track your delivery in real-time and update the customer'
-                                : 'Verify your OTP to start the delivery tracking'}
+                        Track your delivery in real-time and update the customer
                     </p>
                 </div>
-
-                {isAccepting ? renderAcceptingContent() : renderContent()}
+                <RiderTracker delivery={currentDelivery} />
             </div>
         </Layout>
     );
