@@ -10,6 +10,7 @@ export interface RiderContextProps {
     currentDelivery: Delivery | null;
     isLoading: boolean;
     error: string | null;
+    locationPermissionGranted: boolean;
     verifyOTP: (data: OtpVerificationFormData) => Promise<{ success: boolean; message?: string }>;
     acceptDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string; delivery?: Delivery }>;
     startTracking: (trackingId: string) => Promise<{ success: boolean; message?: string; delivery?: Delivery }>;
@@ -17,6 +18,7 @@ export interface RiderContextProps {
     completeDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string; delivery?: Delivery }>;
     declineDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
     setCurrentDelivery: (delivery: Delivery | null) => void;
+    setLocationPermissionGranted: (granted: boolean) => void;
 }
 
 const RiderContext = createContext<RiderContextProps | undefined>(undefined);
@@ -37,6 +39,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
     const [currentDelivery, setCurrentDelivery] = useState<Delivery | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
+    const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
 
     // Verify rider OTP
     const verifyOTP = async (data: OtpVerificationFormData): Promise<{ success: boolean; message?: string }> => {
@@ -64,7 +67,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 return result;
             } else {
                 // Use real service
-                console.log('Verifying OTP with datas:', data);
+                console.log('Verifying OTP with data:', data);
                 const result = await riderService.verifyOTP(data);
 
                 if (result.success) {
@@ -111,7 +114,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 return result;
             } else {
                 // Use real service
-                console.log('Accepting delivery with tracking IDs:', trackingId);
+                console.log('Accepting delivery with tracking ID:', trackingId);
                 const result = await riderService.acceptDelivery(trackingId);
 
                 if (result.success) {
@@ -316,11 +319,13 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         updateLocation,
         completeDelivery,
         declineDelivery,
-        setCurrentDelivery
+        setCurrentDelivery,
+        setLocationPermissionGranted
     }), [
         currentDelivery,
         isLoading,
         error,
+        locationPermissionGranted,
         // Functions don't need to be in dependencies as they don't change between renders
     ]);
 
