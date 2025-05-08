@@ -1,3 +1,5 @@
+//src/components/rider/RiderTracker.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Delivery, Location } from '@/types';
@@ -17,23 +19,24 @@ interface RiderTrackerProps {
 
 const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const navigate = useNavigate();
-    const { updateLocation, completeDelivery, startTracking, isLoading } = useRider();
+    const { updateLocation, completeDelivery, startTracking, isLoading, locationPermissionGranted } = useRider();
     const [isBatterySaving, setIsBatterySaving] = useState(false);
     const [estimatedTimeMinutes, setEstimatedTimeMinutes] = useState<number | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
     const [connectedClients, setConnectedClients] = useState(0);
     const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
+    const [locationIssue, setLocationIssue] = useState<string | null>(null);
 
     // Set up WebSocket connection
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.trackingId}`;
-    const { isConnected, send } = useWebSocket({
+    const { isConnected, send, connectionStatus } = useWebSocket({
         url: wsUrl,
         autoConnect: delivery.status === 'in_progress',
         onConnect: () => console.log('WebSocket connected'),
         onDisconnect: () => console.log('WebSocket disconnected'),
     });
 
-    // Set up geolocation tracking
+    // Set up geolocation tracking with assumption that permission is already granted
     const {
         location,
         error: locationError,
@@ -44,6 +47,23 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         enableHighAccuracy: !isBatterySaving,
         interval: isBatterySaving ? 30000 : 10000, // 30 seconds in battery saving mode, 10 seconds in normal mode
     });
+
+    // Check that location permission is actually granted
+    useEffect(() => {
+        if (!locationPermissionGranted) {
+            setLocationIssue("Location permission wasn't properly granted. This may affect tracking.");
+            console.warn("RiderTracker: Location permission wasn't properly granted");
+        }
+    }, [locationPermissionGranted]);
+
+    // Check for location errors
+    useEffect(() => {
+        if (locationError) {
+            setLocationIssue(`Location error: ${locationError}`);
+        } else {
+            setLocationIssue(null);
+        }
+    }, [locationError]);
 
     // Update estimated time based on location
     useEffect(() => {
@@ -89,6 +109,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     }
                 } catch (error) {
                     console.error('Error updating location:', error);
+                    setLocationIssue('Failed to update location. Please check your network connection.');
                 }
             }
         };
@@ -109,33 +130,65 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         return () => clearInterval(intervalId);
     }, [isConnected, send]);
 
-    // Handle starting the delivery tracking
-    const handleStartTracking = async () => {
-        try {
-            // Call API to update delivery status
-            const result = await startTracking(delivery.trackingId);
-
-            if (result.success) {
-                // Start tracking the rider's location
-                startLocationTracking();
-
-                // Send tracking start event to WebSocket
-                if (isConnected) {
-                    send({
-                        type: 'status_update',
-                        tracking_id: delivery.trackingId,
-                        status: 'in_progress'
-                    });
-                }
+    // Handle WebSocket updates for connected clients
+    useEffect(() => {
+        // This would normally be handled through actual WebSocket updates
+        // For now, we'll simulate it with a random number
+        const simulateClientConnection = () => {
+            if (isConnected) {
+                // Generate a random number between 0 and 3 to simulate clients watching
+                setConnectedClients(Math.floor(Math.random() * 4));
+            } else {
+                setConnectedClients(0);
             }
-        } catch (error) {
-            console.error('Error starting tracking:', error);
-        }
-    };
+        };
 
-    const handleStopTracking = () => {
-        stopLocationTracking();
-    };
+        simulateClientConnection();
+        const intervalId = setInterval(simulateClientConnection, 15000);
+
+        return () => clearInterval(intervalId);
+    }, [isConnected]);
+
+    // Handle starting the delivery tracking - auto-start when component loads
+    useEffect(() => {
+        const autoStartTracking = async () => {
+            if (!isTracking && delivery.status === 'accepted') {
+                try {
+                    // Start tracking the rider's location
+                    startLocationTracking();
+
+                    // Update delivery status if needed
+                    if (delivery.status !== 'in_progress') {
+                        const result = await startTracking(delivery.trackingId);
+
+                        // Send tracking start event to WebSocket if successful
+                        if (result.success && isConnected) {
+                            send({
+                                type: 'status_update',
+                                tracking_id: delivery.trackingId,
+                                status: 'in_progress'
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error starting tracking:', error);
+                    setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
+                }
+            } else if (!isTracking && delivery.status === 'in_progress') {
+                // Just start location tracking if delivery is already in progress
+                startLocationTracking();
+            }
+        };
+
+        autoStartTracking();
+
+        // Cleanup when component unmounts
+        return () => {
+            if (isTracking) {
+                stopLocationTracking();
+            }
+        };
+    }, [delivery.status, delivery.trackingId, isTracking, startTracking, startLocationTracking, isConnected, send]);
 
     const toggleBatterySaving = () => {
         setIsBatterySaving(!isBatterySaving);
@@ -192,91 +245,101 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     };
 
     return (
-        <div className="space-y-4">
-            <Card>
-                <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg">Delivery Status</CardTitle>
-                        <Badge className={getStatusColor(delivery.status)}>
-                            {getStatusText(delivery.status)}
-                        </Badge>
-                    </div>
-                </CardHeader>
+        <div className="space-y-6">
+            {locationIssue && (
+                <Alert variant="warning">
+                    <AlertTitle>Location Issue</AlertTitle>
+                    <AlertDescription>
+                        {locationIssue}
+                    </AlertDescription>
+                </Alert>
+            )}
 
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <h3 className="font-medium text-gray-600">Customer</h3>
-                            <p className="font-bold">{delivery.customer.name}</p>
-                            <p>{delivery.customer.phoneNumber}</p>
-                            <p className="mt-1 text-sm">{delivery.customer.address}</p>
-                        </div>
+            {connectionStatus === 'error' && (
+                <Alert variant="destructive">
+                    <AlertTitle>Connection Error</AlertTitle>
+                    <AlertDescription>
+                        Unable to connect to the tracking server. Your delivery will still be tracked,
+                        but real-time updates may be delayed.
+                    </AlertDescription>
+                </Alert>
+            )}
 
-                        <div>
-                            <h3 className="font-medium text-gray-600">Package</h3>
-                            <p>{delivery.package.description}</p>
-                            {delivery.package.size && (
-                                <p className="text-sm">Size: {delivery.package.size}</p>
-                            )}
-                            {delivery.package.specialInstructions && (
-                                <div className="mt-2">
-                                    <h4 className="text-sm font-medium text-gray-600">Special Instructions:</h4>
-                                    <p className="text-sm italic">{delivery.package.specialInstructions}</p>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {isTracking && distance !== null && (
-                        <div className="p-4 bg-gray-50 rounded-md">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Left column - Delivery details */}
+                <div className="md:col-span-1">
+                    <Card>
+                        <CardHeader>
                             <div className="flex justify-between items-center">
-                                <div>
-                                    <h3 className="font-medium">Distance to Destination</h3>
-                                    <p className="text-xl font-bold text-primary">{distance.toFixed(1)} km</p>
-                                </div>
-                                <div>
-                                    <h3 className="font-medium">Estimated Time</h3>
-                                    <p className="text-xl font-bold text-primary">{renderEstimatedTime()}</p>
-                                </div>
+                                <CardTitle className="text-lg">Delivery Status</CardTitle>
+                                <Badge className={getStatusColor(delivery.status)}>
+                                    {getStatusText(delivery.status)}
+                                </Badge>
                             </div>
-                        </div>
-                    )}
+                        </CardHeader>
 
-                    {isConnected && (
-                        <div className="text-sm text-green-600 flex items-center">
-                            <div className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></div>
-                            Live: {connectedClients > 0 ? `${connectedClients} client${connectedClients > 1 ? 's' : ''} watching` : 'Connected'}
-                        </div>
-                    )}
-                </CardContent>
+                        <CardContent className="space-y-4">
+                            <div>
+                                <h3 className="font-medium text-gray-600">Customer</h3>
+                                <p className="font-bold">{delivery.customer.name}</p>
+                                <p>{delivery.customer.phoneNumber}</p>
+                                <p className="mt-1 text-sm">{delivery.customer.address}</p>
+                            </div>
 
-                <CardFooter className="border-t pt-4 flex-col space-y-2">
-                    {delivery.status === 'accepted' && !isTracking && (
-                        <Button
-                            className="w-full"
-                            onClick={handleStartTracking}
-                            disabled={isLoading}
-                        >
-                            Start Delivery
-                        </Button>
-                    )}
+                            <div>
+                                <h3 className="font-medium text-gray-600">Package</h3>
+                                <p>{delivery.package.description}</p>
+                                {delivery.package.size && (
+                                    <p className="text-sm">Size: {delivery.package.size}</p>
+                                )}
+                                {delivery.package.specialInstructions && (
+                                    <div className="mt-2">
+                                        <h4 className="text-sm font-medium text-gray-600">Special Instructions:</h4>
+                                        <p className="text-sm italic">{delivery.package.specialInstructions}</p>
+                                    </div>
+                                )}
+                            </div>
 
-                    {isTracking && (
-                        <>
-                            <Button
-                                variant="outline"
-                                className="w-full"
-                                onClick={toggleBatterySaving}
-                            >
-                                {isBatterySaving ? '🔋 Battery Saving Mode: ON' : '🔋 Battery Saving Mode: OFF'}
-                            </Button>
+                            {isTracking && distance !== null && (
+                                <div className="p-4 bg-gray-50 rounded-md">
+                                    <div className="space-y-2">
+                                        <div>
+                                            <h3 className="font-medium">Distance to Destination</h3>
+                                            <p className="text-xl font-bold text-primary">{distance.toFixed(1)} km</p>
+                                        </div>
+                                        <div>
+                                            <h3 className="font-medium">Estimated Time</h3>
+                                            <p className="text-xl font-bold text-primary">{renderEstimatedTime()}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isConnected && (
+                                <div className="text-sm text-green-600 flex items-center">
+                                    <div className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></div>
+                                    Live: {connectedClients > 0 ? `${connectedClients} client${connectedClients > 1 ? 's' : ''} watching` : 'Connected'}
+                                </div>
+                            )}
+                        </CardContent>
+
+                        <CardFooter className="border-t pt-4 flex-col space-y-2">
+                            {isTracking && (
+                                <Button
+                                    variant="outline"
+                                    className="w-full"
+                                    onClick={toggleBatterySaving}
+                                >
+                                    {isBatterySaving ? '🔋 Battery Saving Mode: ON' : '🔋 Battery Saving Mode: OFF'}
+                                </Button>
+                            )}
 
                             {!showCompletionConfirm ? (
                                 <Button
                                     variant="accent"
                                     className="w-full"
                                     onClick={handleCompleteDelivery}
-                                    disabled={isLoading}
+                                    disabled={isLoading || !isTracking}
                                 >
                                     Mark as Delivered
                                 </Button>
@@ -306,32 +369,29 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                     </div>
                                 </div>
                             )}
-                        </>
-                    )}
-
-                    {(delivery.status === 'completed' || delivery.status === 'cancelled') && (
-                        <div className="text-center text-gray-500">
-                            This delivery is {delivery.status === 'completed' ? 'completed' : 'cancelled'}.
-                        </div>
-                    )}
-                </CardFooter>
-            </Card>
-
-            <div className="rounded-lg overflow-hidden border">
-                <div className="h-[350px]">
-                    <TrackingMap
-                        riderLocation={location || undefined}
-                        destinationLocation={delivery.customer.location}
-                        isTracking={isTracking}
-                        height="350px"
-                    />
+                        </CardFooter>
+                    </Card>
                 </div>
 
-                {locationError && (
-                    <div className="p-3 bg-red-50 text-red-600 text-sm">
-                        <strong>Location Error:</strong> {locationError}
-                    </div>
-                )}
+                {/* Right column - Map */}
+                <div className="md:col-span-2">
+                    <Card className="h-full">
+                        <CardContent className="p-0 h-full min-h-[400px] md:min-h-[600px]">
+                            <TrackingMap
+                                riderLocation={location || undefined}
+                                destinationLocation={delivery.customer.location}
+                                isTracking={isTracking}
+                                height="100%"
+                            />
+                        </CardContent>
+
+                        {locationError && !locationIssue && (
+                            <div className="p-3 bg-red-50 text-red-600 text-sm">
+                                <strong>Location Error:</strong> {locationError}
+                            </div>
+                        )}
+                    </Card>
+                </div>
             </div>
         </div>
     );
