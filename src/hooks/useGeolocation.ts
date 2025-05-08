@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+// src/hooks/useGeolocation.ts
+import { useState, useEffect, useRef } from 'react';
 import { Location } from '@/types';
 
 interface GeolocationOptions {
@@ -6,6 +7,7 @@ interface GeolocationOptions {
     timeout?: number;
     maximumAge?: number;
     interval?: number;
+    skipInitialPermissionCheck?: boolean; // New option to skip permission checking
 }
 
 interface UseGeolocationResult {
@@ -20,14 +22,17 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
     const [location, setLocation] = useState<Location | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isTracking, setIsTracking] = useState<boolean>(false);
-    const [watchId, setWatchId] = useState<number | null>(null);
-    const [intervalId, setIntervalId] = useState<number | null>(null);
+    const watchId = useRef<number | null>(null);
+    const intervalId = useRef<number | null>(null);
+    const retryCount = useRef<number>(0);
+    const maxRetries = 3;
 
     const {
         enableHighAccuracy = true,
         timeout = 5000,
         maximumAge = 0,
-        interval = 15000, // 15 seconds interval for polling
+        interval = 15000, // 15-second interval for polling
+        skipInitialPermissionCheck = false // Skip the permission check if we know it's already granted
     } = options;
 
     const handleSuccess = (position: GeolocationPosition) => {
@@ -43,10 +48,38 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
         });
 
         setError(null);
+        retryCount.current = 0; // Reset retry count on success
     };
 
     const handleError = (error: GeolocationPositionError) => {
-        setError(error.message);
+        if (retryCount.current < maxRetries) {
+            // Try again with a slight delay
+            retryCount.current++;
+            setTimeout(() => {
+                navigator.geolocation.getCurrentPosition(
+                    handleSuccess,
+                    handleError,
+                    { enableHighAccuracy, timeout, maximumAge }
+                );
+            }, 1000);
+            return;
+        }
+
+        let errorMessage = 'Unknown location error';
+
+        switch (error.code) {
+            case error.PERMISSION_DENIED:
+                errorMessage = 'Location permission denied';
+                break;
+            case error.POSITION_UNAVAILABLE:
+                errorMessage = 'Location information unavailable';
+                break;
+            case error.TIMEOUT:
+                errorMessage = 'Location request timeout';
+                break;
+        }
+
+        setError(errorMessage);
     };
 
     const startTracking = () => {
@@ -57,61 +90,59 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
 
         setIsTracking(true);
 
-        // Initial position
-        navigator.geolocation.getCurrentPosition(
-            handleSuccess,
-            handleError,
-            { enableHighAccuracy, timeout, maximumAge }
-        );
+        // Initial position - can skip the permission check if we know it's already granted
+        if (!skipInitialPermissionCheck) {
+            navigator.geolocation.getCurrentPosition(
+                handleSuccess,
+                handleError,
+                { enableHighAccuracy, timeout, maximumAge }
+            );
+        }
 
         // Watch position for continuous updates
-        const id = navigator.geolocation.watchPosition(
+        watchId.current = navigator.geolocation.watchPosition(
             handleSuccess,
             handleError,
             { enableHighAccuracy, timeout, maximumAge }
         );
-
-        setWatchId(id);
 
         // Set up interval for more controlled updates
         // This helps with battery optimization
-        const intervalIdValue = window.setInterval(() => {
+        intervalId.current = window.setInterval(() => {
             navigator.geolocation.getCurrentPosition(
                 handleSuccess,
                 handleError,
                 { enableHighAccuracy, timeout, maximumAge }
             );
         }, interval);
-
-        setIntervalId(intervalIdValue);
     };
 
     const stopTracking = () => {
         setIsTracking(false);
 
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            setWatchId(null);
+        if (watchId.current !== null) {
+            navigator.geolocation.clearWatch(watchId.current);
+            watchId.current = null;
         }
 
-        if (intervalId !== null) {
-            clearInterval(intervalId);
-            setIntervalId(null);
+        if (intervalId.current !== null) {
+            clearInterval(intervalId.current);
+            intervalId.current = null;
         }
     };
 
-    // Clean up on unmount
+    // Clean up on unmounting
     useEffect(() => {
         return () => {
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
+            if (watchId.current !== null) {
+                navigator.geolocation.clearWatch(watchId.current);
             }
 
-            if (intervalId !== null) {
-                clearInterval(intervalId);
+            if (intervalId.current !== null) {
+                clearInterval(intervalId.current);
             }
         };
-    }, [watchId, intervalId]);
+    }, []);
 
     return { location, error, isTracking, startTracking, stopTracking };
 };
