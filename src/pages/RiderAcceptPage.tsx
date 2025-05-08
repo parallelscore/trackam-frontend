@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/common/Layout';
-import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
@@ -19,7 +19,7 @@ import { useRider } from '../context/RiderContext';
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
-    const { acceptDelivery, declineDelivery } = useRider();
+    const { acceptDelivery, declineDelivery, setLocationPermissionGranted } = useRider();
     const { getDeliveryByTrackingId, isLoading } = useDelivery();
 
     const [delivery, setDelivery] = useState<any>(null);
@@ -34,6 +34,7 @@ const RiderAcceptPage: React.FC = () => {
     const [isAccepted, setIsAccepted] = useState(false);
     const [isDeclined, setIsDeclined] = useState(false);
     const [showLocationSettings, setShowLocationSettings] = useState(false);
+    const [showImportantInfo, setShowImportantInfo] = useState(false);
 
     // Detect platform
     useEffect(() => {
@@ -98,6 +99,8 @@ const RiderAcceptPage: React.FC = () => {
             const result = await acceptDelivery(tracking_id);
 
             if (result.success) {
+                // Update location permission status in context
+                setLocationPermissionGranted(true);
                 setIsAccepted(true);
                 // Navigate to the rider tracking page
                 navigate(`/rider/${tracking_id}`);
@@ -175,10 +178,56 @@ const RiderAcceptPage: React.FC = () => {
         handleConfirmAccept();
     };
 
+    const toggleImportantInfo = () => {
+        setShowImportantInfo(prev => !prev);
+    };
+
+    const ImportantInfoModal = () => (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-5">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-yellow-800">Important Information</h3>
+                        <button
+                            onClick={() => setShowImportantInfo(false)}
+                            className="text-gray-500 hover:text-gray-700"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div className="text-yellow-700">
+                        <p className="mb-3">
+                            By accepting this delivery, you agree to the following terms and conditions:
+                        </p>
+                        <ul className="list-disc list-inside space-y-2 mb-4">
+                            <li>Pick up the package immediately from the vendor</li>
+                            <li>Share your real-time location during the delivery process</li>
+                            <li>Deliver the package to the specified address in a timely manner</li>
+                            <li>Contact the customer upon arrival at the delivery location</li>
+                            <li>Handle the package with care and ensure it remains in good condition</li>
+                            <li>Obtain confirmation from the customer upon successful delivery</li>
+                            <li>Notify the vendor of any issues or delays during the delivery process</li>
+                        </ul>
+                        <p className="text-sm italic">
+                            Failure to comply with these terms may affect your rider rating and future delivery opportunities.
+                        </p>
+                    </div>
+                </div>
+                <div className="bg-gray-50 px-5 py-3 flex justify-end rounded-b-lg">
+                    <Button onClick={() => setShowImportantInfo(false)}>
+                        I Understand
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+
     if (loadingDelivery || isLoading) {
         return (
             <Layout>
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold text-secondary text-center">Delivery Assignment</h1>
                         <p className="text-gray-600 mt-2 text-center">
@@ -200,7 +249,7 @@ const RiderAcceptPage: React.FC = () => {
     if (error || !delivery) {
         return (
             <Layout>
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold text-secondary text-center">Delivery Assignment</h1>
                     </div>
@@ -223,7 +272,7 @@ const RiderAcceptPage: React.FC = () => {
     if (isDeclined) {
         return (
             <Layout>
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                     <div className="mb-6">
                         <h1 className="text-2xl font-bold text-secondary text-center">Delivery Declined</h1>
                     </div>
@@ -244,202 +293,206 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
+    // Improved layout with responsive design
     return (
         <Layout>
-            <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="mb-6">
+            {showImportantInfo && <ImportantInfoModal />}
+
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="mb-4">
                     <h1 className="text-2xl font-bold text-secondary text-center">Delivery Assignment</h1>
                     <p className="text-gray-600 mt-2 text-center">
                         Review and accept this delivery
                     </p>
                 </div>
 
-                <div className="max-w-md mx-auto space-y-6">
-                    <div className="text-center mb-2">
-                        <Badge className={getStatusColor(delivery.status)}>
-                            {getStatusText(delivery.status)}
-                        </Badge>
-                        <h2 className="text-xl font-bold text-secondary mt-2">New Delivery Request</h2>
-                        <p className="text-gray-600">
-                            Review the details below and choose to accept or decline
-                        </p>
-                    </div>
+                {locationError && (
+                    <Alert variant="destructive" className="mb-4">
+                        <AlertTitle>Location Access Required</AlertTitle>
+                        <AlertDescription className="space-y-2">
+                            <p>{locationError}</p>
+                            {showLocationSettings && (
+                                <div className="text-sm mt-2">
+                                    <h4 className="font-semibold">How to enable location on {platformName}:</h4>
+                                    <p className="mt-1">{getLocationSettingsUrl()}</p>
 
-                    {locationError && (
-                        <Alert variant="destructive">
-                            <AlertTitle>Location Access Required</AlertTitle>
-                            <AlertDescription className="space-y-2">
-                                <p>{locationError}</p>
-                                {showLocationSettings && (
-                                    <div className="text-sm mt-2">
-                                        <h4 className="font-semibold">How to enable location on {platformName}:</h4>
-                                        <p className="mt-1">{getLocationSettingsUrl()}</p>
+                                    <div className="flex justify-center mt-3">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleRetryLocation}
+                                            className="text-primary"
+                                        >
+                                            Try Again
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </AlertDescription>
+                    </Alert>
+                )}
 
-                                        <div className="flex justify-center mt-3">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={handleRetryLocation}
-                                                className="text-primary"
-                                            >
-                                                Try Again
-                                            </Button>
-                                        </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column - Package Info */}
+                    <div>
+                        <Card className="h-full">
+                            <CardHeader>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle className="text-lg">Package Information</CardTitle>
+                                    <Badge className={getStatusColor(delivery.status)}>
+                                        {getStatusText(delivery.status)}
+                                    </Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-600">Description</h3>
+                                    <p className="font-medium">{delivery.package.description}</p>
+                                </div>
+
+                                {delivery.package.size && (
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-600">Size</h3>
+                                        <p className="capitalize">{delivery.package.size}</p>
                                     </div>
                                 )}
-                            </AlertDescription>
-                        </Alert>
-                    )}
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Package Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-600">Description</h3>
-                                <p className="font-medium">{delivery.package.description}</p>
-                            </div>
+                                {delivery.package.special_instructions && (
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-600">Special Instructions</h3>
+                                        <p className="italic">{delivery.package.special_instructions}</p>
+                                    </div>
+                                )}
 
-                            {delivery.package.size && (
                                 <div>
-                                    <h3 className="text-sm font-medium text-gray-600">Size</h3>
-                                    <p className="capitalize">{delivery.package.size}</p>
+                                    <h3 className="text-sm font-medium text-gray-600">Created</h3>
+                                    <p>{formatDateTime(delivery.created_at)}</p>
                                 </div>
-                            )}
-
-                            {delivery.package.special_instructions && (
-                                <div>
-                                    <h3 className="text-sm font-medium text-gray-600">Special Instructions</h3>
-                                    <p className="italic">{delivery.package.special_instructions}</p>
-                                </div>
-                            )}
-
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-600">Created</h3>
-                                <p>{formatDateTime(delivery.created_at)}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Customer Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-600">Name</h3>
-                                <p className="font-medium">{delivery.customer.name}</p>
-                            </div>
-
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-600">Phone Number</h3>
-                                <p>{delivery.customer.phone_number}</p>
-                            </div>
-
-                            <div>
-                                <h3 className="text-sm font-medium text-gray-600">Delivery Address</h3>
-                                <p>{delivery.customer.address}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                        <div className="flex items-start space-x-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                            </svg>
-                            <div>
-                                <h3 className="font-semibold text-yellow-800">Important Information</h3>
-                                <p className="text-sm text-yellow-700 mt-1">
-                                    By accepting this delivery, you agree to:
-                                </p>
-                                <ul className="list-disc list-inside text-sm text-yellow-700 mt-1 space-y-1">
-                                    <li>Pick up the package immediately</li>
-                                    <li>Share your real-time location</li>
-                                    <li>Deliver to the specified address</li>
-                                    <li>Contact the customer upon arrival</li>
-                                </ul>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
                     </div>
 
-                    {showAcceptConfirmation ? (
-                        <Card className="border-primary">
-                            <CardContent className="pt-6">
-                                <AlertTitle className="font-bold text-center mb-2">Confirm Acceptance</AlertTitle>
-                                <AlertDescription className="text-center mb-4">
-                                    <p>Are you sure you want to accept this delivery?</p>
-                                    <p className="text-sm text-amber-600 mt-2">
-                                        We'll need access to your location to track the delivery.
-                                    </p>
-                                </AlertDescription>
-                                <div className="flex gap-3">
-                                    <Button
-                                        variant="outline"
-                                        className="flex-1"
-                                        onClick={() => setShowAcceptConfirmation(false)}
-                                        disabled={isLoading}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        className="flex-1"
-                                        onClick={handleConfirmAccept}
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? 'Processing...' : 'Yes, Accept Delivery'}
-                                    </Button>
+                    {/* Right Column - Customer Info */}
+                    <div>
+                        <Card className="h-full">
+                            <CardHeader>
+                                <CardTitle className="text-lg">Customer Information</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-600">Name</h3>
+                                    <p className="font-medium">{delivery.customer.name}</p>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    ) : showDeclineConfirmation ? (
-                        <Card className="border-destructive">
-                            <CardContent className="pt-6">
-                                <AlertTitle className="font-bold text-center mb-2">Confirm Decline</AlertTitle>
-                                <AlertDescription className="text-center mb-4">
-                                    Are you sure you want to decline this delivery?
-                                </AlertDescription>
-                                <div className="flex gap-3">
-                                    <Button
-                                        variant="outline"
-                                        className="flex-1"
-                                        onClick={() => setShowDeclineConfirmation(false)}
-                                    >
-                                        Cancel
-                                    </Button>
-                                    <Button
-                                        variant="destructive"
-                                        className="flex-1"
-                                        onClick={handleConfirmDecline}
-                                    >
-                                        Yes, Decline
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="flex gap-3">
-                            <Button
-                                variant="outline"
-                                className="flex-1"
-                                onClick={handleDeclineClick}
-                            >
-                                Decline
-                            </Button>
-                            <Button
-                                className="flex-1"
-                                onClick={handleAcceptClick}
-                            >
-                                Accept Delivery
-                            </Button>
-                        </div>
-                    )}
 
-                    <div className="text-center text-sm text-gray-500">
-                        By accepting, you agree to deliver this package to the specified address in a timely manner.
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-600">Phone Number</h3>
+                                    <p>{delivery.customer.phone_number}</p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-600">Delivery Address</h3>
+                                    <p>{delivery.customer.address}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
+
+                {/* Important Info Button - Centered and outside the grid */}
+                <div className="flex justify-center my-6">
+                    <Button
+                        variant="outline"
+                        onClick={toggleImportantInfo}
+                        className="text-yellow-700 border-yellow-300 bg-yellow-50 hover:bg-yellow-100 hover:text-yellow-800"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        View Important Delivery Information
+                    </Button>
+                </div>
+
+                {/* Accept/Decline Confirmation Cards */}
+                {showAcceptConfirmation ? (
+                    <Card className="border-primary mb-6">
+                        <CardContent className="pt-6">
+                            <AlertTitle className="font-bold text-center mb-2">Confirm Acceptance</AlertTitle>
+                            <AlertDescription className="text-center mb-4">
+                                <p>Are you sure you want to accept this delivery?</p>
+                                <p className="text-sm text-amber-600 mt-2">
+                                    We'll need access to your location to track the delivery.
+                                </p>
+                            </AlertDescription>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setShowAcceptConfirmation(false)}
+                                    disabled={isLoading}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleConfirmAccept}
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? 'Processing...' : 'Yes, Accept Delivery'}
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : showDeclineConfirmation ? (
+                    <Card className="border-destructive mb-6">
+                        <CardContent className="pt-6">
+                            <AlertTitle className="font-bold text-center mb-2">Confirm Decline</AlertTitle>
+                            <AlertDescription className="text-center mb-4">
+                                Are you sure you want to decline this delivery?
+                            </AlertDescription>
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setShowDeclineConfirmation(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    className="flex-1"
+                                    onClick={handleConfirmDecline}
+                                >
+                                    Yes, Decline
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Card className="mb-6">
+                        <CardContent className="p-6">
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={handleDeclineClick}
+                                >
+                                    Decline
+                                </Button>
+                                <Button
+                                    className="flex-1"
+                                    onClick={handleAcceptClick}
+                                >
+                                    Accept Delivery
+                                </Button>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="bg-gray-50 border-t px-6 py-3">
+                            <p className="text-center text-sm text-gray-500 w-full">
+                                By accepting, you agree to deliver this package to the specified address in a timely manner.
+                            </p>
+                        </CardFooter>
+                    </Card>
+                )}
             </div>
         </Layout>
     );
