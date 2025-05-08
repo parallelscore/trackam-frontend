@@ -95,15 +95,32 @@ const RiderAcceptPage: React.FC = () => {
     const handleLocationSuccess = async (position: GeolocationPosition) => {
         if (!tracking_id) return;
 
+        // Log the position (for debugging)
+        console.log('Initial rider position:', {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+            timestamp: new Date(position.timestamp).toISOString(),
+            trackingId: tracking_id
+        });
+
         try {
             const result = await acceptDelivery(tracking_id);
+            console.log('Accept delivery result:', result);
 
             if (result.success) {
-                // Update location permission status in context
+                // CRUCIAL: Store permission in localStorage BEFORE navigation
+                localStorage.setItem('trackam_location_permission_granted', 'true');
+
+                // Update context state
                 setLocationPermissionGranted(true);
                 setIsAccepted(true);
-                // Navigate to the rider tracking page
-                navigate(`/rider/${tracking_id}`);
+
+                // Add a brief delay before navigation to ensure state is saved
+                setTimeout(() => {
+                    // Pass permission status as URL parameter for extra certainty
+                    navigate(`/rider/${tracking_id}?locationGranted=true`);
+                }, 100);
             } else {
                 setError(result.message || 'Failed to accept delivery');
             }
