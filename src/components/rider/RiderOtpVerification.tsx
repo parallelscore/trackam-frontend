@@ -1,5 +1,5 @@
-// src/components/rider/RiderOtpVerification.tsx - Updated with RiderContext
-import React, { useState, useEffect } from 'react';
+// src/components/rider/RiderOtpVerification.tsx
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { OtpVerificationFormData } from '@/types';
 import { useRider } from '../../context/RiderContext';
@@ -16,38 +16,27 @@ interface RiderOtpVerificationProps {
 }
 
 const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId, onVerified }) => {
-    const { verifyOTP, startTracking, currentDelivery, isLoading } = useRider();
+    const { verifyOTP, startTracking, currentDelivery, isLoading, locationPermissionGranted } = useRider();
     const [verificationError, setVerificationError] = useState<string | null>(null);
     const [resendDisabled, setResendDisabled] = useState(false);
     const [countdown, setCountdown] = useState(0);
-    const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
     const { register, handleSubmit, formState: { errors } } = useForm<OtpVerificationFormData>({
         defaultValues: {
-            tracking_id: trackingId, // Changed from trackingId to tracking_id
+            tracking_id: trackingId,
             otp: '',
         },
     });
 
-    useEffect(() => {
-        // Check for location permission
-        if (navigator.permissions) {
-            navigator.permissions.query({ name: 'geolocation' }).then(permissionStatus => {
-                setLocationPermissionGranted(permissionStatus.state === 'granted');
-
-                permissionStatus.onchange = () => {
-                    setLocationPermissionGranted(permissionStatus.state === 'granted');
-                };
-            });
-        }
-    }, []);
-
     const onSubmit = async (data: OtpVerificationFormData) => {
         setVerificationError(null);
 
+        // No need to check for location permission - it should already be granted
+        // from the accept page and stored in the context
+
         if (!locationPermissionGranted) {
-            setVerificationError("Location permission is required. Please enable location services and try again.");
-            return;
+            console.warn("Location permission not granted before OTP verification - flow may be incorrect");
+            // We still continue with OTP verification since permission should have been granted earlier
         }
 
         try {
@@ -94,22 +83,6 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         window.open(whatsappLink, '_blank');
     };
 
-    const handleRequestLocationPermission = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                () => {
-                    setLocationPermissionGranted(true);
-                },
-                (error) => {
-                    console.error('Geolocation error:', error);
-                    setVerificationError('Location permission denied. Please enable location services in your browser settings.');
-                }
-            );
-        } else {
-            setVerificationError('Geolocation is not supported by this browser.');
-        }
-    };
-
     const handleResendOTP = async () => {
         // This would typically make an API call to resend the OTP.
         // For now, we'll just simulate it with a countdown timer
@@ -132,34 +105,6 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         setVerificationError(null);
     };
 
-    if (!locationPermissionGranted) {
-        return (
-            <Card className="w-full max-w-md mx-auto shadow-md">
-                <CardHeader className="text-center">
-                    <CardTitle className="text-xl">Location Permission Required</CardTitle>
-                </CardHeader>
-
-                <CardContent className="p-6">
-                    <div className="mb-6 text-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-primary" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-                        </svg>
-                        <p className="mt-4 text-gray-600">
-                            We need your location to track this delivery. This allows customers to see your real-time location during delivery.
-                        </p>
-                    </div>
-
-                    <Button
-                        className="w-full"
-                        onClick={handleRequestLocationPermission}
-                    >
-                        Enable Location Services
-                    </Button>
-                </CardContent>
-            </Card>
-        );
-    }
-
     return (
         <Card className="w-full max-w-md mx-auto shadow-md">
             <CardHeader className="text-center">
@@ -170,6 +115,9 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
                 <div className="mb-6">
                     <p className="text-center text-gray-600">
                         Enter the One-Time Password (OTP) sent to your phone to verify this delivery.
+                    </p>
+                    <p className="text-center text-sm text-gray-500 mt-2">
+                        The OTP was included in the WhatsApp message you received.
                     </p>
                 </div>
 
