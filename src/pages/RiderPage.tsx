@@ -32,11 +32,10 @@ const RiderPage: React.FC = () => {
         searchParams.get('accept') === 'true'
     );
 
-    // Add local state to track permission status
-
-    // IMPORTANT: Check location permission from multiple sources
+    // Track permission status locally
     const [isPermissionGranted, setIsPermissionGranted] = useState(false);
     const [permissionChecked, setPermissionChecked] = useState(false);
+    const [initializing, setInitializing] = useState(true);
 
     // Properly initialize permission status from all possible sources
     useEffect(() => {
@@ -53,34 +52,30 @@ const RiderPage: React.FC = () => {
             console.log('Permission sources:', {
                 urlGranted,
                 storageGranted,
-                contextGranted
+                contextGranted,
+                trackingId
             });
 
             // If any source indicates permission is granted, consider it granted
-            const isPermissionGranted = urlGranted || storageGranted || contextGranted;
+            const permissionStatus = urlGranted || storageGranted || contextGranted;
+
+            setIsPermissionGranted(permissionStatus);
 
             // Update context if needed
-            if (isPermissionGranted && !locationPermissionGranted) {
+            if (permissionStatus && !locationPermissionGranted) {
                 setLocationPermissionGranted(true);
+                // Ensure localStorage is consistent
+                localStorage.setItem('trackam_location_permission_granted', 'true');
             }
 
             setPermissionChecked(true);
+            setInitializing(false);
         };
 
         checkPermissionSources();
-    }, [searchParams, locationPermissionGranted, setLocationPermissionGranted]);
+    }, [searchParams, locationPermissionGranted, setLocationPermissionGranted, trackingId]);
 
-    // Wait for permission check before deciding what to show
-    if (!permissionChecked) {
-        // Loading state...
-    }
-
-    // IMPORTANT: Use the local state instead of context state
-    if (!isPermissionGranted && trackingId && !isVerified) {
-        console.log('Permission not granted. Storage value:', localStorage.getItem('trackam_location_permission_granted'));
-        // Redirect logic...
-    }
-
+    // Fetch delivery data
     useEffect(() => {
         const fetchDelivery = async () => {
             if (trackingId) {
@@ -106,24 +101,45 @@ const RiderPage: React.FC = () => {
         }
     }, [currentDelivery]);
 
-    // In RiderPage
+    // Debug permission state
     useEffect(() => {
-        // Debug permission state on mount
-        console.log('RiderPage - Permission state on mount:', {
+        console.log('RiderPage - Current permission state:', {
             localStorage: localStorage.getItem('trackam_location_permission_granted'),
             contextState: locationPermissionGranted,
-            urlParam: searchParams.get('locationGranted')
+            localState: isPermissionGranted,
+            urlParam: searchParams.get('locationGranted'),
+            permissionChecked,
+            initializing
         });
-    }, [locationPermissionGranted, searchParams]);
+    }, [locationPermissionGranted, searchParams, isPermissionGranted, permissionChecked, initializing]);
 
     const handleVerified = () => {
         setIsVerified(true);
     };
 
+    // Show loading state while initializing
+    if (initializing) {
+        return (
+            <Layout>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <Card>
+                        <CardContent className="p-6">
+                            <div className="flex justify-center items-center h-32">
+                                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+                            </div>
+                            <p className="text-center mt-4">Checking permissions...</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </Layout>
+        );
+    }
+
     // If location permission hasn't been granted, we need to redirect back to the acceptance page
-    if (!locationPermissionGranted && trackingId && !isVerified) {
+    // IMPORTANT: Use isPermissionGranted, not locationPermissionGranted
+    if (!isPermissionGranted && trackingId && !isVerified) {
         // Log permissions for debugging
-        console.log('Permission not granted. Storage value:', localStorage.getItem('trackam_location_permission_granted'));
+        console.log('Permission not granted. Redirecting back to acceptance page.');
 
         return (
             <Layout>
