@@ -1,10 +1,40 @@
 // src/utils/riderUtils.ts
 import { generateWhatsAppLink } from './utils';
 import toast from 'react-hot-toast';
+import { Location } from '@/types';
 
 /**
  * Helper functions for rider operations
  */
+
+// Storage key for location permission status
+const LOCATION_PERMISSION_KEY = 'trackam_location_permission_granted';
+
+/**
+ * Save location permission status to localStorage
+ * @param granted Whether location permission is granted
+ */
+export const saveLocationPermissionStatus = (granted: boolean): void => {
+    try {
+        localStorage.setItem(LOCATION_PERMISSION_KEY, granted ? 'true' : 'false');
+    } catch (error) {
+        console.error('Error saving location permission status:', error);
+    }
+};
+
+/**
+ * Get location permission status from localStorage
+ * @returns Boolean indicating if permission is granted, false if not found
+ */
+export const getLocationPermissionStatus = (): boolean => {
+    try {
+        const status = localStorage.getItem(LOCATION_PERMISSION_KEY);
+        return status === 'true';
+    } catch (error) {
+        console.error('Error getting location permission status:', error);
+        return false;
+    }
+};
 
 /**
  * Helper function to notify vendor that a rider has declined a delivery
@@ -19,9 +49,9 @@ export const notifyVendorOfDecline = (delivery: any) => {
 };
 
 /**
- * Platform-specific location detection
+ * Platform-specific detection utilities
  */
-const platforms = {
+export const platforms = {
     isIOS: () => {
         return /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     },
@@ -71,6 +101,7 @@ const MAX_LOCATION_RETRIES = 3;
 
 /**
  * Helper function to request location permission with automatic retries
+ * also stores the permission status in localStorage if granted
  * @param onSuccess Callback function when permission is granted and position is available
  * @param onError Callback function when an error occurs after all retries
  * @param maxRetries Number of retries to attempt (default: 3)
@@ -115,6 +146,10 @@ export const requestLocationPermission = (
             // Success - dismiss the loading toast and call success callback
             toast.dismiss("location-request");
             toast.success("Location access granted");
+
+            // Store permission status
+            saveLocationPermissionStatus(true);
+
             onSuccess(position);
         },
         (error) => {
@@ -131,10 +166,88 @@ export const requestLocationPermission = (
                 // All retries failed
                 toast.dismiss("location-request");
                 toast.error(getLocationErrorMessage(error));
+
+                // Store permission status as false
+                saveLocationPermissionStatus(false);
+
                 onError(error);
             }
         },
         geoOptions
+    );
+};
+
+/**
+ * Check if location permission is already granted
+ * This checks both localStorage and the actual browser permission
+ * @param callback Called with true if permission is already granted, false otherwise
+ * @param options Optional geo options for device-specific settings
+ */
+export const checkLocationPermission = (
+    callback: (granted: boolean) => void,
+    options: PositionOptions = {}
+): void => {
+    // First check localStorage for our saved status
+    const savedStatus = getLocationPermissionStatus();
+
+    // If we've saved that permission is granted, verify with the browser
+    if (savedStatus && navigator.permissions) {
+        navigator.permissions.query({ name: 'geolocation' }).then(permissionStatus => {
+            const isGranted = permissionStatus.state === 'granted';
+
+            // Update our saved status if it doesn't match reality
+            if (savedStatus !== isGranted) {
+                saveLocationPermissionStatus(isGranted);
+            }
+
+            callback(isGranted);
+        }).catch(() => {
+            // If permissions API fails, fall back to a quick geolocation check
+            quickLocationCheck(callback, options);
+        });
+    } else {
+        // No saved status or no permissions API, do a quick check
+        quickLocationCheck(callback, options);
+    }
+};
+
+/**
+ * Quick check for location permission by attempting to get the current position
+ * @param callback Called with true if permission is granted, false otherwise
+ * @param options Optional geo options for device-specific settings
+ */
+const quickLocationCheck = (
+    callback: (granted: boolean) => void,
+    options: PositionOptions = {}
+): void => {
+    const checkTimeout = setTimeout(() => {
+        // If it takes too long, assume permission not granted
+        callback(false);
+    }, 3000);
+
+    // Default options
+    const defaultOptions: PositionOptions = {
+        timeout: 2000,
+        maximumAge: 600000, // Use cached position if available (10 minutes)
+        enableHighAccuracy: false
+    };
+
+    // Merge with provided options
+    const mergedOptions = { ...defaultOptions, ...options };
+
+    navigator.geolocation.getCurrentPosition(
+        () => {
+            clearTimeout(checkTimeout);
+            saveLocationPermissionStatus(true);
+            callback(true);
+        },
+        (error) => {
+            clearTimeout(checkTimeout);
+            const denied = error.code === error.PERMISSION_DENIED;
+            saveLocationPermissionStatus(!denied);
+            callback(!denied);
+        },
+        mergedOptions
     );
 };
 
