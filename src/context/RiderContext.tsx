@@ -116,6 +116,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 // Use real service
                 console.log('Accepting delivery with tracking ID:', trackingId);
                 const result = await riderService.acceptDelivery(trackingId);
+                console.log( 'Accept delivery result:', result);
 
                 if (result.success) {
                     if (result.data?.delivery) {
