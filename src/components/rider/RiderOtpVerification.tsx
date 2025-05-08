@@ -32,7 +32,7 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
         setVerificationError(null);
 
         // No need to check for location permission - it should already be granted
-        // from the accept page and stored in the context
+        // from the acceptance page and stored in the context
 
         if (!locationPermissionGranted) {
             console.warn("Location permission not granted before OTP verification - flow may be incorrect");
