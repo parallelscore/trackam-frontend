@@ -39,6 +39,16 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
         const { latitude, longitude, accuracy, speed } = position.coords;
         const timestamp = position.timestamp;
 
+        // Log successful location update
+        console.log('Location updated:', {
+            latitude,
+            longitude,
+            accuracy,
+            speed,
+            timestamp: new Date(timestamp).toISOString(),
+            highAccuracyMode: options.enableHighAccuracy
+        });
+
         setLocation({
             latitude,
             longitude,
