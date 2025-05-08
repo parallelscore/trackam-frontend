@@ -17,6 +17,7 @@ const LOCATION_PERMISSION_KEY = 'trackam_location_permission_granted';
 export const saveLocationPermissionStatus = (granted: boolean): void => {
     try {
         localStorage.setItem(LOCATION_PERMISSION_KEY, granted ? 'true' : 'false');
+        console.log(`Location permission status saved as: ${granted}`);
     } catch (error) {
         console.error('Error saving location permission status:', error);
     }
@@ -28,13 +29,16 @@ export const saveLocationPermissionStatus = (granted: boolean): void => {
  */
 export const getLocationPermissionStatus = (): boolean => {
     try {
+        // Use the consistent key
         const status = localStorage.getItem(LOCATION_PERMISSION_KEY);
+        console.log(`Retrieved location permission status: ${status}`);
         return status === 'true';
     } catch (error) {
         console.error('Error getting location permission status:', error);
         return false;
     }
 };
+
 
 /**
  * Helper function to notify vendor that a rider has declined a delivery
@@ -149,6 +153,9 @@ export const requestLocationPermission = (
 
             // Store permission status
             saveLocationPermissionStatus(true);
+
+            // Log for debugging
+            console.log('Location permission granted and saved to storage');
 
             onSuccess(position);
         },
