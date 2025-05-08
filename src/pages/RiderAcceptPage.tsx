@@ -92,56 +92,67 @@ const RiderAcceptPage: React.FC = () => {
         setShowDeclineConfirmation(true);
     };
 
-    const handleLocationSuccess = async (position: GeolocationPosition) => {
-        if (!tracking_id) return;
+const handleLocationSuccess = async (position: GeolocationPosition) => {
+    if (!tracking_id) return;
 
-        // Log the position (for debugging)
-        console.log('Initial rider position:', {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-            accuracy: position.coords.accuracy,
-            timestamp: new Date(position.timestamp).toISOString(),
-            trackingId: tracking_id
-        });
+    // Log the position (for debugging)
+    console.log('Initial rider position:', {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: new Date(position.timestamp).toISOString(),
+        trackingId: tracking_id
+    });
 
-        try {
-            const result = await acceptDelivery(tracking_id);
-            console.log('Accept delivery result:', result);
+    try {
+        const result = await acceptDelivery(tracking_id);
+        console.log('Accept delivery result:', result);
 
-            if (result.success) {
-                // CRUCIAL: Store permission in localStorage BEFORE navigation
-                localStorage.setItem('trackam_location_permission_granted', 'true');
+        if (result.success) {
+            // CRUCIAL: Store permission in localStorage and update context state BEFORE navigation
+            localStorage.setItem('trackam_location_permission_granted', 'true');
+            setLocationPermissionGranted(true);
+            setIsAccepted(true);
 
-                // Update context state
-                setLocationPermissionGranted(true);
-                setIsAccepted(true);
+            // Log the permission state before navigation
+            console.log('Set permission before navigation:', {
+                localStorage: localStorage.getItem('trackam_location_permission_granted'),
+                contextStateUpdated: true
+            });
 
-                // Add a brief delay before navigation to ensure state is saved
-                setTimeout(() => {
-                    // Pass permission status as URL parameter for extra certainty
-                    navigate(`/rider/${tracking_id}?locationGranted=true`);
-                }, 100);
-            } else {
-                setError(result.message || 'Failed to accept delivery');
-            }
-        } catch (err) {
-            console.error('Error accepting delivery:', err);
-            setError('An unexpected error occurred');
+            // Add a brief delay before navigation to ensure state is saved
+            setTimeout(() => {
+                // IMPORTANT: Make sure the URL matches the expected route in the app
+                // and that the parameter name matches what RiderPage expects
+                navigate(`/rider/${tracking_id}?locationGranted=true`);
+            }, 300); // Slightly longer delay to ensure state propagation
+        } else {
+            setError(result.message || 'Failed to accept delivery');
         }
-        setShowAcceptConfirmation(false);
-    };
+    } catch (err) {
+        console.error('Error accepting delivery:', err);
+        setError('An unexpected error occurred');
+    }
+    setShowAcceptConfirmation(false);
+};
 
-    const handleLocationError = (error: GeolocationPositionError) => {
-        console.error('Geolocation error:', error);
-        setLocationError(getLocationErrorMessage(error));
-
-        // Check if error is permission denied
-        if (error.code === error.PERMISSION_DENIED) {
-            setShowLocationSettings(true);
-        }
-
-        setShowAcceptConfirmation(false);
-    };
+const handleLocationError = (error: GeolocationPositionError) => {
+    console.log('Location permission error:', error);
+    
+    // Get the appropriate error message based on the error code
+    const message = getLocationErrorMessage(error);
+    
+    // Update state with the error message
+    setLocationError(message);
+    
+    // Show location settings help if permission was denied
+    if (error.code === 1) { // PERMISSION_DENIED
+        setShowLocationSettings(true);
+    }
+    
+    // Hide the acceptance confirmation dialog
+    setShowAcceptConfirmation(false);
+};
 
     const handleConfirmAccept = async () => {
         if (!tracking_id) return;
@@ -155,7 +166,7 @@ const RiderAcceptPage: React.FC = () => {
             return;
         }
 
-        // Request location permission with retry mechanism
+        // Request location permission with a retry mechanism
         requestLocationPermission(
             handleLocationSuccess,
             handleLocationError,
