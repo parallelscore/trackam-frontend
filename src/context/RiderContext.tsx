@@ -46,6 +46,15 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         setIsLoading(true);
         setError(null);
 
+        // Validate the data first
+        if (!data.tracking_id) {
+            const errorMessage = 'Missing tracking ID for OTP verification';
+            console.error(errorMessage, data);
+            setError(errorMessage);
+            setIsLoading(false);
+            return { success: false, message: errorMessage };
+        }
+
         try {
             if (USE_MOCK_SERVICE) {
                 // Use mock service - ensure we use the correct property names
