@@ -49,11 +49,17 @@ const RiderPage: React.FC = () => {
             // Check 3: Context state (might not be initialized yet)
             const contextGranted = locationPermissionGranted;
 
+            // Get tracking_id from all possible sources
+            const searchParamsTrackingId = searchParams.get('tracking_id');
+            const localStorageTrackingId = localStorage.getItem('trackam_current_tracking_id');
+            
             console.log('Permission sources:', {
                 urlGranted,
                 storageGranted,
                 contextGranted,
-                trackingId
+                trackingId,
+                searchParamsTrackingId,
+                localStorageTrackingId
             });
 
             // If any source indicates permission is granted, consider it granted
@@ -75,20 +81,36 @@ const RiderPage: React.FC = () => {
         checkPermissionSources();
     }, [searchParams, locationPermissionGranted, setLocationPermissionGranted, trackingId]);
 
-    // Fetch delivery data
+    // Fetch delivery data - ensure tracking ID is available
     useEffect(() => {
         const fetchDelivery = async () => {
-            if (trackingId) {
-                const deliveryData = await getDeliveryByTrackingId(trackingId);
-                if (deliveryData) {
-                    // Update the rider context with the fetched delivery
-                    setCurrentDelivery(deliveryData);
+            // Try to get tracking ID from all possible sources
+            const finalTrackingId = trackingId || 
+                                   searchParams.get('tracking_id') || 
+                                   localStorage.getItem('trackam_current_tracking_id');
+            
+            if (finalTrackingId) {
+                console.log('Fetching delivery with tracking ID:', finalTrackingId);
+                
+                try {
+                    const deliveryData = await getDeliveryByTrackingId(finalTrackingId);
+                    if (deliveryData) {
+                        // console.log('Delivery data fetched successfully:', deliveryData);
+                        // Update the rider context with the fetched delivery
+                        setCurrentDelivery(deliveryData);
+                    } else {
+                        console.error('Failed to fetch delivery data');
+                    }
+                } catch (error) {
+                    console.error('Error fetching delivery data:', error);
                 }
+            } else {
+                console.error('No tracking ID available to fetch delivery data');
             }
         };
 
         fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery]);
+    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery, searchParams]);
 
     // If the delivery status is 'accepted' or 'in_progress', it means the OTP has been verified
     useEffect(() => {
@@ -217,6 +239,13 @@ const RiderPage: React.FC = () => {
     // If not verified, show OTP verification
     // Since location is already granted, we only need to verify OTP
     if (!isVerified) {
+        // Get tracking ID from multiple sources to ensure it's available
+        const deliveryTrackingId = currentDelivery?.tracking_id || 
+                                  currentDelivery?.trackingId || 
+                                  trackingId ||
+                                  searchParams.get('tracking_id') ||
+                                  localStorage.getItem('trackam_current_tracking_id');
+        
         return (
             <Layout>
                 <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -226,10 +255,29 @@ const RiderPage: React.FC = () => {
                             Please enter the OTP code sent to you via WhatsApp
                         </p>
                     </div>
-                    <RiderOtpVerification
-                        trackingId={currentDelivery.trackingId}
-                        onVerified={handleVerified}
-                    />
+                    {deliveryTrackingId ? (
+                        <RiderOtpVerification
+                            trackingId={deliveryTrackingId}
+                            onVerified={handleVerified}
+                        />
+                    ) : (
+                        <Card>
+                            <CardContent className="p-6">
+                                <Alert variant="destructive">
+                                    <AlertTitle>Error</AlertTitle>
+                                    <AlertDescription>
+                                        Unable to find the tracking ID for verification. 
+                                        Please go back and try again.
+                                    </AlertDescription>
+                                </Alert>
+                                <div className="flex justify-center mt-4">
+                                    <Button onClick={() => window.history.back()}>
+                                        Go Back
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
             </Layout>
         );
@@ -252,3 +300,4 @@ const RiderPage: React.FC = () => {
 };
 
 export default RiderPage;
+
