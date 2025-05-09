@@ -111,21 +111,25 @@ const handleLocationSuccess = async (position: GeolocationPosition) => {
         if (result.success) {
             // CRUCIAL: Store permission in localStorage and update context state BEFORE navigation
             localStorage.setItem('trackam_location_permission_granted', 'true');
+            
+            // Also store the tracking ID in localStorage to maintain consistency
+            localStorage.setItem('trackam_current_tracking_id', tracking_id);
+            
             setLocationPermissionGranted(true);
             setIsAccepted(true);
 
             // Log the permission state before navigation
             console.log('Set permission before navigation:', {
                 localStorage: localStorage.getItem('trackam_location_permission_granted'),
+                trackingId: tracking_id,
                 contextStateUpdated: true
             });
 
             // Add a brief delay before navigation to ensure state is saved
             setTimeout(() => {
-                // IMPORTANT: Make sure the URL matches the expected route in the app
-                // and that the parameter name matches what RiderPage expects
-                navigate(`/rider/${tracking_id}?locationGranted=true`);
-            }, 300); // Slightly longer delay to ensure state propagation
+                // Use the same tracking_id parameter format in both URLs for consistency
+                navigate(`/rider/${tracking_id}?locationGranted=true&tracking_id=${tracking_id}`);
+            }, 500); // Increase timeout to ensure state propagation
         } else {
             setError(result.message || 'Failed to accept delivery');
         }
@@ -527,3 +531,4 @@ const handleLocationError = (error: GeolocationPositionError) => {
 };
 
 export default RiderAcceptPage;
+
