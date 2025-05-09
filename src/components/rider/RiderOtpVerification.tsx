@@ -1,5 +1,5 @@
 // src/components/rider/RiderOtpVerification.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { OtpVerificationFormData } from '@/types';
 import { useRider } from '../../context/RiderContext';
@@ -21,12 +21,28 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
     const [resendDisabled, setResendDisabled] = useState(false);
     const [countdown, setCountdown] = useState(0);
 
-    const { register, handleSubmit, formState: { errors } } = useForm<OtpVerificationFormData>({
+    // Log the tracking ID when the component mounts to ensure it's available
+    useEffect(() => {
+        console.log('RiderOtpVerification initialized with tracking ID:', trackingId);
+        
+        // Validate tracking ID right away
+        if (!trackingId) {
+            console.error('Missing tracking ID in OTP verification component');
+            setVerificationError('Missing tracking ID. Please try again.');
+        }
+    }, [trackingId]);
+
+    const { register, handleSubmit, setValue, formState: { errors } } = useForm<OtpVerificationFormData>({
         defaultValues: {
             tracking_id: trackingId,
             otp: '',
         },
     });
+
+    // Ensure tracking_id is updated in the form if it changes
+    useEffect(() => {
+        setValue('tracking_id', trackingId);
+    }, [trackingId, setValue]);
 
     const onSubmit = async (data: OtpVerificationFormData) => {
         setVerificationError(null);
@@ -39,15 +55,25 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
             // We still continue with OTP verification since permission should have been granted earlier
         }
 
+        // Validate tracking ID exists before submitting
+        if (!trackingId) {
+            const errorMsg = 'Missing tracking ID. Cannot verify OTP.';
+            console.error(errorMsg);
+            setVerificationError(errorMsg);
+            return;
+        }
+
         try {
             // Make sure tracking_id is set correctly
             const otpData = {
-                ...data,
-                tracking_id: trackingId, // Explicitly set tracking_id to ensure it's correct
+                tracking_id: trackingId, // Use the prop directly instead of form value
+                otp: data.otp
             };
 
+            // Log before submitting to verify data
+            console.log('Submitting OTP verification with data:', otpData);
+
             // First, verify the OTP
-            console.log('Verifying OTP with data:', otpData);
             const otpResult = await verifyOTP(otpData);
             console.log('OTP verification result:', otpResult);
 
