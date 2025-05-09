@@ -28,6 +28,16 @@ const riderService = {
     // Verify rider OTP
     verifyOTP: async (data: OtpVerificationFormData) => {
         try {
+            // Validate data before making the API call
+            if (!data.tracking_id) {
+                console.error('Missing tracking_id in OTP verification data', data);
+                return {
+                    success: false,
+                    error: 'Missing tracking ID',
+                    message: 'Tracking ID is required for OTP verification',
+                };
+            }
+            
             console.log('Verifying OTP with data:', data);
             const response = await apiClient.post('/rider/verify-otp', {
                 tracking_id: data.tracking_id,
@@ -40,9 +50,12 @@ const riderService = {
                 message: 'OTP verified successfully',
             };
         } catch (error: any) {
+            console.error('OTP verification error:', error?.response?.data || error);
+            
             const errorMessage =
                 error.response?.data?.detail ||
                 'Failed to verify OTP. Please try again.';
+                
             return {
                 success: false,
                 error: errorMessage,
