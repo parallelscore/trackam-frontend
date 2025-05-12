@@ -7,8 +7,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card';
 import { Form, FormItem, FormLabel, FormControl, FormErrorMessage } from '../ui/form';
-import { generateWhatsAppLink } from '@/utils/utils';
-import { Delivery } from '@/types';
+
 
 interface RiderOtpVerificationProps {
     trackingId: string;
@@ -16,15 +15,16 @@ interface RiderOtpVerificationProps {
 }
 
 const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId, onVerified }) => {
-    const { verifyOTP, startTracking, currentDelivery, isLoading, locationPermissionGranted } = useRider();
+    const { verifyOTP, startTracking, isLoading, locationPermissionGranted, notifyCustomer } = useRider();
     const [verificationError, setVerificationError] = useState<string | null>(null);
     const [resendDisabled, setResendDisabled] = useState(false);
     const [countdown, setCountdown] = useState(0);
+    const [notifyingCustomer, setNotifyingCustomer] = useState(false);
 
     // Log the tracking ID when the component mounts to ensure it's available
     useEffect(() => {
         console.log('RiderOtpVerification initialized with tracking ID:', trackingId);
-        
+
         // Validate tracking ID right away
         if (!trackingId) {
             console.error('Missing tracking ID in OTP verification component');
@@ -82,31 +82,22 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
                 const trackingResult = await startTracking(trackingId);
 
                 if (trackingResult.success) {
-                    // Notify customer about the delivery
-                    if (currentDelivery?.customer) {
-                        sendNotificationToCustomer(currentDelivery);
-                    }
+                    // Notify customer about the delivery via backend API
+                    setNotifyingCustomer(true);
+                    await notifyCustomer(trackingId);
+                    // setNotifyingCustomer(false);
 
                     onVerified();
                 } else {
-                    setVerificationError(trackingResult.message || 'Failed to start tracking. Please try again.');
+                    setVerificationError(trackingResult.message ?? 'Failed to start tracking. Please try again.');
                 }
             } else {
-                setVerificationError(otpResult.message || 'Verification failed. Please try again.');
+                setVerificationError(otpResult.message ?? 'Verification failed. Please try again.');
             }
         } catch (error) {
             console.error('Error verifying OTP:', error);
             setVerificationError('An unexpected error occurred. Please try again.');
         }
-    };
-
-    const sendNotificationToCustomer = (delivery: Delivery) => {
-        const customerMessage = `Hello ${delivery.customer.name}, your package "${delivery.package.description}" is now on its way! Your rider ${delivery.rider.name} has started the delivery. Track your package here: ${delivery.tracking.customer_link}`;
-
-        const whatsappLink = generateWhatsAppLink(delivery.customer.phone_number, customerMessage);
-
-        // Open WhatsApp in a new tab
-        window.open(whatsappLink, '_blank');
     };
 
     const handleResendOTP = async () => {
@@ -188,9 +179,11 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
                         <Button
                             type="submit"
                             className="w-full"
-                            disabled={isLoading}
+                            disabled={isLoading || notifyingCustomer}
                         >
-                            {isLoading ? 'Verifying...' : 'Verify OTP'}
+                            {isLoading || notifyingCustomer ?
+                                (notifyingCustomer ? 'Notifying Customer...' : 'Verifying...') :
+                                'Verify OTP'}
                         </Button>
                     </div>
                 </Form>
