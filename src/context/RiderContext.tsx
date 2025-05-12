@@ -19,6 +19,7 @@ export interface RiderContextProps {
     declineDelivery: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
     setCurrentDelivery: (delivery: Delivery | null) => void;
     setLocationPermissionGranted: (granted: boolean) => void;
+    notifyCustomer: (trackingId: string) => Promise<{ success: boolean; message?: string }>;
 }
 
 const RiderContext = createContext<RiderContextProps | undefined>(undefined);
@@ -150,6 +151,41 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         }
     };
 
+    // Notify customer after OTP verification
+    const notifyCustomer = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                // Use mock service - simulate notification
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
+                toast.success('Customer notified successfully');
+                return { success: true };
+            } else {
+                // Use real service
+                const result = await riderService.notifyCustomer(trackingId);
+
+                if (result.success) {
+                    toast.success('Customer notified successfully');
+                } else {
+                    toast.error(result.message ?? 'Failed to notify customer');
+                    setError(result.message ?? 'Failed to notify customer');
+                }
+
+                return result;
+            }
+        } catch (error) {
+            console.error('Error notifying customer:', error);
+            const errorMessage = 'Failed to notify customer. Please try again.';
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, message: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Decline a delivery
     const declineDelivery = async (trackingId: string): Promise<{ success: boolean; message?: string }> => {
         setIsLoading(true);
@@ -252,12 +288,16 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
                 return result;
             } else {
-                // Use real service - convert Location to the expected format
+                // Use real service - ensure tracking_id is set
+                // Handle case where tracking_id might already be in the location object
                 const locationData = {
                     tracking_id: trackingId,
                     ...location
                 };
-
+                
+                // Log to verify data is correct
+                console.log('Sending location update with data:', locationData);
+                
                 const result = await riderService.updateLocation(locationData);
 
                 if (result.success && result.delivery) {
@@ -324,13 +364,14 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         isLoading,
         error,
         verifyOTP,
+        notifyCustomer,
         acceptDelivery,
         startTracking,
         updateLocation,
         completeDelivery,
         declineDelivery,
         setCurrentDelivery,
-        setLocationPermissionGranted
+        setLocationPermissionGranted,
     }), [
         currentDelivery,
         isLoading,
@@ -341,4 +382,3 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
 
     return <RiderContext.Provider value={value}>{children}</RiderContext.Provider>;
 };
-
