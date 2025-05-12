@@ -23,7 +23,7 @@ const DeliverySuccessView: React.FC<DeliverySuccessViewProps> = ({
     const baseUrl = window.location.origin;
     const customerTrackUrl = `${baseUrl}/track/${delivery.tracking_id}`;
 
-    // WhatsApp message functions - note these now just generate the links without opening them
+    // WhatsApp message function for rider only
     const generateRiderWhatsAppLink = () => {
         if (!delivery.rider) return '#';
 
@@ -35,14 +35,6 @@ Your OTP code when you accept: ${delivery.tracking.otp}
 Thank you!`;
 
         return generateWhatsAppLink(delivery.rider.phone_number, riderMessage);
-    };
-
-    const generateCustomerWhatsAppLink = () => {
-        const customerMessage = `Hello ${delivery.customer.name}, your delivery for "${delivery.package.description}" has been created and a rider will be assigned soon.
-You can track your delivery here: ${customerTrackUrl}
-Thank you for using TrackAm!`;
-
-        return generateWhatsAppLink(delivery.customer.phone_number, customerMessage);
     };
 
     return (
@@ -72,7 +64,7 @@ Thank you for using TrackAm!`;
                     <ul className="ml-7 text-sm text-yellow-800 list-disc space-y-1">
                         <li>Share the delivery details with the rider via WhatsApp</li>
                         <li>Rider will accept or decline the delivery by clicking the link</li>
-                        <li>Upon acceptance and OTP verification, customer will receive tracking information</li>
+                        <li>Upon acceptance and OTP verification, customer will automatically receive tracking information</li>
                         <li>Customer will confirm package delivery upon receipt</li>
                     </ul>
                 </div>
@@ -87,29 +79,17 @@ Thank you for using TrackAm!`;
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                <div className="flex justify-center mt-6">
                     <a
                         href={generateRiderWhatsAppLink()}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded flex items-center justify-center font-medium transition-colors"
+                        className="bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-md flex items-center justify-center font-medium transition-colors w-full sm:w-auto"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                         </svg>
                         Send to Rider via WhatsApp
-                    </a>
-
-                    <a
-                        href={generateCustomerWhatsAppLink()}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded flex items-center justify-center font-medium transition-colors"
-                    >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.297-.497.1-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
-                        </svg>
-                        Send to Customer via WhatsApp
                     </a>
                 </div>
 
@@ -167,16 +147,17 @@ Thank you for using TrackAm!`;
                 </div>
             </CardContent>
 
-            <CardFooter className="flex justify-center gap-4 p-6 bg-gray-50">
+            <CardFooter className="flex flex-col sm:flex-row justify-center gap-3 p-6 bg-gray-50">
                 <Button
                     onClick={onCreateAnother}
                     variant="outline"
+                    className="w-full sm:w-auto"
                 >
                     Create Another Delivery
                 </Button>
                 <Button
                     onClick={onDone}
-                    className="px-6"
+                    className="w-full sm:w-auto px-6"
                 >
                     Done
                 </Button>
