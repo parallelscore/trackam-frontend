@@ -90,14 +90,18 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         const sendLocationUpdate = async () => {
             if (location && isTracking && delivery.status === 'in_progress') {
                 try {
-                    // Send location update through API
-                    await updateLocation(delivery.trackingId, location);
+                    // Send location update through API - pass location with tracking_id embedded
+                    const locationWithTrackingId = {
+                        ...location,
+                        tracking_id: delivery.tracking_id
+                    };
+                    await updateLocation(delivery.tracking_id, locationWithTrackingId);
 
                     // Also send through WebSocket for real-time updates
                     if (isConnected) {
                         send({
                             type: 'location_update',
-                            tracking_id: delivery.trackingId,
+                            tracking_id: delivery.tracking_id,
                             location: {
                                 latitude: location.latitude,
                                 longitude: location.longitude,
