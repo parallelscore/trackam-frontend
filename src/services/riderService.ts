@@ -111,9 +111,9 @@ const riderService = {
     },
 
     // Start tracking a delivery
-    startTracking: async (trackingId: string) => {
+    startTracking: async (tracking_id: string) => {
         try {
-            const response = await apiClient.post(`/rider/start-tracking/${trackingId}`);
+            const response = await apiClient.post(`/rider/start-tracking/${tracking_id}`);
 
             return {
                 success: true,
@@ -123,7 +123,7 @@ const riderService = {
             };
         } catch (error: any) {
             const errorMessage =
-                error.response?.data?.detail ||
+                error.response?.data?.detail ??
                 'Failed to start tracking. Please try again.';
             return {
                 success: false,
@@ -135,6 +135,8 @@ const riderService = {
 
     // Update rider location
     updateLocation: async (location: Location & { tracking_id: string }) => {
+        console.log( 'Updating location with data:', location);
+        console.log( 'Tracking ID:', location.tracking_id);
         try {
             const response = await apiClient.post('/rider/update-location', {
                 tracking_id: location.tracking_id,
@@ -144,6 +146,8 @@ const riderService = {
                 speed: location.speed
             });
 
+            console.log('Location update response:', response.data);
+
             return {
                 success: true,
                 data: response.data,
@@ -152,11 +156,33 @@ const riderService = {
             };
         } catch (error: any) {
             const errorMessage =
-                error.response?.data?.detail ||
+                error.response?.data?.detail ??
                 'Failed to update location. Please try again.';
             return {
                 success: false,
                 error: errorMessage,
+                message: errorMessage,
+            };
+        }
+    },
+
+    // Notify customer after OTP verification
+    notifyCustomer: async (trackingId: string) => {
+        try {
+            // Real API implementation - no need for USE_MOCK_SERVICE check here
+            const response = await apiClient.post(`/deliveries/${trackingId}/notify-customer`);
+            return {
+                success: true,
+                message: 'Customer notified successfully',
+                data: response.data
+            };
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to notify customer. Please try again.';
+
+            return {
+                success: false,
                 message: errorMessage,
             };
         }
