@@ -1,5 +1,5 @@
 // src/pages/RiderPage.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import RiderOtpVerification from '../components/rider/RiderOtpVerification';
@@ -26,6 +26,10 @@ const RiderPage: React.FC = () => {
         locationPermissionGranted,
         setLocationPermissionGranted
     } = useRider();
+
+    // Add refs to track fetch status and prevent redundant calls
+    const fetchedTrackingIdRef = useRef<string | null>(null);
+    const isFetchingRef = useRef(false);
 
     const [isVerified, setIsVerified] = useState(false);
     const [isAccepting] = useState<boolean>(
@@ -81,7 +85,7 @@ const RiderPage: React.FC = () => {
         checkPermissionSources();
     }, [searchParams, locationPermissionGranted, setLocationPermissionGranted, trackingId]);
 
-    // Fetch delivery data - ensure tracking ID is available
+    // Modified fetch delivery data useEffect to prevent infinite loops
     useEffect(() => {
         const fetchDelivery = async () => {
             // Try to get tracking ID from all possible sources
@@ -89,28 +93,38 @@ const RiderPage: React.FC = () => {
                                    searchParams.get('tracking_id') || 
                                    localStorage.getItem('trackam_current_tracking_id');
             
-            if (finalTrackingId) {
+            // Prevent redundant fetches for the same tracking ID
+            if (!finalTrackingId || 
+                isFetchingRef.current || 
+                fetchedTrackingIdRef.current === finalTrackingId ||
+                (currentDelivery && currentDelivery.tracking_id === finalTrackingId)) {
+                return;
+            }
+            
+            isFetchingRef.current = true;
+            
+            try {
                 console.log('Fetching delivery with tracking ID:', finalTrackingId);
+                const deliveryData = await getDeliveryByTrackingId(finalTrackingId);
                 
-                try {
-                    const deliveryData = await getDeliveryByTrackingId(finalTrackingId);
-                    if (deliveryData) {
-                        // console.log('Delivery data fetched successfully:', deliveryData);
-                        // Update the rider context with the fetched delivery
-                        setCurrentDelivery(deliveryData);
-                    } else {
-                        console.error('Failed to fetch delivery data');
-                    }
-                } catch (error) {
-                    console.error('Error fetching delivery data:', error);
+                if (deliveryData) {
+                    // Update the rider context with the fetched delivery
+                    setCurrentDelivery(deliveryData);
+                    // Record that we've fetched this tracking ID
+                    fetchedTrackingIdRef.current = finalTrackingId;
+                } else {
+                    console.error('Failed to fetch delivery data');
                 }
-            } else {
-                console.error('No tracking ID available to fetch delivery data');
+            } catch (error) {
+                console.error('Error fetching delivery data:', error);
+            } finally {
+                isFetchingRef.current = false;
             }
         };
 
         fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery, searchParams]);
+    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery]);
+    // Removed searchParams from dependency array to prevent infinite loops
 
     // If the delivery status is 'accepted' or 'in_progress', it means the OTP has been verified
     useEffect(() => {
