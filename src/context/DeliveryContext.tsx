@@ -231,7 +231,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
             }
 
             if (delivery) {
-                setCurrentDelivery(delivery);
+                // Only update if it's different from the current delivery
+                if (!currentDelivery || currentDelivery.tracking_id !== delivery.tracking_id) {
+                    setCurrentDelivery(delivery);
+                }
                 return delivery;
             } else {
                 setError('Delivery not found');
