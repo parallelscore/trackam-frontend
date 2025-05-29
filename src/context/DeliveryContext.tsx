@@ -47,6 +47,7 @@ interface DeliveryContextProps {
     getDeliveryById: (id: string) => Promise<Delivery | null>;
     getDeliveryByTrackingId: (trackingId: string) => Promise<Delivery | null>;
     createDelivery: (deliveryData: Delivery) => Promise<Delivery | null>;
+    completeDelivery: (trackingId: string) => Promise<{success: boolean; data?: Delivery; error?: string}>;
     getDashboardStats: (period?: 'day' | 'week' | 'month' | 'all') => Promise<DashboardStats>;
     getDeliveryAnalytics: (timeRange?: 'week' | 'month' | 'year') => Promise<DeliveryAnalyticsItem[]>;
     getTopRiders: (limit?: number) => Promise<RiderStats[]>;
@@ -555,6 +556,46 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
+    // Complete delivery functionality
+    const completeDelivery = async (trackingId: string): Promise<{success: boolean; data?: Delivery; error?: string}> => {
+        if (!trackingId) {
+            return { success: false, error: 'Invalid tracking ID' };
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            if (USE_MOCK_SERVICE) {
+                // Mock implementation
+                const delivery = await mockDeliveryService.completeDelivery(trackingId);
+                setCurrentDelivery(delivery);
+                toast.success('Delivery marked as completed successfully!');
+                return { success: true, data: delivery };
+            } else {
+                const result = await deliveryService.completeDelivery(trackingId);
+
+                if (result?.success) {
+                    setCurrentDelivery(result.data);
+                    toast.success('Delivery marked as completed successfully!');
+                    return result;
+                } else {
+                    toast.error(result?.error ?? 'Failed to complete delivery');
+                    setError(result?.error ?? 'Failed to complete delivery');
+                    return { success: false, error: result?.error ?? 'Failed to complete delivery' };
+                }
+            }
+        } catch (error) {
+            const errorMessage = 'Failed to complete delivery. Please try again.';
+            console.error('Error completing delivery:', error);
+            toast.error(errorMessage);
+            setError(errorMessage);
+            return { success: false, error: errorMessage };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Load initial deliveries
     useEffect(() => {
         // Only do this once
@@ -573,6 +614,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         getDeliveryById,
         getDeliveryByTrackingId,
         createDelivery,
+        completeDelivery, // Added this method
         getDashboardStats,
         getDeliveryAnalytics,
         getTopRiders,
@@ -590,4 +632,3 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;
 };
-
