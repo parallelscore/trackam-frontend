@@ -1,7 +1,7 @@
-// src/components/vendor/CreateDeliveryForm.tsx
+// src/components/vendor/CreateDeliveryForm.tsx - Enhanced Version
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { CreateDeliveryFormData } from '@/types';
+import { CreateDeliveryFormData, CustomerLocation } from '@/types';
 import { useDelivery } from '../../context/DeliveryContext';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -14,6 +14,7 @@ import {
     FormErrorMessage,
 } from '../ui/form';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import CustomerLocationInput from './CustomerLocationInput';
 import DeliverySuccessView from './DeliverySuccessView';
 
 interface CreateDeliveryFormProps {
@@ -30,7 +31,10 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
     const [loadingText, setLoadingText] = useState('');
     const [error, setError] = useState<string | null>(null);
 
-    const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateDeliveryFormData>({
+    // Add state for customer location
+    const [customerLocation, setCustomerLocation] = useState<CustomerLocation | null>(null);
+
+    const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<CreateDeliveryFormData>({
         defaultValues: {
             customer: {
                 name: '',
@@ -48,6 +52,9 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
             }
         }
     });
+
+    // Watch the customer address field for the location component
+    const customerAddress = watch('customer.address');
 
     const simulateProgressBar = async () => {
         // Start with 15% progress immediately
@@ -79,6 +86,8 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                     name: data.customer.name,
                     phone_number: data.customer.phoneNumber,
                     address: data.customer.address,
+                    // Include location if captured
+                    ...(customerLocation && { location: customerLocation })
                 },
                 rider: {
                     name: data.rider.name,
@@ -105,6 +114,7 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                 setCreatedDelivery(delivery);
                 setFormSubmitted(true);
                 reset();
+                setCustomerLocation(null); // Reset location state
 
                 // We no longer automatically send WhatsApp messages here
                 // Just transition to the success view
@@ -125,6 +135,7 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
         setCreatedDelivery(null);
         setFormSubmitted(false);
         setWhatsappSent(false);
+        setCustomerLocation(null); // Add this line
     };
 
     const handleDone = () => {
@@ -134,6 +145,7 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
             setCreatedDelivery(null);
             setFormSubmitted(false);
             setWhatsappSent(false);
+            setCustomerLocation(null); // Add this line
         }
     };
 
@@ -229,6 +241,14 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                                 <FormErrorMessage>{errors.customer.address.message}</FormErrorMessage>
                             )}
                         </FormItem>
+
+                        {/* Customer Location Capture Component */}
+                        <CustomerLocationInput
+                            value={customerLocation}
+                            address={customerAddress || ''}
+                            onChange={setCustomerLocation}
+                            disabled={isSubmitting}
+                        />
                     </FormSection>
 
                     {/* Rider Information Section */}
