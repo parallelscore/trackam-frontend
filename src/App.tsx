@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { DeliveryProvider } from './context/DeliveryContext';
 import { RiderProvider, useRider } from './context/RiderContext';
 import { AuthProvider } from './context/AuthContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import { checkLocationPermission, isGeolocationSupported, platforms } from './utils/riderUtils';
 
 // Pages
@@ -104,71 +105,72 @@ function App() {
     return (
         <AuthProvider>
             <DeliveryProvider>
-                <RiderProvider>
-                    {/* Add our permission synchronizer component */}
-                    <PermissionSynchronizer />
+                <WebSocketProvider>
+                    <RiderProvider>
+                        {/* Add our permission synchronizer component */}
+                        <PermissionSynchronizer />
 
-                    <Router>
-                        <Toaster
-                            position="top-right"
-                            toastOptions={{
-                                duration: 5000,
-                                style: {
-                                    background: '#FFFFFF',
-                                    color: '#333333',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                    borderRadius: '0.5rem',
-                                },
-                                success: {
+                        <Router>
+                            <Toaster
+                                position="top-right"
+                                toastOptions={{
+                                    duration: 5000,
                                     style: {
-                                        border: '1px solid #0CAA41',
-                                        borderLeft: '6px solid #0CAA41',
+                                        background: '#FFFFFF',
+                                        color: '#333333',
+                                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                        borderRadius: '0.5rem',
                                     },
-                                },
-                                error: {
-                                    style: {
-                                        border: '1px solid #FF0000',
-                                        borderLeft: '6px solid #FF0000',
+                                    success: {
+                                        style: {
+                                            border: '1px solid #0CAA41',
+                                            borderLeft: '6px solid #0CAA41',
+                                        },
                                     },
-                                },
-                            }}
-                        />
+                                    error: {
+                                        style: {
+                                            border: '1px solid #FF0000',
+                                            borderLeft: '6px solid #FF0000',
+                                        },
+                                    },
+                                }}
+                            />
 
-                        <Routes>
-                            {/* Home page */}
-                            <Route path="/" element={<HomePage />} />
+                            <Routes>
+                                {/* Home page */}
+                                <Route path="/" element={<HomePage />} />
 
-                            {/* Authentication routes */}
-                            <Route path="/login" element={<PhoneLoginPage />} />
-                            <Route path="/verify-login-otp" element={<LoginOtpPage />} />
-                            <Route path="/register" element={<PhoneRegisterPage />} />
-                            <Route path="/verify-otp" element={<OtpVerificationPage />} />
-                            <Route path="/complete-profile" element={<CompleteProfilePage />} />
-                            <Route path="/profile" element={<ProfilePage />} />
+                                {/* Authentication routes */}
+                                <Route path="/login" element={<PhoneLoginPage />} />
+                                <Route path="/verify-login-otp" element={<LoginOtpPage />} />
+                                <Route path="/register" element={<PhoneRegisterPage />} />
+                                <Route path="/verify-otp" element={<OtpVerificationPage />} />
+                                <Route path="/complete-profile" element={<CompleteProfilePage />} />
+                                <Route path="/profile" element={<ProfilePage />} />
 
-                            {/* Vendor routes */}
-                            <Route path="/vendor" element={<VendorDashboard />} />
+                                {/* Vendor routes */}
+                                <Route path="/vendor" element={<VendorDashboard />} />
 
-                            {/* Rider routes - more specific routes must come before general ones */}
-                            <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
-                            <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
-                            <Route path="/rider/:trackingId" element={<RiderPage />} />
+                                {/* Rider routes - more specific routes must come before general ones */}
+                                <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
+                                <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
+                                <Route path="/rider/:trackingId" element={<RiderPage />} />
 
-                            {/* Customer tracking routes */}
-                            <Route path="/track" element={<TrackSearchPage />} />
-                            <Route path="/track/:trackingId" element={<TrackingPage />} />
-                            <Route path="/enhanced-track/:trackingId" element={<EnhancedTrackingPage />} />
-                            <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
+                                {/* Customer tracking routes */}
+                                <Route path="/track" element={<TrackSearchPage />} />
+                                <Route path="/track/:trackingId" element={<TrackingPage />} />
+                                <Route path="/enhanced-track/:trackingId" element={<EnhancedTrackingPage />} />
+                                <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
 
-                            {/* Fallback route */}
-                            <Route path="*" element={<HomePage />} />
-                        </Routes>
-                    </Router>
-                </RiderProvider>
+                                {/* Fallback route */}
+                                <Route path="*" element={<HomePage />} />
+                            </Routes>
+                        </Router>
+                    </RiderProvider>
+                </WebSocketProvider>
             </DeliveryProvider>
         </AuthProvider>
     );
 }
 
 export default App;
-
