@@ -27,17 +27,28 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
     const retryCount = useRef<number>(0);
     const maxRetries = 3;
 
+    // Track last update time to prevent excessive updates
+    const lastUpdateTime = useRef<number>(0);
+
     const {
         enableHighAccuracy = true,
-        timeout = 5000,
-        maximumAge = 0,
-        interval = 15000, // 15-second interval for polling
+        timeout = 10000, // Increased timeout to reduce chances of failure
+        maximumAge = 30000, // Increased maximumAge to allow for cached positions
+        interval = 20000, // Default to 20 seconds between updates
         skipInitialPermissionCheck = false // Skip the permission check if we know it's already granted
     } = options;
 
     const handleSuccess = (position: GeolocationPosition) => {
         const { latitude, longitude, accuracy, speed } = position.coords;
         const timestamp = position.timestamp;
+        const now = Date.now();
+
+        // Prevent updates that are too frequent (minimum 3 seconds between updates)
+        if (now - lastUpdateTime.current < 3000) {
+            return;
+        }
+
+        lastUpdateTime.current = now;
 
         // Log successful location update
         console.log('Location updated:', {
@@ -63,15 +74,19 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
 
     const handleError = (error: GeolocationPositionError) => {
         if (retryCount.current < maxRetries) {
-            // Try again with a slight delay
+            // Try again with a slight delay, with increasing delay for each retry
             retryCount.current++;
+            const retryDelay = 1000 * retryCount.current;
+
+            console.log(`Location error, retrying in ${retryDelay/1000}s (retry #${retryCount.current})`);
+
             setTimeout(() => {
                 navigator.geolocation.getCurrentPosition(
                     handleSuccess,
                     handleError,
                     { enableHighAccuracy, timeout, maximumAge }
                 );
-            }, 1000);
+            }, retryDelay);
             return;
         }
 
@@ -109,21 +124,28 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
             );
         }
 
-        // Watch position for continuous updates
+        // Watch position for continuous updates, but with reduced frequency
+        // Use less accurate but more battery-friendly settings for the watch
         watchId.current = navigator.geolocation.watchPosition(
             handleSuccess,
             handleError,
-            { enableHighAccuracy, timeout, maximumAge }
+            {
+                enableHighAccuracy: false, // Use low accuracy for watch to save battery
+                timeout: timeout * 2,
+                maximumAge: maximumAge * 2
+            }
         );
 
-        // Set up interval for more controlled updates
-        // This helps with battery optimization
+        // Set up interval for more controlled updates with requested accuracy settings
+        // This helps with battery optimization and prevents excessive resource usage
         intervalId.current = window.setInterval(() => {
-            navigator.geolocation.getCurrentPosition(
-                handleSuccess,
-                handleError,
-                { enableHighAccuracy, timeout, maximumAge }
-            );
+            if (Date.now() - lastUpdateTime.current >= interval / 2) {
+                navigator.geolocation.getCurrentPosition(
+                    handleSuccess,
+                    handleError,
+                    { enableHighAccuracy, timeout, maximumAge }
+                );
+            }
         }, interval);
     };
 
