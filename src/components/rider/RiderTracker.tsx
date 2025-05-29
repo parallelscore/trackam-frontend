@@ -12,6 +12,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { getStatusColor, getStatusText, calculateDistance } from '@/utils/utils.ts';
+import { MapPin, Clock, Package, User, Battery, Wifi, WifiOff, Navigation, Phone } from 'lucide-react';
 
 interface RiderTrackerProps {
     delivery: Delivery;
@@ -28,9 +29,12 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [locationIssue, setLocationIssue] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+    const [averageSpeed, setAverageSpeed] = useState<number>(25); // km/h
+    const [lastLocationTime, setLastLocationTime] = useState<number | null>(null);
     const locationUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastLocationUpdateRef = useRef<number>(0);
     const locationBufferRef = useRef<Location | null>(null);
+    const speedHistory = useRef<number[]>([]);
 
     // Fix WebSocket URL construction to match backend endpoint
     const getWebSocketUrl = useCallback(() => {
@@ -57,15 +61,51 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
     const wsUrl = getWebSocketUrl();
 
+    // Handle WebSocket messages
+    const handleWebSocketMessage = useCallback((data: any) => {
+        switch (data.type) {
+            case 'connections_info':
+            case 'connection_status': // Handle both message types
+                setConnectedClients(data.connections_count || data.count || 1);
+                break;
+            case 'location_update':
+                // Handle location updates from other sources if needed
+                console.log('Received location update:', data);
+                break;
+            case 'status_update':
+                // Handle status updates if needed
+                console.log('Received status update:', data);
+                break;
+            case 'pong':
+                // Heartbeat response - connection is alive
+                break;
+            case 'error':
+                console.error('WebSocket error message:', data.message);
+                break;
+            default:
+                console.log('Received unknown message type:', data.type, data);
+        }
+    }, []);
+
     // Set up WebSocket connection
-    const { isConnected, send, connectionStatus, lastMessage } = useWebSocket({
+    const { isConnected, send, connectionStatus, disconnect } = useWebSocket({
         url: wsUrl,
         autoConnect: delivery.status === 'in_progress' || delivery.status === 'accepted',
-        reconnectAttempts: 3, // Reduce reconnect attempts to avoid spam
-        reconnectInterval: 10000, // Increase interval between reconnects
+        reconnectAttempts: 3,
+        reconnectInterval: 10000,
+        heartbeatInterval: 25000, // Heartbeat every 25 seconds
         onConnect: () => {
             console.log('WebSocket connected to:', wsUrl);
-            setConnectedClients(1); // At least this client is connected
+            setConnectedClients(1);
+
+            // Send initial connection message
+            setTimeout(() => {
+                send({
+                    type: 'join_tracking',
+                    tracking_id: delivery.tracking_id,
+                    user_type: 'rider'
+                });
+            }, 100);
         },
         onDisconnect: () => {
             console.log('WebSocket disconnected');
@@ -73,38 +113,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         },
         onError: (error) => {
             console.error('WebSocket error:', error);
-        }
+        },
+        onMessage: handleWebSocketMessage
     });
 
-    // Process incoming WebSocket messages
-    useEffect(() => {
-        if (lastMessage) {
-            try {
-                const message = JSON.parse(lastMessage);
-
-                switch (message.type) {
-                    case 'connections_info':
-                        setConnectedClients(message.connections_count || 0);
-                        break;
-                    case 'location_update':
-                        // Handle location updates from other sources if needed
-                        break;
-                    case 'status_update':
-                        // Handle status updates if needed
-                        break;
-                    case 'pong':
-                        // Handle ping response
-                        break;
-                    default:
-                        console.log('Received unknown message type:', message.type);
-                }
-            } catch (error) {
-                console.error('Error parsing WebSocket message:', error);
-            }
-        }
-    }, [lastMessage]);
-
-    // Set up geolocation tracking with an assumption that permission is already granted
+    // Set up geolocation tracking
     const {
         location,
         error: locationError,
@@ -113,11 +126,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         stopTracking: stopLocationTracking
     } = useGeolocation({
         enableHighAccuracy: !isBatterySaving,
-        interval: isBatterySaving ? 45000 : 20000, // Increased intervals to reduce resource usage
-        skipInitialPermissionCheck: locationPermissionGranted // Use this flag from context
+        interval: isBatterySaving ? 45000 : 20000,
+        skipInitialPermissionCheck: locationPermissionGranted
     });
 
-    // Check that location permission is actually granted
+    // Check location permission
     useEffect(() => {
         if (!locationPermissionGranted) {
             setLocationIssue("Location permission wasn't properly granted. This may affect tracking.");
@@ -134,7 +147,28 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [locationError]);
 
-    // Update estimated time based on location
+    // Calculate speed and update average
+    useEffect(() => {
+        if (location && location.speed && location.speed > 0) {
+            const speedKmh = location.speed * 3.6; // Convert m/s to km/h
+            speedHistory.current.push(speedKmh);
+
+            // Keep only last 10 speed readings
+            if (speedHistory.current.length > 10) {
+                speedHistory.current.shift();
+            }
+
+            // Calculate average speed
+            const avgSpeed = speedHistory.current.reduce((sum, speed) => sum + speed, 0) / speedHistory.current.length;
+            setAverageSpeed(Math.max(avgSpeed, 15)); // Minimum 15 km/h assumption
+        }
+
+        if (location) {
+            setLastLocationTime(Date.now());
+        }
+    }, [location]);
+
+    // Enhanced ETA calculation
     useEffect(() => {
         if (location && delivery.customer.location) {
             const dist = calculateDistance(
@@ -146,18 +180,18 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
             setDistance(dist);
 
-            // Calculate estimated time based on average speed
-            // Use 25 km/h for normal mode, 20 km/h for battery saving (less frequent updates)
-            const speedKmh = isBatterySaving ? 20 : 25;
-            const timeMinutes = Math.ceil((dist / speedKmh) * 60);
+            // Use actual average speed if available, otherwise use default based on mode
+            const speedToUse = speedHistory.current.length > 0 ? averageSpeed : (isBatterySaving ? 20 : 25);
+
+            // Add buffer time for delivery (2-5 minutes depending on distance)
+            const bufferMinutes = dist > 2 ? 5 : 2;
+            const timeMinutes = Math.ceil((dist / speedToUse) * 60) + bufferMinutes;
             setEstimatedTimeMinutes(timeMinutes);
         }
-    }, [location, delivery.customer.location, isBatterySaving]);
+    }, [location, delivery.customer.location, averageSpeed, isBatterySaving]);
 
     // Calculate backoff time for retries
     const getBackoffTime = useCallback(() => {
-        // Exponential backoff: 2^retryCount * 1000 ms (1 s, 2 s, 4 s, 8 s, etc.)
-        // Max out at 60 seconds
         return Math.min(Math.pow(2, retryCount) * 1000, 60000);
     }, [retryCount]);
 
@@ -166,11 +200,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         if (!locationBufferRef.current || isUpdatingLocation) return;
 
         const currentTime = Date.now();
-        // Enforce the minimum time between updates (5 seconds in normal mode, 10 in battery saving)
         const minUpdateInterval = isBatterySaving ? 10000 : 5000;
 
         if (currentTime - lastLocationUpdateRef.current < minUpdateInterval) {
-            // Schedule update after the interval has passed
             if (locationUpdateTimeoutRef.current) {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
@@ -185,16 +217,14 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
         try {
             const locationToSend = { ...locationBufferRef.current };
-            locationBufferRef.current = null; // Clear buffer
+            locationBufferRef.current = null;
 
-            // Send location update through API
             const result = await updateLocation(delivery.tracking_id, locationToSend);
 
             if (result.success) {
-                setRetryCount(0); // Reset retry count on success
+                setRetryCount(0);
                 lastLocationUpdateRef.current = currentTime;
 
-                // Also send through WebSocket for real-time updates if connected
                 if (isConnected) {
                     const success = send({
                         type: 'location_update',
@@ -213,21 +243,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     }
                 }
             } else {
-                // Handle an unsuccessful result directly instead of throwing
                 console.error('Error updating location:', result.message || "Failed to update location");
 
-                // Only show error to the user after multiple failures
                 if (retryCount > 2) {
                     setLocationIssue('Issues sending location updates. Will keep trying.');
                 }
 
-                // Implement exponential backoff for retries
-                if (retryCount < 8) { // Max 8 retries
+                if (retryCount < 8) {
                     setRetryCount(prev => prev + 1);
                     const backoffTime = getBackoffTime();
                     console.log(`Retrying location update in ${backoffTime/1000}s (retry #${retryCount + 1})`);
 
-                    // Schedule retry
                     locationUpdateTimeoutRef.current = setTimeout(() => {
                         if (locationBufferRef.current) {
                             processLocationUpdate();
@@ -235,25 +261,21 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     }, backoffTime);
                 }
 
-                // Set updating to false here since we're handling the error case
                 setIsUpdatingLocation(false);
                 return;
             }
         } catch (error: unknown) {
             console.error('Error updating location:', error);
 
-            // Only show error to the user after multiple failures
             if (retryCount > 2) {
                 setLocationIssue('Issues sending location updates. Will keep trying.');
             }
 
-            // Implement exponential backoff for retries
-            if (retryCount < 8) { // Max 8 retries
+            if (retryCount < 8) {
                 setRetryCount(prev => prev + 1);
                 const backoffTime = getBackoffTime();
                 console.log(`Retrying location update in ${backoffTime/1000}s (retry #${retryCount + 1})`);
 
-                // Schedule retry
                 locationUpdateTimeoutRef.current = setTimeout(() => {
                     if (locationBufferRef.current) {
                         processLocationUpdate();
@@ -268,12 +290,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     // Buffer location updates and trigger processing
     useEffect(() => {
         if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
-            // Store latest location in buffer
             locationBufferRef.current = location;
 
-            // Try to process if not already processing
             if (!isUpdatingLocation) {
-                // Use setTimeout to break the render cycle dependency
                 const timeoutId = setTimeout(() => {
                     processLocationUpdate();
                 }, 0);
@@ -292,52 +311,55 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         };
     }, []);
 
-    // Handle WebSocket ping to keep the connection alive
+    // Handle WebSocket ping removed - now handled by the hook itself
+
+    // Cleanup WebSocket connection when component unmounts
     useEffect(() => {
-        if (!isConnected) return;
-
-        const intervalId = setInterval(() => {
-            const success = send({ type: 'ping', timestamp: Date.now() });
-            if (!success) {
-                console.warn('Failed to send ping via WebSocket');
+        return () => {
+            if (isConnected) {
+                send({
+                    type: 'leave_tracking',
+                    tracking_id: delivery.tracking_id,
+                    user_type: 'rider'
+                });
+                setTimeout(() => {
+                    disconnect();
+                }, 100);
             }
-        }, 30000); // Send ping every 30 seconds
+        };
+    }, [isConnected, send, disconnect, delivery.tracking_id]);
 
-        return () => clearInterval(intervalId);
-    }, [isConnected, send]);
-
-    // Handle starting the delivery tracking - auto-start when the component loads
+    // Auto-start tracking
     useEffect(() => {
         const autoStartTracking = async () => {
-            // Always start location tracking regardless of delivery status
             if (!isTracking) {
                 startLocationTracking();
 
-                // Only attempt to update the delivery status if it's in the 'accepted' state
                 if (delivery.status === 'accepted') {
                     try {
                         const result = await startTracking(delivery.tracking_id);
 
-                        // Send tracking start event to WebSocket if successful
                         if (result.success && isConnected) {
-                            send({
-                                type: 'status_update',
-                                tracking_id: delivery.tracking_id,
-                                status: 'in_progress'
-                            });
+                            // Send tracking start event with throttling
+                            setTimeout(() => {
+                                send({
+                                    type: 'status_update',
+                                    tracking_id: delivery.tracking_id,
+                                    status: 'in_progress',
+                                    timestamp: Date.now()
+                                });
+                            }, 500);
                         }
                     } catch (error) {
                         console.error('Error starting tracking:', error);
                         setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
                     }
                 }
-                // If already 'in_progress', no need to call the API again
             }
         };
 
         autoStartTracking();
 
-        // Cleanup when a component unmounts
         return () => {
             if (isTracking) {
                 stopLocationTracking();
@@ -364,7 +386,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 stopLocationTracking();
                 setShowCompletionConfirm(false);
 
-                // Send completion event to WebSocket
                 if (isConnected) {
                     send({
                         type: 'status_update',
@@ -373,7 +394,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     });
                 }
 
-                // Redirect to completion page
                 setTimeout(() => {
                     navigate(`/rider/complete/${delivery.tracking_id}`);
                 }, 1000);
@@ -390,194 +410,234 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const renderEstimatedTime = () => {
         if (estimatedTimeMinutes === null) return 'Calculating...';
 
-        if (estimatedTimeMinutes < 1) return 'Less than a minute';
+        if (estimatedTimeMinutes < 1) return 'Arriving now';
 
         if (estimatedTimeMinutes < 60) {
-            return `${estimatedTimeMinutes} minute${estimatedTimeMinutes > 1 ? 's' : ''}`;
+            return `${estimatedTimeMinutes} min`;
         }
 
         const hours = Math.floor(estimatedTimeMinutes / 60);
         const minutes = estimatedTimeMinutes % 60;
 
-        return `${hours} hour${hours > 1 ? 's' : ''} ${minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''}`;
+        return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
     };
 
-    const getConnectionStatusIndicator = () => {
-        switch (connectionStatus) {
-            case 'connected':
-                return (
-                    <div className="text-sm text-green-600 flex items-center">
-                        <div className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></div>
-                        Live: {connectedClients > 0 ? `${connectedClients} client${connectedClients > 1 ? 's' : ''} watching` : 'Connected'}
+    const getLiveTrackingIndicator = () => {
+        const isLive = isTracking && isConnected && !locationIssue;
+        const lastUpdate = lastLocationTime ? Date.now() - lastLocationTime : null;
+        const isStale = lastUpdate && lastUpdate > 60000; // 1 minute
+
+        if (isLive && !isStale) {
+            return (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full">
+                    <div className="relative">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="absolute inset-0 w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
                     </div>
-                );
-            case 'connecting':
-            case 'reconnecting':
-                return (
-                    <div className="text-sm text-yellow-600 flex items-center">
-                        <div className="w-2 h-2 bg-yellow-600 rounded-full mr-2 animate-ping"></div>
-                        Connecting...
-                    </div>
-                );
-            case 'error':
-                return (
-                    <div className="text-sm text-red-600 flex items-center">
-                        <div className="w-2 h-2 bg-red-600 rounded-full mr-2"></div>
-                        Connection failed
-                    </div>
-                );
-            default:
-                return (
-                    <div className="text-sm text-gray-600 flex items-center">
-                        <div className="w-2 h-2 bg-gray-600 rounded-full mr-2"></div>
-                        Disconnected
-                    </div>
-                );
+                    <span className="text-xs font-medium text-green-700">Live Tracking</span>
+                </div>
+            );
+        } else if (isTracking) {
+            return (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 border border-yellow-200 rounded-full">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span className="text-xs font-medium text-yellow-700">
+                        {isStale ? 'Signal Lost' : 'Connecting...'}
+                    </span>
+                </div>
+            );
+        } else {
+            return (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-full">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                    <span className="text-xs font-medium text-gray-600">Not Tracking</span>
+                </div>
+            );
         }
     };
 
+    const getConnectionIcon = () => {
+        if (isConnected && connectedClients > 0) {
+            return <Wifi className="w-4 h-4 text-green-600" />;
+        }
+        return <WifiOff className="w-4 h-4 text-red-500" />;
+    };
+
     return (
-        <div className="space-y-6">
-            {locationIssue && (
-                <Alert variant="warning">
-                    <AlertTitle>Location Issue</AlertTitle>
-                    <AlertDescription>
-                        {locationIssue}
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            {connectionStatus === 'error' && (
-                <Alert variant="destructive">
-                    <AlertTitle>Connection Error</AlertTitle>
-                    <AlertDescription>
-                        Unable to connect to the tracking server at {wsUrl}. Your delivery will still be tracked,
-                        but real-time updates may be delayed.
-                    </AlertDescription>
-                </Alert>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Left column - Delivery details */}
-                <div className="md:col-span-1">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex justify-between items-center">
-                                <CardTitle className="text-lg">Delivery Status</CardTitle>
-                                <Badge className={getStatusColor(delivery.status)}>
-                                    {getStatusText(delivery.status)}
-                                </Badge>
-                            </div>
-                        </CardHeader>
-
-                        <CardContent className="space-y-4">
-                            <div>
-                                <h3 className="font-medium text-gray-600">Customer</h3>
-                                <p className="font-bold">{delivery.customer.name}</p>
-                                <p>{delivery.customer.phone_number}</p>
-                                <p className="mt-1 text-sm">{delivery.customer.address}</p>
-                            </div>
-
-                            <div>
-                                <h3 className="font-medium text-gray-600">Package</h3>
-                                <p>{delivery.package.description}</p>
-                                {delivery.package.size && (
-                                    <p className="text-sm">Size: {delivery.package.size}</p>
-                                )}
-                                {delivery.package.special_instructions && (
-                                    <div className="mt-2">
-                                        <h4 className="text-sm font-medium text-gray-600">Special Instructions:</h4>
-                                        <p className="text-sm italic">{delivery.package.special_instructions}</p>
-                                    </div>
-                                )}
-                            </div>
-
-                            {isTracking && distance !== null && (
-                                <div className="p-4 bg-gray-50 rounded-md">
-                                    <div className="space-y-2">
-                                        <div>
-                                            <h3 className="font-medium">Distance to Destination</h3>
-                                            <p className="text-xl font-bold text-primary">{distance.toFixed(1)} km</p>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-medium">Estimated Time</h3>
-                                            <p className="text-xl font-bold text-primary">{renderEstimatedTime()}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {getConnectionStatusIndicator()}
-                        </CardContent>
-
-                        <CardFooter className="border-t pt-4 flex-col space-y-2">
-                            {isTracking && (
-                                <Button
-                                    variant="outline"
-                                    className="w-full"
-                                    onClick={toggleBatterySaving}
-                                >
-                                    {isBatterySaving ? '🔋 Battery Saving Mode: ON' : '🔋 Battery Saving Mode: OFF'}
-                                </Button>
-                            )}
-
-                            {!showCompletionConfirm ? (
-                                <Button
-                                    variant="accent"
-                                    className="w-full"
-                                    onClick={handleCompleteDelivery}
-                                    disabled={isLoading || !isTracking}
-                                >
-                                    Mark as Delivered
-                                </Button>
-                            ) : (
-                                <div className="space-y-3">
-                                    <Alert variant="warning">
-                                        <AlertTitle>Confirm Delivery Completion</AlertTitle>
-                                        <AlertDescription>
-                                            Are you sure the customer has received this package?
-                                        </AlertDescription>
-                                    </Alert>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            variant="outline"
-                                            className="flex-1"
-                                            onClick={cancelCompleteDelivery}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            variant="default"
-                                            className="flex-1"
-                                            onClick={confirmCompleteDelivery}
-                                        >
-                                            Confirm Completion
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </CardFooter>
-                    </Card>
+        <div className="min-h-screen bg-gray-50">
+            {/* Header with live tracking indicator */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
+                <div className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Badge className={getStatusColor(delivery.status)}>
+                                {getStatusText(delivery.status)}
+                            </Badge>
+                            {getLiveTrackingIndicator()}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                            {getConnectionIcon()}
+                            <span>{connectedClients} watching</span>
+                        </div>
+                    </div>
                 </div>
+            </div>
 
-                {/* Right column - Map */}
-                <div className="md:col-span-2">
-                    <Card className="h-full">
-                        <CardContent className="p-0 h-full min-h-[400px] md:min-h-[600px]">
-                            <TrackingMap
-                                riderLocation={location || undefined}
-                                destinationLocation={delivery.customer.location}
-                                isTracking={isTracking}
-                                height="100%"
-                            />
-                        </CardContent>
+            {/* Alerts */}
+            {locationIssue && (
+                <div className="px-4 pt-4">
+                    <Alert variant="warning" className="mb-4">
+                        <AlertTitle>Location Issue</AlertTitle>
+                        <AlertDescription>{locationIssue}</AlertDescription>
+                    </Alert>
+                </div>
+            )}
 
-                        {locationError && !locationIssue && (
-                            <div className="p-3 bg-red-50 text-red-600 text-sm">
-                                <strong>Location Error:</strong> {locationError}
+            {/* Main content */}
+            <div className="flex flex-col lg:flex-row gap-4 p-4">
+                {/* Left sidebar - Compact info panel */}
+                <div className="w-full lg:w-80 bg-white rounded-lg border border-gray-200 flex flex-col lg:max-h-[calc(100vh-140px)] overflow-y-auto">
+                    {/* Quick stats */}
+                    <div className="grid grid-cols-2 gap-4 p-4 border-b border-gray-100">
+                        <div className="text-center">
+                            <div className="flex items-center justify-center gap-1 text-sm text-gray-600 mb-1">
+                                <MapPin className="w-4 h-4" />
+                                Distance
+                            </div>
+                            <div className="text-lg font-bold text-[#0CAA41]">
+                                {distance !== null ? `${distance.toFixed(1)} km` : '--'}
+                            </div>
+                        </div>
+                        <div className="text-center">
+                            <div className="flex items-center justify-center gap-1 text-sm text-gray-600 mb-1">
+                                <Clock className="w-4 h-4" />
+                                ETA
+                            </div>
+                            <div className="text-lg font-bold text-[#FF9500]">
+                                {renderEstimatedTime()}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Customer info */}
+                    <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <User className="w-4 h-4 text-gray-600" />
+                            <h3 className="font-semibold text-gray-900">Customer</h3>
+                        </div>
+                        <div className="space-y-2">
+                            <div>
+                                <p className="font-medium">{delivery.customer.name}</p>
+                                <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <Phone className="w-3 h-3" />
+                                    <span>{delivery.customer.phone_number}</span>
+                                </div>
+                            </div>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                                {delivery.customer.address}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Package info */}
+                    <div className="p-4 border-b border-gray-100">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Package className="w-4 h-4 text-gray-600" />
+                            <h3 className="font-semibold text-gray-900">Package</h3>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm">{delivery.package.description}</p>
+                            {delivery.package.size && (
+                                <p className="text-xs text-gray-600">Size: {delivery.package.size}</p>
+                            )}
+                            {delivery.package.special_instructions && (
+                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                                    <h4 className="text-xs font-medium text-yellow-800 mb-1">Special Instructions:</h4>
+                                    <p className="text-xs text-yellow-700">{delivery.package.special_instructions}</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Speed info */}
+                    {isTracking && location?.speed && (
+                        <div className="p-4 border-b border-gray-100">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Navigation className="w-4 h-4 text-gray-600" />
+                                <h3 className="font-semibold text-gray-900">Speed</h3>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span>Current:</span>
+                                <span className="font-medium">{(location.speed * 3.6).toFixed(1)} km/h</span>
+                            </div>
+                            <div className="flex items-center justify-between text-sm">
+                                <span>Average:</span>
+                                <span className="font-medium">{averageSpeed.toFixed(1)} km/h</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Controls */}
+                    <div className="mt-auto p-4 space-y-3">
+                        {isTracking && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full justify-start gap-2"
+                                onClick={toggleBatterySaving}
+                            >
+                                <Battery className={`w-4 h-4 ${isBatterySaving ? 'text-yellow-600' : 'text-gray-600'}`} />
+                                Battery Saving: {isBatterySaving ? 'ON' : 'OFF'}
+                            </Button>
+                        )}
+
+                        {!showCompletionConfirm ? (
+                            <Button
+                                className="w-full bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                onClick={handleCompleteDelivery}
+                                disabled={isLoading || !isTracking}
+                            >
+                                Mark as Delivered
+                            </Button>
+                        ) : (
+                            <div className="space-y-3">
+                                <Alert>
+                                    <AlertTitle>Confirm Delivery</AlertTitle>
+                                    <AlertDescription>
+                                        Has the customer received this package?
+                                    </AlertDescription>
+                                </Alert>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={cancelCompleteDelivery}
+                                    >
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        className="bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                        onClick={confirmCompleteDelivery}
+                                    >
+                                        Confirm
+                                    </Button>
+                                </div>
                             </div>
                         )}
-                    </Card>
+                    </div>
+                </div>
+
+                {/* Right side - Map */}
+                <div className="flex-1 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="h-[400px] lg:h-[calc(100vh-140px)]">
+                        <TrackingMap
+                            riderLocation={location || undefined}
+                            destinationLocation={delivery.customer.location}
+                            isTracking={isTracking}
+                            height="100%"
+                        />
+                    </div>
                 </div>
             </div>
         </div>
