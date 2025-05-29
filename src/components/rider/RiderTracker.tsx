@@ -11,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../ui/card
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
-import { getStatusColor, getStatusText, formatDateTime, calculateDistance } from '@/utils/utils.ts';
+import { getStatusColor, getStatusText, calculateDistance } from '@/utils/utils.ts';
 
 interface RiderTrackerProps {
     delivery: Delivery;
@@ -41,7 +41,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         onDisconnect: () => console.log('WebSocket disconnected'),
     });
 
-    // Set up geolocation tracking with assumption that permission is already granted
+    // Set up geolocation tracking with an assumption that permission is already granted
     const {
         location,
         error: locationError,
@@ -92,7 +92,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
     // Calculate backoff time for retries
     const getBackoffTime = useCallback(() => {
-        // Exponential backoff: 2^retryCount * 1000ms (1s, 2s, 4s, 8s, etc.)
+        // Exponential backoff: 2^retryCount * 1000 ms (1 s, 2 s, 4 s, 8 s, etc.)
         // Max out at 60 seconds
         return Math.min(Math.pow(2, retryCount) * 1000, 60000);
     }, [retryCount]);
@@ -102,7 +102,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         if (!locationBufferRef.current || isUpdatingLocation) return;
 
         const currentTime = Date.now();
-        // Enforce minimum time between updates (5 seconds in normal mode, 10 in battery saving)
+        // Enforce the minimum time between updates (5 seconds in normal mode, 10 in battery saving)
         const minUpdateInterval = isBatterySaving ? 10000 : 5000;
 
         if (currentTime - lastLocationUpdateRef.current < minUpdateInterval) {
@@ -124,10 +124,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             locationBufferRef.current = null; // Clear buffer
 
             // Send location update through API
-            const result = await updateLocation(delivery.tracking_id, {
-                ...locationToSend,
-                tracking_id: delivery.tracking_id
-            });
+            const result = await updateLocation(delivery.tracking_id, locationToSend);
 
             if (result.success) {
                 setRetryCount(0); // Reset retry count on success
@@ -148,12 +145,36 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     });
                 }
             } else {
-                throw new Error(result.message || "Failed to update location");
+                // Handle an unsuccessful result directly instead of throwing
+                console.error('Error updating location:', result.message || "Failed to update location");
+
+                // Only show error to the user after multiple failures
+                if (retryCount > 2) {
+                    setLocationIssue('Issues sending location updates. Will keep trying.');
+                }
+
+                // Implement exponential backoff for retries
+                if (retryCount < 8) { // Max 8 retries
+                    setRetryCount(prev => prev + 1);
+                    const backoffTime = getBackoffTime();
+                    console.log(`Retrying location update in ${backoffTime/1000}s (retry #${retryCount + 1})`);
+
+                    // Schedule retry
+                    locationUpdateTimeoutRef.current = setTimeout(() => {
+                        if (locationBufferRef.current) {
+                            processLocationUpdate();
+                        }
+                    }, backoffTime);
+                }
+
+                // Set updating to false here since we're handling the error case
+                setIsUpdatingLocation(false);
+                return;
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error('Error updating location:', error);
 
-            // Only show error to user after multiple failures
+            // Only show error to the user after multiple failures
             if (retryCount > 2) {
                 setLocationIssue('Issues sending location updates. Will keep trying.');
             }
@@ -193,9 +214,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 return () => clearTimeout(timeoutId);
             }
         }
-    }, [location, isTracking, delivery.status, processLocationUpdate]);
+    }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
-    // Clean up timeout on unmount
+    // Clean up timeout on unmounting
     useEffect(() => {
         return () => {
             if (locationUpdateTimeoutRef.current) {
@@ -204,7 +225,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         };
     }, []);
 
-    // Handle WebSocket ping to keep connection alive
+    // Handle WebSocket ping to keep the connection alive
     useEffect(() => {
         if (!isConnected) return;
 
@@ -231,7 +252,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         // Only set up the interval, don't call it immediately to avoid render cycle issues
         const intervalId = setInterval(simulateClientConnection, 15000);
 
-        // Initial call with setTimeout to avoid render cycle
+        // Initial call with setTimeout to avoid the render cycle
         const initialTimeout = setTimeout(simulateClientConnection, 100);
 
         return () => {
@@ -240,14 +261,14 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         };
     }, [isConnected]);
 
-    // Handle starting the delivery tracking - auto-start when component loads
+    // Handle starting the delivery tracking - auto-start when the component loads
     useEffect(() => {
         const autoStartTracking = async () => {
             // Always start location tracking regardless of delivery status
             if (!isTracking) {
                 startLocationTracking();
 
-                // Only attempt to update delivery status if it's in 'accepted' state
+                // Only attempt to update the delivery status if it's in the 'accepted' state
                 if (delivery.status === 'accepted') {
                     try {
                         const result = await startTracking(delivery.tracking_id);
@@ -271,7 +292,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
         autoStartTracking();
 
-        // Cleanup when component unmounts
+        // Cleanup when a component unmounts
         return () => {
             if (isTracking) {
                 stopLocationTracking();
