@@ -1,6 +1,6 @@
 //src/components/rider/RiderTracker.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Delivery, Location } from '@/types';
 import { useRider } from '../../context/RiderContext';
@@ -26,6 +26,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [connectedClients, setConnectedClients] = useState(0);
     const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
     const [locationIssue, setLocationIssue] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
+    const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
+    const locationUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const lastLocationUpdateRef = useRef<number>(0);
+    const locationBufferRef = useRef<Location | null>(null);
 
     // Set up WebSocket connection
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.tracking_id}`;
@@ -45,7 +50,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         stopTracking: stopLocationTracking
     } = useGeolocation({
         enableHighAccuracy: !isBatterySaving,
-        interval: isBatterySaving ? 30000 : 10000, // 30 seconds in battery saving mode, 10 seconds in normal mode
+        interval: isBatterySaving ? 45000 : 20000, // Increased intervals to reduce resource usage
     });
 
     // Check that location permission is actually granted
@@ -85,43 +90,119 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, delivery.customer.location, isBatterySaving]);
 
-    // Send location updates to the server
-    useEffect(() => {
-        const sendLocationUpdate = async () => {
-            if (location && isTracking && delivery.status === 'in_progress') {
-                try {
-                    // Send location update through API - pass location with tracking_id embedded
-                    const locationWithTrackingId = {
-                        ...location,
-                        tracking_id: delivery.tracking_id
-                    };
-                    await updateLocation(delivery.tracking_id, locationWithTrackingId);
+    // Calculate backoff time for retries
+    const getBackoffTime = useCallback(() => {
+        // Exponential backoff: 2^retryCount * 1000ms (1s, 2s, 4s, 8s, etc.)
+        // Max out at 60 seconds
+        return Math.min(Math.pow(2, retryCount) * 1000, 60000);
+    }, [retryCount]);
 
-                    // Also send through WebSocket for real-time updates
-                    if (isConnected) {
-                        send({
-                            type: 'location_update',
-                            tracking_id: delivery.tracking_id,
-                            location: {
-                                latitude: location.latitude,
-                                longitude: location.longitude,
-                                accuracy: location.accuracy,
-                                speed: location.speed,
-                                timestamp: location.timestamp
-                            }
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error updating location:', error);
-                    setLocationIssue('Failed to update location. Please check your network connection.');
+    // Process location update with debouncing and retry logic
+    const processLocationUpdate = useCallback(async () => {
+        if (!locationBufferRef.current || isUpdatingLocation) return;
+
+        const currentTime = Date.now();
+        // Enforce minimum time between updates (5 seconds in normal mode, 10 in battery saving)
+        const minUpdateInterval = isBatterySaving ? 10000 : 5000;
+
+        if (currentTime - lastLocationUpdateRef.current < minUpdateInterval) {
+            // Schedule update after the interval has passed
+            if (locationUpdateTimeoutRef.current) {
+                clearTimeout(locationUpdateTimeoutRef.current);
+            }
+            locationUpdateTimeoutRef.current = setTimeout(
+                processLocationUpdate,
+                minUpdateInterval - (currentTime - lastLocationUpdateRef.current)
+            );
+            return;
+        }
+
+        setIsUpdatingLocation(true);
+
+        try {
+            const locationToSend = { ...locationBufferRef.current };
+            locationBufferRef.current = null; // Clear buffer
+
+            // Send location update through API
+            const result = await updateLocation(delivery.tracking_id, {
+                ...locationToSend,
+                tracking_id: delivery.tracking_id
+            });
+
+            if (result.success) {
+                setRetryCount(0); // Reset retry count on success
+                lastLocationUpdateRef.current = currentTime;
+
+                // Also send through WebSocket for real-time updates if connected
+                if (isConnected) {
+                    send({
+                        type: 'location_update',
+                        tracking_id: delivery.tracking_id,
+                        location: {
+                            latitude: locationToSend.latitude,
+                            longitude: locationToSend.longitude,
+                            accuracy: locationToSend.accuracy,
+                            speed: locationToSend.speed,
+                            timestamp: locationToSend.timestamp
+                        }
+                    });
                 }
+            } else {
+                throw new Error(result.message || "Failed to update location");
+            }
+        } catch (error: any) {
+            console.error('Error updating location:', error);
+
+            // Only show error to user after multiple failures
+            if (retryCount > 2) {
+                setLocationIssue('Issues sending location updates. Will keep trying.');
+            }
+
+            // Implement exponential backoff for retries
+            if (retryCount < 8) { // Max 8 retries
+                setRetryCount(prev => prev + 1);
+                const backoffTime = getBackoffTime();
+                console.log(`Retrying location update in ${backoffTime/1000}s (retry #${retryCount + 1})`);
+
+                // Schedule retry
+                locationUpdateTimeoutRef.current = setTimeout(() => {
+                    if (locationBufferRef.current) {
+                        processLocationUpdate();
+                    }
+                }, backoffTime);
+            }
+        } finally {
+            setIsUpdatingLocation(false);
+        }
+    // Remove location from dependencies to prevent the infinite loop
+    }, [delivery.tracking_id, isConnected, isUpdatingLocation, isBatterySaving, retryCount, send, updateLocation, getBackoffTime]);
+
+    // Buffer location updates and trigger processing
+    useEffect(() => {
+        if (location && isTracking && delivery.status === 'in_progress') {
+            // Store latest location in buffer
+            locationBufferRef.current = location;
+
+            // Try to process if not already processing
+            if (!isUpdatingLocation) {
+                // Use setTimeout to break the render cycle dependency
+                const timeoutId = setTimeout(() => {
+                    processLocationUpdate();
+                }, 0);
+
+                return () => clearTimeout(timeoutId);
+            }
+        }
+    }, [location, isTracking, delivery.status, processLocationUpdate]);
+
+    // Clean up timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (locationUpdateTimeoutRef.current) {
+                clearTimeout(locationUpdateTimeoutRef.current);
             }
         };
-
-        if (location && isTracking) {
-            sendLocationUpdate();
-        }
-    }, [location, isTracking, delivery.tracking_id, delivery.status, isConnected, updateLocation, send]);
+    }, []);
 
     // Handle WebSocket ping to keep connection alive
     useEffect(() => {
@@ -147,22 +228,28 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             }
         };
 
-        simulateClientConnection();
+        // Only set up the interval, don't call it immediately to avoid render cycle issues
         const intervalId = setInterval(simulateClientConnection, 15000);
 
-        return () => clearInterval(intervalId);
+        // Initial call with setTimeout to avoid render cycle
+        const initialTimeout = setTimeout(simulateClientConnection, 100);
+
+        return () => {
+            clearInterval(intervalId);
+            clearTimeout(initialTimeout);
+        };
     }, [isConnected]);
 
     // Handle starting the delivery tracking - auto-start when component loads
     useEffect(() => {
         const autoStartTracking = async () => {
-            if (!isTracking && delivery.status === 'accepted') {
-                try {
-                    // Start tracking the rider's location
-                    startLocationTracking();
+            // Always start location tracking regardless of delivery status
+            if (!isTracking) {
+                startLocationTracking();
 
-                    // Update delivery status if needed
-                    if (delivery.status !== 'in_progress') {
+                // Only attempt to update delivery status if it's in 'accepted' state
+                if (delivery.status === 'accepted') {
+                    try {
                         const result = await startTracking(delivery.tracking_id);
 
                         // Send tracking start event to WebSocket if successful
@@ -173,14 +260,12 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 status: 'in_progress'
                             });
                         }
+                    } catch (error) {
+                        console.error('Error starting tracking:', error);
+                        setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
                     }
-                } catch (error) {
-                    console.error('Error starting tracking:', error);
-                    setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
                 }
-            } else if (!isTracking && delivery.status === 'in_progress') {
-                // Just start location tracking if delivery is already in progress
-                startLocationTracking();
+                // If already 'in_progress', no need to call the API again
             }
         };
 
@@ -191,8 +276,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             if (isTracking) {
                 stopLocationTracking();
             }
+            if (locationUpdateTimeoutRef.current) {
+                clearTimeout(locationUpdateTimeoutRef.current);
+            }
         };
-    }, [delivery.status, delivery.tracking_id, isTracking, startTracking, startLocationTracking, isConnected, send]);
+    }, [delivery.status, delivery.tracking_id, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking]);
 
     const toggleBatterySaving = () => {
         setIsBatterySaving(!isBatterySaving);
