@@ -148,6 +148,25 @@ const deliveryService = {
         }
     },
 
+    // Complete a delivery (mark as received by customer)
+    completeDelivery: async (trackingId: string) => {
+        try {
+            const response = await apiClient.post(`/deliveries/tracking/${trackingId}/complete`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to complete delivery. Please try again.';
+            return {
+                success: false,
+                error: errorMessage,
+            };
+        }
+    },
+
     // Get delivery analytics for charts
     getDeliveryAnalytics: async (timeRange: 'week' | 'month' | 'year' = 'week') => {
         try {
