@@ -28,7 +28,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [locationIssue, setLocationIssue] = useState<string | null>(null);
 
     // Set up WebSocket connection
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.trackingId}`;
+    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.tracking_id}`;
     const { isConnected, send, connectionStatus } = useWebSocket({
         url: wsUrl,
         autoConnect: delivery.status === 'in_progress',
@@ -121,7 +121,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         if (location && isTracking) {
             sendLocationUpdate();
         }
-    }, [location, isTracking, delivery.trackingId, delivery.status, isConnected, updateLocation, send]);
+    }, [location, isTracking, delivery.tracking_id, delivery.status, isConnected, updateLocation, send]);
 
     // Handle WebSocket ping to keep connection alive
     useEffect(() => {
@@ -163,13 +163,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
                     // Update delivery status if needed
                     if (delivery.status !== 'in_progress') {
-                        const result = await startTracking(delivery.trackingId);
+                        const result = await startTracking(delivery.tracking_id);
 
                         // Send tracking start event to WebSocket if successful
                         if (result.success && isConnected) {
                             send({
                                 type: 'status_update',
-                                tracking_id: delivery.trackingId,
+                                tracking_id: delivery.tracking_id,
                                 status: 'in_progress'
                             });
                         }
@@ -192,7 +192,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 stopLocationTracking();
             }
         };
-    }, [delivery.status, delivery.trackingId, isTracking, startTracking, startLocationTracking, isConnected, send]);
+    }, [delivery.status, delivery.tracking_id, isTracking, startTracking, startLocationTracking, isConnected, send]);
 
     const toggleBatterySaving = () => {
         setIsBatterySaving(!isBatterySaving);
@@ -204,7 +204,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
     const confirmCompleteDelivery = async () => {
         try {
-            const result = await completeDelivery(delivery.trackingId);
+            const result = await completeDelivery(delivery.tracking_id);
 
             if (result.success) {
                 stopLocationTracking();
@@ -214,14 +214,14 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 if (isConnected) {
                     send({
                         type: 'status_update',
-                        tracking_id: delivery.trackingId,
+                        tracking_id: delivery.tracking_id,
                         status: 'completed'
                     });
                 }
 
                 // Redirect to completion page
                 setTimeout(() => {
-                    navigate(`/rider/complete/${delivery.trackingId}`);
+                    navigate(`/rider/complete/${delivery.tracking_id}`);
                 }, 1000);
             }
         } catch (error) {
@@ -286,7 +286,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             <div>
                                 <h3 className="font-medium text-gray-600">Customer</h3>
                                 <p className="font-bold">{delivery.customer.name}</p>
-                                <p>{delivery.customer.phoneNumber}</p>
+                                <p>{delivery.customer.phone_number}</p>
                                 <p className="mt-1 text-sm">{delivery.customer.address}</p>
                             </div>
 
@@ -296,10 +296,10 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 {delivery.package.size && (
                                     <p className="text-sm">Size: {delivery.package.size}</p>
                                 )}
-                                {delivery.package.specialInstructions && (
+                                {delivery.package.special_instructions && (
                                     <div className="mt-2">
                                         <h4 className="text-sm font-medium text-gray-600">Special Instructions:</h4>
-                                        <p className="text-sm italic">{delivery.package.specialInstructions}</p>
+                                        <p className="text-sm italic">{delivery.package.special_instructions}</p>
                                     </div>
                                 )}
                             </div>
