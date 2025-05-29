@@ -129,3 +129,12 @@ export interface DeliveryFilters {
     /** Items per page */
     limit: number;
 }
+
+export interface CustomerLocation {
+    latitude: number;
+    longitude: number;
+    address?: string;
+    timestamp?: number;
+    accuracy?: number;
+    source?: string;
+}
