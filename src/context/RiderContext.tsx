@@ -243,6 +243,16 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     setCurrentDelivery(result.delivery);
                     toast.success('Tracking started successfully');
                 } else {
+                    // Check for specific error about already in progress
+                    if (result.message?.includes('already in progress')) {
+                        // If already in progress, this is not actually an error
+                        return {
+                            success: true,
+                            message: 'Delivery is already in progress',
+                            delivery: currentDelivery
+                        };
+                    }
+
                     toast.error(result.message ?? 'Failed to start tracking');
                     setError(result.message ?? 'Failed to start tracking');
                 }
@@ -250,19 +260,42 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 return result;
             } else {
                 // Use real service
-                const result = await riderService.startTracking(trackingId);
+                try {
+                    const result = await riderService.startTracking(trackingId);
 
-                if (result.success) {
-                    if (result.delivery) {
-                        setCurrentDelivery(result.delivery);
+                    if (result.success) {
+                        if (result.delivery) {
+                            setCurrentDelivery(result.delivery);
+                        }
+                        toast.success('Tracking started successfully');
+                    } else {
+                        // Check for specific error about already in progress
+                        if (result.message?.toLowerCase().includes('in_progress')) {
+                            // If already in progress, consider this success
+                            return {
+                                success: true,
+                                message: 'Delivery is already being tracked',
+                                delivery: currentDelivery
+                            };
+                        }
+
+                        toast.error(result.message ?? 'Failed to start tracking');
+                        setError(result.message ?? 'Failed to start tracking');
                     }
-                    toast.success('Tracking started successfully');
-                } else {
-                    toast.error(result.message ?? 'Failed to start tracking');
-                    setError(result.message ?? 'Failed to start tracking');
-                }
 
-                return result;
+                    return result;
+                } catch (error: any) {
+                    // Check if error message contains info about already being in progress
+                    if (error.message?.toLowerCase().includes('in_progress')) {
+                        // If already in progress, consider this success
+                        return {
+                            success: true,
+                            message: 'Delivery is already being tracked',
+                            delivery: currentDelivery
+                        };
+                    }
+                    throw error;
+                }
             }
         } catch (error) {
             console.error('Error starting tracking:', error);
@@ -283,7 +316,16 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                 const result = await mockDeliveryService.updateRiderLocation(trackingId, location);
 
                 if (result.success && result.delivery) {
-                    setCurrentDelivery(result.delivery);
+                    // Update currentDelivery only if it's actually different
+                    // to avoid unnecessary re-renders
+                    setCurrentDelivery(prevDelivery => {
+                        // Skip update if we're just updating the same delivery data
+                        if (prevDelivery && prevDelivery.id === result.delivery?.id &&
+                            prevDelivery.status === result.delivery?.status) {
+                            return prevDelivery;
+                        }
+                        return result.delivery;
+                    });
                 }
 
                 return result;
@@ -295,21 +337,53 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
                     ...location
                 };
                 
-                // Log to verify data is correct
-                console.log('Sending location update with data:', locationData);
-                
-                const result = await riderService.updateLocation(locationData);
+                try {
+                    // Only log essential info to reduce console noise
+                    // console.log('Sending location update for tracking ID:', trackingId);
 
-                if (result.success && result.delivery) {
-                    setCurrentDelivery(result.delivery);
+                    const result = await riderService.updateLocation(locationData);
+
+                    if (result.success && result.delivery) {
+                        // Only update state if there are significant changes
+                        setCurrentDelivery(prevDelivery => {
+                            // Skip update if data is effectively the same
+                            if (prevDelivery && prevDelivery.id === result.delivery?.id &&
+                                prevDelivery.status === result.delivery?.status) {
+                                return prevDelivery;
+                            }
+                            return result.delivery;
+                        });
+                    }
+
+                    return result;
+                } catch (error: any) {
+                    // Check specifically for resource error
+                    if (error.message?.includes('ERR_INSUFFICIENT_RESOURCES')) {
+                        console.warn('Resource limitation hit when updating location, will retry later');
+                        // Return a non-error response but with a message
+                        return {
+                            success: false,
+                            message: 'Resource limit reached, will retry'
+                        };
+                    }
+                    throw error; // Re-throw other errors
                 }
-
-                return result;
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating location:', error);
-            setError('Failed to update location. Please try again.');
-            return { success: false, message: 'Failed to update location' };
+
+            const errorMessage = error.message || 'Failed to update location. Will retry automatically.';
+
+            // Don't show toast for location errors as they can be frequent
+            // Only set error if it's something critical
+            if (error.message?.includes('network') || error.message?.includes('offline')) {
+                setError('Network connection issue. Location updates may be delayed.');
+            }
+
+            return {
+                success: false,
+                message: errorMessage
+            };
         }
     };
 
