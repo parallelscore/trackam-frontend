@@ -77,6 +77,8 @@ const RiderOtpVerification: React.FC<RiderOtpVerificationProps> = ({ trackingId,
             const otpResult = await verifyOTP(otpData);
             console.log('OTP verification result:', otpResult);
 
+            console.log('trackingId:', trackingId);
+
             if (otpResult.success) {
                 // OTP is verified, now start tracking
                 const trackingResult = await startTracking(trackingId);
