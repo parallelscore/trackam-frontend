@@ -32,14 +32,77 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const lastLocationUpdateRef = useRef<number>(0);
     const locationBufferRef = useRef<Location | null>(null);
 
+    // Fix WebSocket URL construction to match backend endpoint
+    const getWebSocketUrl = useCallback(() => {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+
+        // Use environment variable for API URL if available, otherwise construct from current location
+        const apiUrl = import.meta.env.VITE_API_URL;
+
+        if (apiUrl) {
+            // Extract host from API URL
+            try {
+                const url = new URL(apiUrl);
+                const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+                return `${wsProtocol}//${url.host}/api/v1/ws/delivery/${delivery.tracking_id}`;
+            } catch (error) {
+                console.warn('Invalid VITE_API_URL, falling back to current host');
+            }
+        }
+
+        // Fallback to current host with /api/v1 prefix
+        return `${protocol}//${host}/api/v1/ws/delivery/${delivery.tracking_id}`;
+    }, [delivery.tracking_id]);
+
+    const wsUrl = getWebSocketUrl();
+
     // Set up WebSocket connection
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.tracking_id}`;
-    const { isConnected, send, connectionStatus } = useWebSocket({
+    const { isConnected, send, connectionStatus, lastMessage } = useWebSocket({
         url: wsUrl,
-        autoConnect: delivery.status === 'in_progress',
-        onConnect: () => console.log('WebSocket connected'),
-        onDisconnect: () => console.log('WebSocket disconnected'),
+        autoConnect: delivery.status === 'in_progress' || delivery.status === 'accepted',
+        reconnectAttempts: 3, // Reduce reconnect attempts to avoid spam
+        reconnectInterval: 10000, // Increase interval between reconnects
+        onConnect: () => {
+            console.log('WebSocket connected to:', wsUrl);
+            setConnectedClients(1); // At least this client is connected
+        },
+        onDisconnect: () => {
+            console.log('WebSocket disconnected');
+            setConnectedClients(0);
+        },
+        onError: (error) => {
+            console.error('WebSocket error:', error);
+        }
     });
+
+    // Process incoming WebSocket messages
+    useEffect(() => {
+        if (lastMessage) {
+            try {
+                const message = JSON.parse(lastMessage);
+
+                switch (message.type) {
+                    case 'connections_info':
+                        setConnectedClients(message.connections_count || 0);
+                        break;
+                    case 'location_update':
+                        // Handle location updates from other sources if needed
+                        break;
+                    case 'status_update':
+                        // Handle status updates if needed
+                        break;
+                    case 'pong':
+                        // Handle ping response
+                        break;
+                    default:
+                        console.log('Received unknown message type:', message.type);
+                }
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        }
+    }, [lastMessage]);
 
     // Set up geolocation tracking with an assumption that permission is already granted
     const {
@@ -51,6 +114,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     } = useGeolocation({
         enableHighAccuracy: !isBatterySaving,
         interval: isBatterySaving ? 45000 : 20000, // Increased intervals to reduce resource usage
+        skipInitialPermissionCheck: locationPermissionGranted // Use this flag from context
     });
 
     // Check that location permission is actually granted
@@ -132,7 +196,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
                 // Also send through WebSocket for real-time updates if connected
                 if (isConnected) {
-                    send({
+                    const success = send({
                         type: 'location_update',
                         tracking_id: delivery.tracking_id,
                         location: {
@@ -143,6 +207,10 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             timestamp: locationToSend.timestamp
                         }
                     });
+
+                    if (!success) {
+                        console.warn('Failed to send location update via WebSocket');
+                    }
                 }
             } else {
                 // Handle an unsuccessful result directly instead of throwing
@@ -195,12 +263,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         } finally {
             setIsUpdatingLocation(false);
         }
-    // Remove location from dependencies to prevent the infinite loop
     }, [delivery.tracking_id, isConnected, isUpdatingLocation, isBatterySaving, retryCount, send, updateLocation, getBackoffTime]);
 
     // Buffer location updates and trigger processing
     useEffect(() => {
-        if (location && isTracking && delivery.status === 'in_progress') {
+        if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
             // Store latest location in buffer
             locationBufferRef.current = location;
 
@@ -230,36 +297,14 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         if (!isConnected) return;
 
         const intervalId = setInterval(() => {
-            send({ type: 'ping', timestamp: Date.now() });
+            const success = send({ type: 'ping', timestamp: Date.now() });
+            if (!success) {
+                console.warn('Failed to send ping via WebSocket');
+            }
         }, 30000); // Send ping every 30 seconds
 
         return () => clearInterval(intervalId);
     }, [isConnected, send]);
-
-    // Handle WebSocket updates for connected clients
-    useEffect(() => {
-        // This would normally be handled through actual WebSocket updates
-        // For now, we'll simulate it with a random number
-        const simulateClientConnection = () => {
-            if (isConnected) {
-                // Generate a random number between 0 and 3 to simulate clients watching
-                setConnectedClients(Math.floor(Math.random() * 4));
-            } else {
-                setConnectedClients(0);
-            }
-        };
-
-        // Only set up the interval, don't call it immediately to avoid render cycle issues
-        const intervalId = setInterval(simulateClientConnection, 15000);
-
-        // Initial call with setTimeout to avoid the render cycle
-        const initialTimeout = setTimeout(simulateClientConnection, 100);
-
-        return () => {
-            clearInterval(intervalId);
-            clearTimeout(initialTimeout);
-        };
-    }, [isConnected]);
 
     // Handle starting the delivery tracking - auto-start when the component loads
     useEffect(() => {
@@ -357,6 +402,40 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         return `${hours} hour${hours > 1 ? 's' : ''} ${minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''}`;
     };
 
+    const getConnectionStatusIndicator = () => {
+        switch (connectionStatus) {
+            case 'connected':
+                return (
+                    <div className="text-sm text-green-600 flex items-center">
+                        <div className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></div>
+                        Live: {connectedClients > 0 ? `${connectedClients} client${connectedClients > 1 ? 's' : ''} watching` : 'Connected'}
+                    </div>
+                );
+            case 'connecting':
+            case 'reconnecting':
+                return (
+                    <div className="text-sm text-yellow-600 flex items-center">
+                        <div className="w-2 h-2 bg-yellow-600 rounded-full mr-2 animate-ping"></div>
+                        Connecting...
+                    </div>
+                );
+            case 'error':
+                return (
+                    <div className="text-sm text-red-600 flex items-center">
+                        <div className="w-2 h-2 bg-red-600 rounded-full mr-2"></div>
+                        Connection failed
+                    </div>
+                );
+            default:
+                return (
+                    <div className="text-sm text-gray-600 flex items-center">
+                        <div className="w-2 h-2 bg-gray-600 rounded-full mr-2"></div>
+                        Disconnected
+                    </div>
+                );
+        }
+    };
+
     return (
         <div className="space-y-6">
             {locationIssue && (
@@ -372,7 +451,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 <Alert variant="destructive">
                     <AlertTitle>Connection Error</AlertTitle>
                     <AlertDescription>
-                        Unable to connect to the tracking server. Your delivery will still be tracked,
+                        Unable to connect to the tracking server at {wsUrl}. Your delivery will still be tracked,
                         but real-time updates may be delayed.
                     </AlertDescription>
                 </Alert>
@@ -428,12 +507,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 </div>
                             )}
 
-                            {isConnected && (
-                                <div className="text-sm text-green-600 flex items-center">
-                                    <div className="w-2 h-2 bg-green-600 rounded-full mr-2 animate-pulse"></div>
-                                    Live: {connectedClients > 0 ? `${connectedClients} client${connectedClients > 1 ? 's' : ''} watching` : 'Connected'}
-                                </div>
-                            )}
+                            {getConnectionStatusIndicator()}
                         </CardContent>
 
                         <CardFooter className="border-t pt-4 flex-col space-y-2">
