@@ -82,41 +82,221 @@
   min-height: 300px;
 }
 
-/* Custom marker styles */
-.delivery-marker {
-  background-color: #FF9500;
-  border-radius: 50%;
-  border: 2px solid white;
-  width: 20px;
-  height: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-}
-
-.destination-marker {
-  background-color: #0CAA41;
-  border-radius: 50%;
-  border: 2px solid white;
-  width: 20px;
-  height: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-}
-
-/* Animated pulse for active tracking */
-@keyframes pulse {
+/* Custom marker animations */
+@keyframes pulse-rider {
   0% {
-    transform: scale(1);
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+@keyframes bounce-destination {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Ensure custom markers are properly layered */
+.custom-rider-marker,
+.custom-destination-marker {
+  z-index: 1000 !important;
+}
+
+/* Smooth transitions for map interactions */
+.leaflet-container {
+  font-family: inherit;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
+  line-height: 1.4;
+}
+
+/* Custom scrollbar for the sidebar */
+.lg\:w-80::-webkit-scrollbar {
+  width: 4px;
+}
+
+.lg\:w-80::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.lg\:w-80::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.lg\:w-80::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Live tracking indicator pulse animation */
+@keyframes pulse {
+  0%, 100% {
     opacity: 1;
   }
   50% {
-    transform: scale(1.3);
-    opacity: 0.7;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
+    opacity: 0.5;
   }
 }
 
-.pulse {
+/* Enhance button hover states for better UX */
+.bg-\[#0CAA41\]:hover {
+  background-color: #0a9639 !important;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+.bg-\[#FF9500\]:hover {
+  background-color: #e6850e !important;
+  transform: translateY(-1px);
+  transition: all 0.2s ease;
+}
+
+/* Smooth transitions for status badges */
+.transition-all {
+  transition: all 0.3s ease;
+}
+
+/* Enhanced map overlay styling */
+.map-overlay {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+/* Mobile responsive improvements */
+@media (max-width: 1024px) {
+  /* Stack layout on mobile */
+  .flex.flex-col.lg\:flex-row {
+    flex-direction: column !important;
+  }
+
+  /* Mobile map height */
+  .h-\[400px\] {
+    height: 350px !important;
+  }
+
+  /* Sidebar adjustments */
+  .lg\:w-80 {
+    width: 100%;
+    max-height: none;
+  }
+
+  /* Ensure proper spacing */
+  .gap-4 {
+    gap: 1rem;
+  }
+}
+
+/* Prevent map overflow issues */
+.leaflet-container {
+  max-height: 100%;
+  overflow: hidden;
+}
+
+/* Ensure zoom controls are not covered */
+.leaflet-control-zoom {
+  margin-left: 10px !important;
+  margin-top: 10px !important;
+}
+
+/* Focus states for accessibility */
+button:focus-visible,
+.focus\:ring-2:focus-visible {
+  outline: 2px solid #0CAA41;
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.loading-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Custom map controls */
+.leaflet-control-zoom a {
+  border-radius: 6px !important;
+  border: none !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.leaflet-control-zoom a:first-child {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Status indicator variants */
+.status-indicator-live {
   animation: pulse 2s infinite;
+}
+
+.status-indicator-connecting {
+  animation: pulse 1s infinite;
+}
+
+/* Compact layout adjustments */
+.compact-stat {
+  transition: transform 0.2s ease;
+}
+
+.compact-stat:hover {
+  transform: scale(1.02);
+}
+
+/* Mobile viewport fixes */
+@media (max-width: 768px) {
+  /* Reduce mobile map height */
+  .h-\[400px\] {
+    height: 300px !important;
+  }
+
+  /* Adjust legend position on mobile */
+  .absolute.bottom-4.left-4 {
+    bottom: 8px !important;
+    left: 8px !important;
+  }
+
+  /* Make legend smaller on mobile */
+  .absolute.bottom-4.left-4 .bg-white {
+    padding: 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* Ensure page content doesn't overflow */
+  .min-h-screen {
+    min-height: auto;
+  }
+}
+
+/* Card styling for better visual separation */
+.rounded-lg.border.border-gray-200 {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+/* Ensure content fits within viewport */
+.p-4 {
+  padding: 1rem;
+}
+
+@media (max-width: 640px) {
+  .p-4 {
+    padding: 0.75rem;
+  }
 }
