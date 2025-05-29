@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Delivery, Location } from '@/types';
 import { useDelivery } from '../../context/DeliveryContext';
-import useWebSocket from '../../hooks/useWebSocket';
+import { useWebSocket } from '../../context/WebSocketContext';
 import TrackingMap from '../map/TrackingMap';
 import DeliveryStatusHeader from '../customer/DeliveryStatusHeader';
 import PackageDetails from '../customer/PackageDetails';
@@ -19,22 +19,25 @@ interface EnhancedTrackingViewProps {
 const EnhancedTrackingView: React.FC<EnhancedTrackingViewProps> = ({ delivery, onRefresh }) => {
     const navigate = useNavigate();
     const { completeDelivery, isLoading } = useDelivery();
+    const { connectToDelivery, disconnectFromDelivery, isConnected, lastMessage } = useWebSocket();
     const [riderLocation, setRiderLocation] = useState<Location | undefined>(
-        delivery.rider?.currentLocation
+        delivery.rider?.current_location
     );
     const [estimatedTime, setEstimatedTime] = useState<string | undefined>(undefined);
     const [distance, setDistance] = useState<number | null>(null);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [deliveryCompleted, setDeliveryCompleted] = useState(delivery.status === 'completed');
 
-    // Set up WebSocket connection
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/v1/ws/delivery/${delivery.trackingId}`;
-    const { isConnected, lastMessage } = useWebSocket({
-        url: wsUrl,
-        autoConnect: delivery.status === 'in_progress',
-        onConnect: () => console.log('WebSocket connected'),
-        onDisconnect: () => console.log('WebSocket disconnected'),
-    });
+    // Connect to WebSocket when delivery is being tracked
+    useEffect(() => {
+        if (delivery.tracking_id && delivery.status === 'in_progress') {
+            connectToDelivery(delivery.tracking_id);
+        }
+
+        return () => {
+            disconnectFromDelivery();
+        };
+    }, [delivery.tracking_id, delivery.status]);
 
     // Process websocket messages
     useEffect(() => {
@@ -64,6 +67,7 @@ const EnhancedTrackingView: React.FC<EnhancedTrackingViewProps> = ({ delivery, o
     // Calculate estimated time and distance
     useEffect(() => {
         if (riderLocation && delivery.customer.location) {
+            // Use the imported calculateDistance function
             const dist = calculateDistance(
                 riderLocation.latitude,
                 riderLocation.longitude,
@@ -100,7 +104,8 @@ const EnhancedTrackingView: React.FC<EnhancedTrackingViewProps> = ({ delivery, o
 
     const confirmReceipt = async () => {
         try {
-            const result = await completeDelivery(delivery.trackingId);
+            // Update to use tracking_id instead of trackingId
+            const result = await completeDelivery(delivery.tracking_id);
             if (result.success) {
                 setDeliveryCompleted(true);
                 setShowConfirmation(false);
@@ -108,7 +113,7 @@ const EnhancedTrackingView: React.FC<EnhancedTrackingViewProps> = ({ delivery, o
 
                 // Redirect to confirmation page after a delay
                 setTimeout(() => {
-                    navigate(`/delivery-confirmed/${delivery.trackingId}`);
+                    navigate(`/delivery-confirmed/${delivery.tracking_id}`);
                 }, 1500);
             }
         } catch (error) {
