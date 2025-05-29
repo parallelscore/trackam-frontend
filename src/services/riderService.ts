@@ -113,6 +113,7 @@ const riderService = {
     // Start tracking a delivery
     startTracking: async (tracking_id: string) => {
         try {
+            console.log('Starting tracking for delivery with tracking ID:', tracking_id);
             const response = await apiClient.post(`/rider/start-tracking/${tracking_id}`);
 
             return {
