@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
-import { SocketEvent } from '@/types';
 
 interface UseWebSocketOptions {
     url: string;
@@ -12,13 +10,9 @@ interface UseWebSocketOptions {
 }
 
 interface UseWebSocketResult {
-    socket: Socket | null;
     isConnected: boolean;
-    connect: () => void;
-    disconnect: () => void;
-    send: <T>(event: string, data: T) => void;
+    send: (data: any) => void;
     connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error';
-    error: Error | null;
 }
 
 const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
@@ -31,128 +25,107 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
         onDisconnect,
     } = options;
 
-    const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState<boolean>(false);
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'error'>('disconnected');
-    const [error, setError] = useState<Error | null>(null);
 
-    const reconnectCount = useRef<number>(0);
-    const reconnectTimerId = useRef<number | null>(null);
+    // Use refs for values that shouldn't trigger re-renders
+    const socketRef = useRef<WebSocket | null>(null);
+    const reconnectCountRef = useRef<number>(0);
+    const reconnectTimerRef = useRef<number | null>(null);
+    const connectCallbackRef = useRef(onConnect);
+    const disconnectCallbackRef = useRef(onDisconnect);
+
+    // Update callback refs when the callbacks change
+    useEffect(() => {
+        connectCallbackRef.current = onConnect;
+        disconnectCallbackRef.current = onDisconnect;
+    }, [onConnect, onDisconnect]);
 
     // Create socket connection
     const createSocketConnection = useCallback(() => {
         try {
+            // Clean up any existing socket
+            if (socketRef.current) {
+                socketRef.current.close();
+            }
+
             setConnectionStatus('connecting');
+            const socket = new WebSocket(url);
+            socketRef.current = socket;
 
-            const socketInstance = io(url, {
-                autoConnect: false,
-                reconnection: true,
-                reconnectionAttempts: reconnectAttempts,
-                reconnectionDelay: reconnectInterval,
-            });
-
-            setSocket(socketInstance);
-
-            // Set up event listeners
-            socketInstance.on(SocketEvent.CONNECT, () => {
+            socket.onopen = () => {
                 setIsConnected(true);
                 setConnectionStatus('connected');
-                reconnectCount.current = 0;
+                reconnectCountRef.current = 0;
 
-                if (onConnect) {
-                    onConnect();
+                if (connectCallbackRef.current) {
+                    connectCallbackRef.current();
                 }
-            });
+            };
 
-            socketInstance.on(SocketEvent.DISCONNECT, () => {
+            socket.onclose = () => {
                 setIsConnected(false);
                 setConnectionStatus('disconnected');
 
-                if (onDisconnect) {
-                    onDisconnect();
+                if (disconnectCallbackRef.current) {
+                    disconnectCallbackRef.current();
                 }
-            });
 
-            socketInstance.on('connect_error', (err) => {
-                setConnectionStatus('error');
-                setError(err);
-
-                // Manual reconnection logic
-                if (reconnectCount.current < reconnectAttempts) {
+                // Handle reconnection
+                if (reconnectCountRef.current < reconnectAttempts) {
                     setConnectionStatus('reconnecting');
-                    reconnectCount.current += 1;
+                    reconnectCountRef.current += 1;
 
-                    if (reconnectTimerId.current) {
-                        clearTimeout(reconnectTimerId.current);
+                    if (reconnectTimerRef.current) {
+                        clearTimeout(reconnectTimerRef.current);
                     }
 
-                    reconnectTimerId.current = window.setTimeout(() => {
-                        socketInstance.connect();
+                    reconnectTimerRef.current = window.setTimeout(() => {
+                        createSocketConnection();
                     }, reconnectInterval);
                 }
-            });
+            };
 
-            // Connect if autoConnect is true
-            if (autoConnect) {
-                socketInstance.connect();
-            }
+            socket.onerror = () => {
+                setConnectionStatus('error');
+            };
 
-            return socketInstance;
         } catch (err) {
             setConnectionStatus('error');
-            setError(err instanceof Error ? err : new Error('Failed to create socket connection'));
-            return null;
         }
-    }, [url, autoConnect, reconnectAttempts, reconnectInterval, onConnect, onDisconnect]);
+    }, [url, reconnectAttempts, reconnectInterval]);
 
     // Initialize connection
     useEffect(() => {
-        const socketInstance = createSocketConnection();
+        if (autoConnect) {
+            createSocketConnection();
+        }
 
         // Cleanup on unmount
         return () => {
-            if (socketInstance) {
-                socketInstance.disconnect();
-                socketInstance.off();
+            if (socketRef.current) {
+                socketRef.current.close();
             }
 
-            if (reconnectTimerId.current) {
-                clearTimeout(reconnectTimerId.current);
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
             }
         };
-    }, [createSocketConnection]);
+    }, [createSocketConnection, autoConnect]);
 
-    // Connect method
-    const connect = useCallback(() => {
-        if (socket && !isConnected) {
-            socket.connect();
-        }
-    }, [socket, isConnected]);
-
-    // Disconnect method
-    const disconnect = useCallback(() => {
-        if (socket && isConnected) {
-            socket.disconnect();
-        }
-    }, [socket, isConnected]);
-
-    // Send message method
-    const send = useCallback(<T>(event: string, data: T) => {
-        if (socket && isConnected) {
-            socket.emit(event, data);
+    // Send message function
+    const send = useCallback((data: any) => {
+        if (socketRef.current && isConnected) {
+            socketRef.current.send(JSON.stringify(data));
         } else {
             console.warn('Cannot send message: Socket is not connected');
         }
-    }, [socket, isConnected]);
+    }, [isConnected]);
 
     return {
-        socket,
         isConnected,
-        connect,
-        disconnect,
         send,
         connectionStatus,
-        error,
     };
 };
 
