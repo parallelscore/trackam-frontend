@@ -158,26 +158,13 @@ interface TrackingMapProps {
     destinationLocation?: Location;
     isTracking: boolean;
     height?: string;
-    delivery?: {
-        customer: {
-            name: string;
-            phone_number: string;
-            address: string;
-        };
-        package: {
-            description: string;
-            size?: string;
-            special_instructions?: string;
-        };
-    };
 }
 
 const TrackingMap: React.FC<TrackingMapProps> = ({
                                                      riderLocation,
                                                      destinationLocation,
                                                      isTracking,
-                                                     height = '400px',
-                                                     delivery
+                                                     height = '400px'
                                                  }) => {
     const mapRef = useRef<L.Map | null>(null);
 
@@ -213,46 +200,34 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {/* Rider location with simplified tooltip */}
+                {/* Rider location with accuracy circle */}
                 {riderLocation && (
                     <>
                         <Marker
                             position={[riderLocation.latitude, riderLocation.longitude]}
                             icon={createRiderIcon()}
                         >
-                            <Popup closeButton={false} className="custom-popup">
-                                <div className="p-3 min-w-[240px]">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
-                                        </div>
+                            <Popup>
+                                <div className="text-center min-w-0 max-w-[200px]">
+                                    <div className="flex items-center justify-center gap-1 font-semibold text-green-700 mb-2">
+                                        🚴 <span className="text-sm">Your Location</span>
                                     </div>
-
-                                    <div className="space-y-2 text-sm">
-                                        <div className="bg-gray-50 rounded-lg p-2">
-                                            <div className="font-medium text-gray-700 mb-1">📍 Coordinates</div>
-                                            <div className="text-gray-600 font-mono text-xs">
-                                                {riderLocation.latitude.toFixed(6)}, {riderLocation.longitude.toFixed(6)}
-                                            </div>
+                                    <div className="text-xs space-y-1.5">
+                                        <div className="flex items-center justify-center gap-1">
+                                            📍 <span>{riderLocation.latitude.toFixed(4)}, {riderLocation.longitude.toFixed(4)}</span>
                                         </div>
-
                                         {riderLocation.accuracy && (
-                                            <div className="bg-blue-50 rounded-lg p-2">
-                                                <div className="font-medium text-blue-700 mb-1">🎯 Accuracy</div>
-                                                <div className="text-blue-600">±{Math.round(riderLocation.accuracy)}m</div>
+                                            <div className="flex items-center justify-center gap-1">
+                                                🎯 <span>±{Math.round(riderLocation.accuracy)}m</span>
                                             </div>
                                         )}
-
-                                        <div className="bg-gray-50 rounded-lg p-2">
-                                            <div className="font-medium text-gray-700 mb-1">🕒 Updated</div>
-                                            <div className="text-gray-600">
-                                                {new Date(riderLocation.timestamp).toLocaleTimeString()}
+                                        {riderLocation.speed && riderLocation.speed > 0 && (
+                                            <div className="flex items-center justify-center gap-1">
+                                                ⚡ <span>{(riderLocation.speed * 3.6).toFixed(1)} km/h</span>
                                             </div>
+                                        )}
+                                        <div className="text-[10px] text-gray-500 mt-1">
+                                            {new Date(riderLocation.timestamp).toLocaleTimeString()}
                                         </div>
                                     </div>
                                 </div>
@@ -275,41 +250,20 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                     </>
                 )}
 
-                {/* Destination location with simplified customer tooltip */}
-                {destinationLocation && delivery && (
+                {/* Destination location */}
+                {destinationLocation && (
                     <Marker
                         position={[destinationLocation.latitude, destinationLocation.longitude]}
                         icon={createDestinationIcon()}
                     >
-                        <Popup closeButton={false} className="custom-popup">
-                            <div className="p-3 min-w-[260px]">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="#FF9500"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-orange-700">🏠 Customer</h3>
-                                    </div>
+                        <Popup>
+                            <div className="text-center min-w-0 max-w-[180px]">
+                                <div className="flex items-center justify-center gap-1 font-semibold text-orange-700 mb-2">
+                                    🏠 <span className="text-sm">Customer</span>
                                 </div>
-
-                                <div className="space-y-2 text-sm">
-                                    <div className="bg-orange-50 rounded-lg p-2">
-                                        <div className="font-medium text-orange-800 mb-1">👤 Name</div>
-                                        <div className="text-orange-700">{delivery.customer.name}</div>
-                                    </div>
-
-                                    <div className="bg-blue-50 rounded-lg p-2">
-                                        <div className="font-medium text-blue-800 mb-1">📞 Phone</div>
-                                        <div className="text-blue-700 font-mono text-xs">{delivery.customer.phone_number}</div>
-                                    </div>
-
-                                    <div className="bg-gray-50 rounded-lg p-2">
-                                        <div className="font-medium text-gray-700 mb-1">📍 Address</div>
-                                        <div className="text-gray-600 text-xs leading-relaxed">
-                                            {delivery.customer.address}
-                                        </div>
+                                <div className="text-xs">
+                                    <div className="flex items-center justify-center gap-1">
+                                        📍 <span>{destinationLocation.latitude.toFixed(4)}, {destinationLocation.longitude.toFixed(4)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -323,14 +277,13 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
             {/* Map legend - positioned to not interfere with zoom controls */}
             {(riderLocation || destinationLocation) && (
                 <div className="absolute bottom-4 left-4 z-[1000]">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-xs space-y-2">
-                        <div className="font-medium text-gray-700 mb-2">Map Legend</div>
+                    <div className="bg-white rounded-lg shadow-lg p-3 text-xs space-y-2">
                         {riderLocation && (
                             <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
                                     <div className="w-2 h-2 bg-white rounded-full"></div>
                                 </div>
-                                <span className="text-gray-700">Rider (You)</span>
+                                <span>Rider</span>
                             </div>
                         )}
                         {destinationLocation && (
@@ -338,33 +291,12 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                                 <div className="w-4 h-4 bg-orange-500 rounded-sm flex items-center justify-center">
                                     <div className="w-2 h-2 bg-white rounded-full"></div>
                                 </div>
-                                <span className="text-gray-700">Customer</span>
+                                <span>Customer</span>
                             </div>
                         )}
-                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                            💡 Tap markers for details
-                        </div>
                     </div>
                 </div>
             )}
-
-            {/* Custom styles for enhanced popups */}
-            <style jsx global>{`
-                .custom-popup .leaflet-popup-content-wrapper {
-                    border-radius: 12px;
-                    padding: 0;
-                }
-                .custom-popup .leaflet-popup-content {
-                    margin: 0;
-                    line-height: 1.4;
-                }
-                .custom-popup .leaflet-popup-tip {
-                    background: white;
-                }
-                .leaflet-popup-close-button {
-                    display: none !important;
-                }
-            `}</style>
         </div>
     );
 };
