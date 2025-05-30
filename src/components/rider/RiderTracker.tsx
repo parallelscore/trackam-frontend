@@ -53,6 +53,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [currentView, setCurrentView] = useState<'map' | 'progress'>('map');
     const [isFirstLocationUpdate, setIsFirstLocationUpdate] = useState(true);
     const [trackingStartDistance, setTrackingStartDistance] = useState<number | null>(null);
+    const [pathHistory, setPathHistory] = useState<Location[]>([]); // Store path trail
 
     // Fix WebSocket URL construction to match backend endpoint
     const getWebSocketUrl = useCallback(() => {
@@ -340,6 +341,38 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
+    // Separate effect for path history to avoid infinite loops
+    useEffect(() => {
+        if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
+            // Add to path history for trail visualization
+            setPathHistory(prev => {
+                const newHistory = [...prev];
+                // Only add if it's significantly different from the last position (to avoid cluttering)
+                if (newHistory.length === 0) {
+                    newHistory.push(location);
+                } else {
+                    const lastLocation = newHistory[newHistory.length - 1];
+                    const distance = calculateDistance(
+                        lastLocation.latitude,
+                        lastLocation.longitude,
+                        location.latitude,
+                        location.longitude
+                    );
+
+                    // Only add if moved more than 10 meters
+                    if (distance > 0.01) {
+                        newHistory.push(location);
+                        // Keep only last 100 points to prevent memory issues
+                        if (newHistory.length > 100) {
+                            newHistory.shift();
+                        }
+                    }
+                }
+                return newHistory;
+            });
+        }
+    }, [location?.latitude, location?.longitude, delivery.status]); // Only depend on lat/lng to avoid loops
+
     // Auto-start tracking
     useEffect(() => {
         const autoStartTracking = async () => {
@@ -519,27 +552,27 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </Button>
             </div>
 
-            {/* Stats positioned near zoom controls (top-left area, below zoom) */}
-            <div className="absolute top-20 left-4 space-y-3 pointer-events-none">
+            {/* Stats positioned next to zoom controls (top-left, beside zoom buttons) */}
+            <div className="absolute top-4 left-16 space-y-2 pointer-events-none">
                 {/* Distance and ETA card */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 pointer-events-auto">
-                    <div className="flex items-center gap-4">
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 pointer-events-auto">
+                    <div className="flex items-center gap-3">
                         <div className="text-center">
-                            <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                            <div className="flex items-center gap-1 text-xs text-gray-600 mb-0.5">
                                 <MapPin className="w-3 h-3" />
                                 <span>Distance</span>
                             </div>
-                            <div className="text-lg font-bold text-orange-600">
+                            <div className="text-sm font-bold text-orange-600">
                                 {distance !== null ? `${distance.toFixed(1)} km` : '--'}
                             </div>
                         </div>
-                        <div className="w-px h-8 bg-gray-300"></div>
+                        <div className="w-px h-6 bg-gray-300"></div>
                         <div className="text-center">
-                            <div className="flex items-center gap-1 text-xs text-gray-600 mb-1">
+                            <div className="flex items-center gap-1 text-xs text-gray-600 mb-0.5">
                                 <Clock className="w-3 h-3" />
                                 <span>ETA</span>
                             </div>
-                            <div className="text-lg font-bold text-blue-600">
+                            <div className="text-sm font-bold text-blue-600">
                                 {renderEstimatedTime()}
                             </div>
                         </div>
@@ -548,9 +581,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
                 {/* Speed indicator (when available) */}
                 {isTracking && location?.speed && (
-                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 pointer-events-auto">
-                        <div className="flex items-center gap-2 text-sm">
-                            <Zap className="w-4 h-4 text-blue-500" />
+                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-1.5 pointer-events-auto">
+                        <div className="flex items-center gap-2 text-xs">
+                            <Zap className="w-3 h-3 text-blue-500" />
                             <span className="font-medium">{(location.speed * 3.6).toFixed(1)} km/h</span>
                         </div>
                     </div>
@@ -606,6 +639,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         customer: delivery.customer,
                                         package: delivery.package
                                     }}
+                                    pathHistory={pathHistory}
                                 />
                                 <MapOverlay />
                             </div>
