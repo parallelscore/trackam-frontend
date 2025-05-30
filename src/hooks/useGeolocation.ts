@@ -150,7 +150,10 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
     };
 
     const stopTracking = () => {
-        setIsTracking(false);
+        // Only update state if actually tracking to prevent unnecessary re-renders
+        if (isTracking) {
+            setIsTracking(false);
+        }
 
         if (watchId.current !== null) {
             navigator.geolocation.clearWatch(watchId.current);
