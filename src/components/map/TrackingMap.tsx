@@ -17,8 +17,8 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom rider icon with animation
-const createRiderIcon = () => {
+// Custom rider icon with directional arrow
+const createRiderIcon = (heading: number = 0) => {
     return L.divIcon({
         className: 'custom-rider-marker',
         html: `
@@ -28,6 +28,11 @@ const createRiderIcon = () => {
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <circle cx="12" cy="12" r="8" fill="#0CAA41"/>
                         <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="white"/>
+                    </svg>
+                </div>
+                <div class="direction-arrow" style="transform: rotate(${heading}deg)">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L22 12L12 22V16H2V8H12V2Z" fill="#0CAA41"/>
                     </svg>
                 </div>
             </div>
@@ -59,6 +64,21 @@ const createRiderIcon = () => {
                     justify-content: center;
                     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
                     z-index: 10;
+                }
+                .direction-arrow {
+                    position: absolute;
+                    top: -8px;
+                    right: -2px;
+                    background-color: white;
+                    border-radius: 50%;
+                    width: 16px;
+                    height: 16px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+                    transition: transform 0.3s ease;
+                    z-index: 11;
                 }
                 @keyframes pulse-rider {
                     0% {
@@ -96,7 +116,6 @@ const createDestinationIcon = () => {
                         </svg>
                     </svg>
                 </div>
-                <div class="destination-marker-label">Customer</div>
             </div>
             <style>
                 .destination-marker-container {
@@ -108,17 +127,6 @@ const createDestinationIcon = () => {
                 .destination-marker-pin {
                     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
                     animation: bounce-destination 2s infinite;
-                }
-                .destination-marker-label {
-                    background-color: #FF9500;
-                    color: white;
-                    padding: 2px 6px;
-                    border-radius: 10px;
-                    font-size: 10px;
-                    font-weight: bold;
-                    margin-top: -2px;
-                    white-space: nowrap;
-                    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
                 }
                 @keyframes bounce-destination {
                     0%, 20%, 50%, 80%, 100% {
@@ -133,7 +141,7 @@ const createDestinationIcon = () => {
                 }
             </style>
         `,
-        iconSize: [60, 60],
+        iconSize: [60, 40],
         iconAnchor: [30, 40],
     });
 };
@@ -182,6 +190,29 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                                                      delivery
                                                  }) => {
     const mapRef = useRef<L.Map | null>(null);
+    const [isLegendOpen, setIsLegendOpen] = React.useState(false);
+
+    // Calculate rider heading from path history
+    const calculateHeading = (): number => {
+        if (pathHistory.length < 2) return 0;
+
+        const current = pathHistory[pathHistory.length - 1];
+        const previous = pathHistory[pathHistory.length - 2];
+
+        const dLon = (current.longitude - previous.longitude) * Math.PI / 180;
+        const lat1 = previous.latitude * Math.PI / 180;
+        const lat2 = current.latitude * Math.PI / 180;
+
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+
+        let heading = Math.atan2(y, x) * 180 / Math.PI;
+        heading = (heading + 360) % 360; // Normalize to 0-360
+
+        return heading;
+    };
+
+    const riderHeading = calculateHeading();
 
     // Default to Lagos, Nigeria if no locations provided
     const defaultCenter: [number, number] = [6.5244, 3.3792];
@@ -287,48 +318,45 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                     <>
                         <Marker
                             position={[riderLocation.latitude, riderLocation.longitude]}
-                            icon={createRiderIcon()}
+                            icon={createRiderIcon(riderHeading)}
                         >
                             <Popup closeButton={false} className="custom-popup">
-                                <div className="p-3 min-w-[240px]">
+                                <div className="p-3 min-w-[180px]">
                                     <div className="flex items-center gap-3 mb-3">
-                                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                 <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
                                             </svg>
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
-                                        </div>
+                                        <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
                                     </div>
 
                                     <div className="space-y-2 text-sm">
-                                        <div className="bg-gray-50 rounded-lg p-2">
-                                            <div className="font-medium text-gray-700 mb-1">📍 Coordinates</div>
-                                            <div className="text-gray-600 font-mono text-xs">
+                                        <div className="flex items-center gap-2">
+                                            <span>📍</span>
+                                            <span className="text-gray-600 font-mono text-xs">
                                                 {riderLocation.latitude.toFixed(6)}, {riderLocation.longitude.toFixed(6)}
-                                            </div>
+                                            </span>
                                         </div>
 
                                         {riderLocation.accuracy && (
-                                            <div className="bg-blue-50 rounded-lg p-2">
-                                                <div className="font-medium text-blue-700 mb-1">🎯 Accuracy</div>
-                                                <div className="text-blue-600">±{Math.round(riderLocation.accuracy)}m</div>
+                                            <div className="flex items-center gap-2">
+                                                <span>🎯</span>
+                                                <span className="text-gray-600">±{Math.round(riderLocation.accuracy)}m</span>
                                             </div>
                                         )}
 
-                                        <div className="bg-gray-50 rounded-lg p-2">
-                                            <div className="font-medium text-gray-700 mb-1">🕒 Updated</div>
-                                            <div className="text-gray-600">
+                                        <div className="flex items-center gap-2">
+                                            <span>🕒</span>
+                                            <span className="text-gray-600">
                                                 {new Date(riderLocation.timestamp).toLocaleTimeString()}
-                                            </div>
+                                            </span>
                                         </div>
 
-                                        {/* Show path info if available */}
                                         {pathHistory.length > 0 && (
-                                            <div className="bg-green-50 rounded-lg p-2">
-                                                <div className="font-medium text-green-700 mb-1">🛤️ Trail Points</div>
-                                                <div className="text-green-600">{pathHistory.length} locations tracked</div>
+                                            <div className="flex items-center gap-2">
+                                                <span>🛤️</span>
+                                                <span className="text-gray-600">{pathHistory.length} points tracked</span>
                                             </div>
                                         )}
                                     </div>
@@ -359,34 +387,32 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                         icon={createDestinationIcon()}
                     >
                         <Popup closeButton={false} className="custom-popup">
-                            <div className="p-3 min-w-[260px]">
+                            <div className="p-3 min-w-[200px]">
                                 <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="#FF9500"/>
                                         </svg>
                                     </div>
-                                    <div>
-                                        <h3 className="font-semibold text-orange-700">🏠 Customer</h3>
-                                    </div>
+                                    <h3 className="font-semibold text-orange-700">🏠 Destination</h3>
                                 </div>
 
                                 <div className="space-y-2 text-sm">
-                                    <div className="bg-orange-50 rounded-lg p-2">
-                                        <div className="font-medium text-orange-800 mb-1">👤 Name</div>
-                                        <div className="text-orange-700">{delivery.customer.name}</div>
+                                    <div className="flex items-center gap-2">
+                                        <span>👤</span>
+                                        <span className="text-gray-700">{delivery.customer.name}</span>
                                     </div>
 
-                                    <div className="bg-blue-50 rounded-lg p-2">
-                                        <div className="font-medium text-blue-800 mb-1">📞 Phone</div>
-                                        <div className="text-blue-700 font-mono text-xs">{delivery.customer.phone_number}</div>
+                                    <div className="flex items-center gap-2">
+                                        <span>📞</span>
+                                        <span className="text-gray-600 font-mono text-xs">{delivery.customer.phone_number}</span>
                                     </div>
 
-                                    <div className="bg-gray-50 rounded-lg p-2">
-                                        <div className="font-medium text-gray-700 mb-1">📍 Address</div>
-                                        <div className="text-gray-600 text-xs leading-relaxed">
+                                    <div className="flex items-start gap-2">
+                                        <span>📍</span>
+                                        <span className="text-gray-600 text-xs leading-relaxed">
                                             {delivery.customer.address}
-                                        </div>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -397,37 +423,58 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 <MapCenterUpdater center={center} />
             </MapContainer>
 
-            {/* Map legend - positioned to not interfere with zoom controls */}
+            {/* Collapsible Map Legend */}
             {(riderLocation || destinationLocation || pathHistory.length > 0) && (
                 <div className="absolute bottom-4 left-4 z-[1000]">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-xs space-y-2">
-                        <div className="font-medium text-gray-700 mb-2">Map Legend</div>
-                        {riderLocation && (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                    {/* Toggle Button */}
+                    <button
+                        onClick={() => setIsLegendOpen(!isLegendOpen)}
+                        className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 mb-2 flex items-center gap-2 border border-gray-200 hover:bg-white transition-colors"
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            className={`transition-transform ${isLegendOpen ? 'rotate-180' : ''}`}
+                        >
+                            <path d="M7 14L12 9L17 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        <span className="text-xs font-medium text-gray-700">Legend</span>
+                    </button>
+
+                    {/* Legend Content */}
+                    {isLegendOpen && (
+                        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-xs space-y-2 border border-gray-200">
+                            <div className="font-medium text-gray-700 mb-2">Map Legend</div>
+                            {riderLocation && (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                    <span className="text-gray-700">Rider (You)</span>
                                 </div>
-                                <span className="text-gray-700">Rider (You)</span>
-                            </div>
-                        )}
-                        {destinationLocation && (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 bg-orange-500 rounded-sm flex items-center justify-center">
-                                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                            )}
+                            {destinationLocation && (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-orange-500 rounded-sm flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                    <span className="text-gray-700">Customer</span>
                                 </div>
-                                <span className="text-gray-700">Customer</span>
+                            )}
+                            {pathHistory.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-1 bg-green-500 border border-green-600" style={{borderStyle: 'dashed'}}></div>
+                                    <span className="text-gray-700">Trail ({pathHistory.length} points)</span>
+                                </div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                                💡 Tap markers for details
                             </div>
-                        )}
-                        {pathHistory.length > 0 && (
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-1 bg-green-500 border border-green-600" style={{borderStyle: 'dashed'}}></div>
-                                <span className="text-gray-700">Trail ({pathHistory.length} points)</span>
-                            </div>
-                        )}
-                        <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                            💡 Tap markers for details
                         </div>
-                    </div>
+                    )}
                 </div>
             )}
 

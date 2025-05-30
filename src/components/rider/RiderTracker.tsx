@@ -341,7 +341,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
-    // Separate effect for path history to avoid infinite loops
+    // And that the pathHistory useEffect properly tracks movement:
     useEffect(() => {
         if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
             // Add to path history for trail visualization
@@ -371,7 +371,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 return newHistory;
             });
         }
-    }, [location?.latitude, location?.longitude, delivery.status]); // Only depend on lat/lng to avoid loops
+    }, [location?.latitude, location?.longitude, delivery.status]);
 
     // Auto-start tracking
     useEffect(() => {
