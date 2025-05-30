@@ -1,6 +1,6 @@
-//src/components/rider/RiderTracker.tsx
+//src/components/rider/RiderTracker.tsx - Complete fixed version
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Delivery, Location } from '@/types';
 import { useRider } from '../../context/RiderContext';
@@ -29,9 +29,99 @@ interface RiderTrackerProps {
     delivery: Delivery;
 }
 
+// Fixed storage utilities
+const TrackingStorage = {
+    getStorageKey: (trackingId: string, suffix: string) => `trackam_${trackingId}_${suffix}`,
+
+    savePathHistory: (trackingId: string, pathHistory: Location[]) => {
+        try {
+            const key = TrackingStorage.getStorageKey(trackingId, 'path_history');
+            localStorage.setItem(key, JSON.stringify(pathHistory));
+        } catch (error) {
+            console.error('Error saving path history:', error);
+        }
+    },
+
+    loadPathHistory: (trackingId: string): Location[] => {
+        try {
+            const key = TrackingStorage.getStorageKey(trackingId, 'path_history');
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                return JSON.parse(saved) as Location[];
+            }
+        } catch (error) {
+            console.error('Error loading path history:', error);
+        }
+        return [];
+    },
+
+    saveTrackingProgress: (trackingId: string, data: {
+        startDistance: number | null;
+        totalDistance: number | null;
+        startTime: number;
+        progressPercent: number;
+    }) => {
+        try {
+            const key = TrackingStorage.getStorageKey(trackingId, 'progress');
+            localStorage.setItem(key, JSON.stringify({
+                ...data,
+                lastUpdated: Date.now()
+            }));
+        } catch (error) {
+            console.error('Error saving tracking progress:', error);
+        }
+    },
+
+    loadTrackingProgress: (trackingId: string) => {
+        try {
+            const key = TrackingStorage.getStorageKey(trackingId, 'progress');
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                const data = JSON.parse(saved);
+                if (data.lastUpdated && (Date.now() - data.lastUpdated) < 24 * 60 * 60 * 1000) {
+                    return data;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading tracking progress:', error);
+        }
+        return null;
+    },
+
+    cleanupOldData: (trackingId: string) => {
+        try {
+            const keys = [
+                TrackingStorage.getStorageKey(trackingId, 'path_history'),
+                TrackingStorage.getStorageKey(trackingId, 'progress'),
+                TrackingStorage.getStorageKey(trackingId, 'speed_history')
+            ];
+
+            keys.forEach(key => {
+                localStorage.removeItem(key);
+            });
+        } catch (error) {
+            console.error('Error cleaning up tracking data:', error);
+        }
+    }
+};
+
+// Utility function for debouncing
+function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number
+): (...args: Parameters<T>) => void {
+    let timeout: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+}
+
 const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const navigate = useNavigate();
     const { updateLocation, completeDelivery, startTracking, isLoading, locationPermissionGranted } = useRider();
+
+    // Basic state
     const [isBatterySaving, setIsBatterySaving] = useState(false);
     const [estimatedTimeMinutes, setEstimatedTimeMinutes] = useState<number | null>(null);
     const [distance, setDistance] = useState<number | null>(null);
@@ -42,117 +132,208 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [locationIssue, setLocationIssue] = useState<string | null>(null);
     const [retryCount, setRetryCount] = useState(0);
     const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
-    const [averageSpeed, setAverageSpeed] = useState<number>(25); // km/h
+    const [averageSpeed, setAverageSpeed] = useState<number>(25);
     const [lastLocationTime, setLastLocationTime] = useState<number | null>(null);
+    const [currentView, setCurrentView] = useState<'map' | 'progress'>('map');
+    const [isFirstLocationUpdate, setIsFirstLocationUpdate] = useState(true);
+    const [trackingStartDistance, setTrackingStartDistance] = useState<number | null>(null);
+    const [trackingStartTime, setTrackingStartTime] = useState<number | null>(null);
+    const [pathHistory, setPathHistory] = useState<Location[]>([]);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
+
+    // Refs for values that shouldn't trigger re-renders
     const locationUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const lastLocationUpdateRef = useRef<number>(0);
     const locationBufferRef = useRef<Location | null>(null);
     const speedHistory = useRef<number[]>([]);
+    const hasLoadedData = useRef<boolean>(false);
 
-    // New state for view toggle
-    const [currentView, setCurrentView] = useState<'map' | 'progress'>('map');
-    const [isFirstLocationUpdate, setIsFirstLocationUpdate] = useState(true);
-    const [trackingStartDistance, setTrackingStartDistance] = useState<number | null>(null);
-    const [pathHistory, setPathHistory] = useState<Location[]>([]); // Store path trail
+    // Memoize the tracking ID to prevent unnecessary re-renders
+    const trackingId = useMemo(() => delivery.tracking_id, [delivery.tracking_id]);
 
-    // Fix WebSocket URL construction to match backend endpoint
-    const getWebSocketUrl = useCallback(() => {
+    // Load persisted data only once
+    useEffect(() => {
+        if (hasLoadedData.current) return;
+
+        console.log('🔄 Loading persisted tracking data...');
+
+        const savedPathHistory = TrackingStorage.loadPathHistory(trackingId);
+        const savedProgress = TrackingStorage.loadTrackingProgress(trackingId);
+
+        if (savedPathHistory.length > 0) {
+            setPathHistory(savedPathHistory);
+            console.log(`📂 Loaded ${savedPathHistory.length} path points`);
+        }
+
+        if (savedProgress) {
+            setTrackingStartDistance(savedProgress.startDistance);
+            setTotalDistance(savedProgress.totalDistance);
+            setJourneyProgress(savedProgress.progressPercent || 0);
+            setTrackingStartTime(savedProgress.startTime);
+
+            if (savedProgress.startDistance !== null) {
+                setIsFirstLocationUpdate(false);
+            }
+            console.log(`📂 Loaded tracking progress: ${savedProgress.progressPercent?.toFixed(1)}%`);
+        }
+
+        hasLoadedData.current = true;
+        setIsDataLoaded(true);
+    }, [trackingId]);
+
+    // Debounced save functions to prevent excessive storage writes
+    const debouncedSavePathHistory = useCallback(
+        debounce((trackingId: string, pathHistory: Location[]) => {
+            TrackingStorage.savePathHistory(trackingId, pathHistory);
+        }, 1000),
+        []
+    );
+
+    const debouncedSaveProgress = useCallback(
+        debounce((trackingId: string, progressData: any) => {
+            TrackingStorage.saveTrackingProgress(trackingId, progressData);
+        }, 2000),
+        []
+    );
+
+    // Save path history when it changes (debounced)
+    useEffect(() => {
+        if (isDataLoaded && pathHistory.length > 0) {
+            debouncedSavePathHistory(trackingId, pathHistory);
+        }
+    }, [pathHistory.length, trackingId, isDataLoaded, debouncedSavePathHistory]);
+
+    // Save tracking progress when it changes (debounced)
+    useEffect(() => {
+        if (isDataLoaded && trackingStartDistance !== null && totalDistance !== null) {
+            debouncedSaveProgress(trackingId, {
+                startDistance: trackingStartDistance,
+                totalDistance: totalDistance,
+                startTime: trackingStartTime || Date.now(),
+                progressPercent: journeyProgress
+            });
+        }
+    }, [
+        trackingStartDistance,
+        totalDistance,
+        journeyProgress,
+        trackingStartTime,
+        trackingId,
+        isDataLoaded,
+        debouncedSaveProgress
+    ]);
+
+    // Clean up when delivery is completed
+    useEffect(() => {
+        if (delivery.status === 'completed') {
+            setTimeout(() => {
+                TrackingStorage.cleanupOldData(trackingId);
+            }, 5000);
+        }
+    }, [delivery.status, trackingId]);
+
+    // WebSocket URL - memoized to prevent re-creation
+    const wsUrl = useMemo(() => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
-
-        // Use environment variable for API URL if available, otherwise construct from current location
         const apiUrl = import.meta.env.VITE_API_URL;
 
         if (apiUrl) {
-            // Extract host from API URL
             try {
                 const url = new URL(apiUrl);
                 const wsProtocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-                return `${wsProtocol}//${url.host}/api/v1/ws/delivery/${delivery.tracking_id}`;
+                return `${wsProtocol}//${url.host}/api/v1/ws/delivery/${trackingId}`;
             } catch (error) {
                 console.warn('Invalid VITE_API_URL, falling back to current host');
             }
         }
 
-        // Fallback to current host with /api/v1 prefix
-        return `${protocol}//${host}/api/v1/ws/delivery/${delivery.tracking_id}`;
-    }, [delivery.tracking_id]);
+        return `${protocol}//${host}/api/v1/ws/delivery/${trackingId}`;
+    }, [trackingId]);
 
-    const wsUrl = getWebSocketUrl();
-
-    // Handle WebSocket messages
+    // Handle WebSocket messages - fixed message handling
     const handleWebSocketMessage = useCallback((data: any) => {
+        console.log('📡 WebSocket message received:', data);
+
         switch (data.type) {
             case 'connections_info':
             case 'connection_status':
                 setConnectedClients(data.connections_count || data.count || 1);
                 break;
             case 'location_update':
-                console.log('Received location update:', data);
+                console.log('📍 Received location update:', data);
                 break;
             case 'status_update':
-                console.log('Received status update:', data);
+                console.log('📊 Received status update:', data);
                 break;
             case 'pong':
+                // Heartbeat response - connection is alive
+                break;
+            case 'ping':
+                // Send pong back
                 break;
             case 'error':
-                console.error('WebSocket error message:', data.message);
+                console.error('❌ WebSocket error message:', data.message || data.detail);
                 break;
             default:
-                console.log('Received unknown message type:', data.type, data);
+                // Don't log unknown message types as errors if they have error field
+                if (data.error) {
+                    console.warn('⚠️ WebSocket server error:', data.error);
+                } else {
+                    console.log('📦 Unknown message type:', data.type || 'undefined', data);
+                }
         }
     }, []);
 
-    // Set up WebSocket connection
-    const { isConnected, send, connectionStatus, disconnect } = useWebSocket({
+    // Set up WebSocket connection with better error handling
+    const { isConnected, send, disconnect } = useWebSocket({
         url: wsUrl,
         autoConnect: delivery.status === 'in_progress' || delivery.status === 'accepted',
         reconnectAttempts: 3,
         reconnectInterval: 10000,
         heartbeatInterval: 25000,
         onConnect: () => {
-            console.log('WebSocket connected to:', wsUrl);
+            console.log('✅ WebSocket connected to:', wsUrl);
             setConnectedClients(1);
-            setTimeout(() => {
-                send({
-                    type: 'join_tracking',
-                    tracking_id: delivery.tracking_id,
-                    user_type: 'rider'
-                });
-            }, 100);
+
+            // Don't send join_tracking message - it's not supported by the backend
+            // The backend handles connection automatically
         },
         onDisconnect: () => {
-            console.log('WebSocket disconnected');
+            console.log('❌ WebSocket disconnected');
             setConnectedClients(0);
         },
         onError: (error) => {
-            console.error('WebSocket error:', error);
+            console.error('🚨 WebSocket error:', error);
         },
         onMessage: handleWebSocketMessage
     });
 
-    // Set up geolocation tracking
+    // Set up geolocation tracking with stable options
+    const geolocationOptions = useMemo(() => ({
+        enableHighAccuracy: !isBatterySaving,
+        interval: isBatterySaving ? 45000 : 20000,
+        timeout: isBatterySaving ? 15000 : 10000,
+        maximumAge: isBatterySaving ? 60000 : 30000,
+        skipInitialPermissionCheck: locationPermissionGranted
+    }), [isBatterySaving, locationPermissionGranted]);
+
     const {
         location,
         error: locationError,
         isTracking,
         startTracking: startLocationTracking,
         stopTracking: stopLocationTracking
-    } = useGeolocation({
-        enableHighAccuracy: !isBatterySaving,
-        interval: isBatterySaving ? 45000 : 20000,
-        skipInitialPermissionCheck: locationPermissionGranted
-    });
+    } = useGeolocation(geolocationOptions);
 
-    // Check location permission
+    // Check location permission (stable)
     useEffect(() => {
         if (!locationPermissionGranted) {
             setLocationIssue("Location permission wasn't properly granted. This may affect tracking.");
-            console.warn("RiderTracker: Location permission wasn't properly granted");
         }
     }, [locationPermissionGranted]);
 
-    // Check for location errors
+    // Check for location errors (stable)
     useEffect(() => {
         if (locationError) {
             setLocationIssue(`Location error: ${locationError}`);
@@ -161,13 +342,15 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [locationError]);
 
-    // Calculate speed and update average
+    // Calculate speed and update average (optimized)
     useEffect(() => {
-        if (location && location.speed && location.speed > 0) {
+        if (!location) return;
+
+        if (location.speed && location.speed > 0) {
             const speedKmh = location.speed * 3.6;
             speedHistory.current.push(speedKmh);
 
-            if (speedHistory.current.length > 10) {
+            if (speedHistory.current.length > 50) {
                 speedHistory.current.shift();
             }
 
@@ -175,64 +358,107 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             setAverageSpeed(Math.max(avgSpeed, 15));
         }
 
-        if (location) {
-            setLastLocationTime(Date.now());
-        }
-    }, [location]);
+        setLastLocationTime(Date.now());
+    }, [location?.speed, location?.timestamp]);
 
-    // Fixed progress calculation
+    // Progress calculation (optimized with proper dependencies)
     useEffect(() => {
-        if (location && delivery.customer.location) {
-            const remainingDist = calculateDistance(
-                location.latitude,
-                location.longitude,
-                delivery.customer.location.latitude,
-                delivery.customer.location.longitude
-            );
+        if (!isDataLoaded || !location || !delivery.customer.location) return;
 
-            setDistance(remainingDist);
+        const remainingDist = calculateDistance(
+            location.latitude,
+            location.longitude,
+            delivery.customer.location.latitude,
+            delivery.customer.location.longitude
+        );
 
-            // Handle initial distance setup
-            if (isFirstLocationUpdate && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
+        setDistance(remainingDist);
+
+        // Handle initial distance setup
+        if (isFirstLocationUpdate && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
+            setTrackingStartDistance(remainingDist);
+            setTotalDistance(remainingDist);
+            setTrackingStartTime(Date.now());
+            setJourneyProgress(0);
+            setIsFirstLocationUpdate(false);
+            console.log('🎯 Tracking started - Initial distance:', remainingDist.toFixed(2), 'km');
+        } else if (trackingStartDistance !== null && totalDistance !== null) {
+            const distanceCovered = Math.max(0, trackingStartDistance - remainingDist);
+            const progressPercent = trackingStartDistance > 0
+                ? Math.min(100, Math.max(0, (distanceCovered / trackingStartDistance) * 100))
+                : 0;
+
+            setJourneyProgress(progressPercent);
+
+            if (remainingDist > trackingStartDistance) {
                 setTrackingStartDistance(remainingDist);
                 setTotalDistance(remainingDist);
                 setJourneyProgress(0);
-                setIsFirstLocationUpdate(false);
-                console.log('🎯 Tracking started - Initial distance:', remainingDist.toFixed(2), 'km');
-            } else if (trackingStartDistance !== null && totalDistance !== null) {
-                const distanceCovered = Math.max(0, trackingStartDistance - remainingDist);
-                const progressPercent = trackingStartDistance > 0
-                    ? Math.min(100, Math.max(0, (distanceCovered / trackingStartDistance) * 100))
-                    : 0;
+            }
+        }
 
-                setJourneyProgress(progressPercent);
+        // ETA calculation
+        const speedToUse = speedHistory.current.length > 0 ? averageSpeed : (isBatterySaving ? 20 : 25);
+        const bufferMinutes = remainingDist > 2 ? 5 : 2;
+        const timeMinutes = Math.ceil((remainingDist / speedToUse) * 60) + bufferMinutes;
+        setEstimatedTimeMinutes(timeMinutes);
+    }, [
+        isDataLoaded,
+        location?.latitude,
+        location?.longitude,
+        delivery.customer.location?.latitude,
+        delivery.customer.location?.longitude,
+        delivery.status,
+        isFirstLocationUpdate,
+        trackingStartDistance,
+        totalDistance,
+        averageSpeed,
+        isBatterySaving
+    ]);
 
-                if (remainingDist > trackingStartDistance) {
-                    setTrackingStartDistance(remainingDist);
-                    setTotalDistance(remainingDist);
-                    setJourneyProgress(0);
-                }
+    // Enhanced path history management (optimized)
+    useEffect(() => {
+        if (!isDataLoaded || !location || !isTracking || !(delivery.status === 'in_progress' || delivery.status === 'accepted')) {
+            return;
+        }
+
+        setPathHistory(prev => {
+            // Only add if significantly different from last position
+            if (prev.length === 0) {
+                return [location];
             }
 
-            // ETA calculation
-            const speedToUse = speedHistory.current.length > 0 ? averageSpeed : (isBatterySaving ? 20 : 25);
-            const bufferMinutes = remainingDist > 2 ? 5 : 2;
-            const timeMinutes = Math.ceil((remainingDist / speedToUse) * 60) + bufferMinutes;
-            setEstimatedTimeMinutes(timeMinutes);
-        }
-    }, [location, delivery.customer.location, delivery.status, isFirstLocationUpdate, trackingStartDistance, totalDistance, averageSpeed, isBatterySaving]);
+            const lastLocation = prev[prev.length - 1];
+            const distance = calculateDistance(
+                lastLocation.latitude,
+                lastLocation.longitude,
+                location.latitude,
+                location.longitude
+            );
 
-    // Reset tracking state when delivery status changes
-    useEffect(() => {
-        if (delivery.status === 'accepted' || delivery.status === 'in_progress') {
-            setIsFirstLocationUpdate(true);
-            setTrackingStartDistance(null);
-            setTotalDistance(null);
-            setJourneyProgress(0);
-        }
-    }, [delivery.status]);
+            // Only add if moved more than 10 meters
+            if (distance > 0.01) {
+                const newHistory = [...prev, location];
 
-    // Process location updates (keeping existing logic)
+                // Keep only last 200 points
+                if (newHistory.length > 200) {
+                    newHistory.shift();
+                }
+
+                return newHistory;
+            }
+
+            return prev;
+        });
+    }, [
+        isDataLoaded,
+        location?.latitude,
+        location?.longitude,
+        delivery.status,
+        isTracking
+    ]);
+
+    // Process location updates with proper WebSocket messaging
     const getBackoffTime = useCallback(() => {
         return Math.min(Math.pow(2, retryCount) * 1000, 60000);
     }, [retryCount]);
@@ -260,16 +486,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             const locationToSend = { ...locationBufferRef.current };
             locationBufferRef.current = null;
 
-            const result = await updateLocation(delivery.tracking_id, locationToSend);
+            const result = await updateLocation(trackingId, locationToSend);
 
             if (result.success) {
                 setRetryCount(0);
                 lastLocationUpdateRef.current = currentTime;
 
+                // Send location update via WebSocket (using correct message format)
                 if (isConnected) {
                     const success = send({
                         type: 'location_update',
-                        tracking_id: delivery.tracking_id,
+                        tracking_id: trackingId,
                         location: {
                             latitude: locationToSend.latitude,
                             longitude: locationToSend.longitude,
@@ -284,8 +511,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     }
                 }
             } else {
-                console.error('Error updating location:', result.message || "Failed to update location");
-
                 if (retryCount > 2) {
                     setLocationIssue('Issues sending location updates. Will keep trying.');
                 }
@@ -300,9 +525,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                         }
                     }, backoffTime);
                 }
-
-                setIsUpdatingLocation(false);
-                return;
             }
         } catch (error: unknown) {
             console.error('Error updating location:', error);
@@ -324,9 +546,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         } finally {
             setIsUpdatingLocation(false);
         }
-    }, [delivery.tracking_id, isConnected, isUpdatingLocation, isBatterySaving, retryCount, send, updateLocation, getBackoffTime]);
+    }, [trackingId, isConnected, isUpdatingLocation, isBatterySaving, retryCount, send, updateLocation, getBackoffTime]);
 
-    // Buffer location updates and trigger processing
+    // Buffer location updates (optimized)
     useEffect(() => {
         if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
             locationBufferRef.current = location;
@@ -341,53 +563,23 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
-    // And that the pathHistory useEffect properly tracks movement:
+    // Auto-start tracking (stable)
     useEffect(() => {
-        if (location && isTracking && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
-            // Add to path history for trail visualization
-            setPathHistory(prev => {
-                const newHistory = [...prev];
-                // Only add if it's significantly different from the last position (to avoid cluttering)
-                if (newHistory.length === 0) {
-                    newHistory.push(location);
-                } else {
-                    const lastLocation = newHistory[newHistory.length - 1];
-                    const distance = calculateDistance(
-                        lastLocation.latitude,
-                        lastLocation.longitude,
-                        location.latitude,
-                        location.longitude
-                    );
+        let mounted = true;
 
-                    // Only add if moved more than 10 meters
-                    if (distance > 0.01) {
-                        newHistory.push(location);
-                        // Keep only last 100 points to prevent memory issues
-                        if (newHistory.length > 100) {
-                            newHistory.shift();
-                        }
-                    }
-                }
-                return newHistory;
-            });
-        }
-    }, [location?.latitude, location?.longitude, delivery.status]);
-
-    // Auto-start tracking
-    useEffect(() => {
         const autoStartTracking = async () => {
-            if (!isTracking) {
+            if (!isTracking && mounted) {
                 startLocationTracking();
 
                 if (delivery.status === 'accepted') {
                     try {
-                        const result = await startTracking(delivery.tracking_id);
+                        const result = await startTracking(trackingId);
 
-                        if (result.success && isConnected) {
+                        if (result.success && isConnected && mounted) {
                             setTimeout(() => {
                                 send({
                                     type: 'status_update',
-                                    tracking_id: delivery.tracking_id,
+                                    tracking_id: trackingId,
                                     status: 'in_progress',
                                     timestamp: Date.now()
                                 });
@@ -395,7 +587,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                         }
                     } catch (error) {
                         console.error('Error starting tracking:', error);
-                        setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
+                        if (mounted) {
+                            setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
+                        }
                     }
                 }
             }
@@ -404,6 +598,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         autoStartTracking();
 
         return () => {
+            mounted = false;
             if (isTracking) {
                 stopLocationTracking();
             }
@@ -411,43 +606,35 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
         };
-    }, [delivery.status, delivery.tracking_id, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking]);
+    }, [delivery.status, trackingId, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking]);
 
-    // Cleanup
+    // Cleanup on unmount
     useEffect(() => {
         return () => {
             if (locationUpdateTimeoutRef.current) {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
-        };
-    }, []);
-
-    useEffect(() => {
-        return () => {
             if (isConnected) {
-                send({
-                    type: 'leave_tracking',
-                    tracking_id: delivery.tracking_id,
-                    user_type: 'rider'
-                });
+                // Don't send leave_tracking - backend doesn't support it
                 setTimeout(() => {
                     disconnect();
                 }, 100);
             }
         };
-    }, [isConnected, send, disconnect, delivery.tracking_id]);
+    }, [isConnected, disconnect]);
 
-    const toggleBatterySaving = () => {
-        setIsBatterySaving(!isBatterySaving);
-    };
+    // Stable callback functions
+    const toggleBatterySaving = useCallback(() => {
+        setIsBatterySaving(prev => !prev);
+    }, []);
 
-    const handleCompleteDelivery = async () => {
+    const handleCompleteDelivery = useCallback(async () => {
         setShowCompletionConfirm(true);
-    };
+    }, []);
 
-    const confirmCompleteDelivery = async () => {
+    const confirmCompleteDelivery = useCallback(async () => {
         try {
-            const result = await completeDelivery(delivery.tracking_id);
+            const result = await completeDelivery(trackingId);
 
             if (result.success) {
                 stopLocationTracking();
@@ -456,34 +643,35 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 if (isConnected) {
                     send({
                         type: 'status_update',
-                        tracking_id: delivery.tracking_id,
+                        tracking_id: trackingId,
                         status: 'completed'
                     });
                 }
 
                 setTimeout(() => {
-                    navigate(`/rider/complete/${delivery.tracking_id}`);
+                    navigate(`/rider/complete/${trackingId}`);
                 }, 1000);
             }
         } catch (error) {
             console.error('Error completing delivery:', error);
         }
-    };
+    }, [completeDelivery, trackingId, stopLocationTracking, isConnected, send, navigate]);
 
-    const cancelCompleteDelivery = () => {
+    const cancelCompleteDelivery = useCallback(() => {
         setShowCompletionConfirm(false);
-    };
+    }, []);
 
-    const renderEstimatedTime = () => {
+    // Memoized helper functions
+    const renderEstimatedTime = useMemo(() => {
         if (estimatedTimeMinutes === null) return 'Calculating...';
         if (estimatedTimeMinutes < 1) return 'Arriving now';
         if (estimatedTimeMinutes < 60) return `${estimatedTimeMinutes} min`;
         const hours = Math.floor(estimatedTimeMinutes / 60);
         const minutes = estimatedTimeMinutes % 60;
         return `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
-    };
+    }, [estimatedTimeMinutes]);
 
-    const getLiveTrackingIndicator = () => {
+    const getLiveTrackingIndicator = useMemo(() => {
         const isLive = isTracking && isConnected && !locationIssue;
         const lastUpdate = lastLocationTime ? Date.now() - lastLocationTime : null;
         const isStale = lastUpdate && lastUpdate > 60000;
@@ -515,29 +703,29 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </div>
             );
         }
-    };
+    }, [isTracking, isConnected, locationIssue, lastLocationTime]);
 
-    const getConnectionIcon = () => {
+    const getConnectionIcon = useMemo(() => {
         if (isConnected && connectedClients > 0) {
             return <Wifi className="w-4 h-4 text-green-600" />;
         }
         return <WifiOff className="w-4 h-4 text-red-500" />;
-    };
+    }, [isConnected, connectedClients]);
 
-    const getProgressColor = () => {
+    const getProgressColor = useMemo(() => {
         if (journeyProgress > 75) return 'from-blue-500 to-green-500';
         if (journeyProgress > 50) return 'from-orange-500 to-blue-500';
         return 'from-red-500 to-orange-500';
-    };
+    }, [journeyProgress]);
 
-    const getProgressRingColor = () => {
+    const getProgressRingColor = useMemo(() => {
         if (journeyProgress > 75) return 'stroke-green-500';
         if (journeyProgress > 50) return 'stroke-blue-500';
         return 'stroke-orange-500';
-    };
+    }, [journeyProgress]);
 
     // Map overlay component for ETA and distance
-    const MapOverlay = () => (
+    const MapOverlay = useMemo(() => () => (
         <div className="absolute inset-0 z-[1000] pointer-events-none">
             {/* Top-right view toggle button */}
             <div className="absolute top-4 right-4">
@@ -552,9 +740,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </Button>
             </div>
 
-            {/* Stats positioned next to zoom controls (top-left, beside zoom buttons) */}
+            {/* Stats positioned next to zoom controls */}
             <div className="absolute top-4 left-16 space-y-2 pointer-events-none">
-                {/* Distance and ETA card */}
                 <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 pointer-events-auto">
                     <div className="flex items-center gap-3">
                         <div className="text-center">
@@ -573,13 +760,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 <span>ETA</span>
                             </div>
                             <div className="text-sm font-bold text-blue-600">
-                                {renderEstimatedTime()}
+                                {renderEstimatedTime}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Speed indicator (when available) */}
+                {/* Speed indicator */}
                 {isTracking && location?.speed && (
                     <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-1.5 pointer-events-auto">
                         <div className="flex items-center gap-2 text-xs">
@@ -590,7 +777,26 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 )}
             </div>
         </div>
-    );
+    ), [distance, renderEstimatedTime, isTracking, location?.speed]);
+
+    // Show loading indicator while data is being loaded
+    if (!isDataLoaded) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Card className="w-full max-w-md mx-4">
+                    <CardContent className="p-6">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                            <div className="text-center">
+                                <p className="font-medium text-gray-900">Loading tracking data...</p>
+                                <p className="text-sm text-gray-600 mt-1">Restoring your progress</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -602,11 +808,16 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             <Badge className={getStatusColor(delivery.status)}>
                                 {getStatusText(delivery.status)}
                             </Badge>
-                            {getLiveTrackingIndicator()}
+                            {getLiveTrackingIndicator}
                         </div>
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                            {getConnectionIcon()}
+                            {getConnectionIcon}
                             <span>{connectedClients} watching</span>
+                            {pathHistory.length > 0 && (
+                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    {pathHistory.length} points
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -622,12 +833,24 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </div>
             )}
 
-            {/* Main Content - Toggle between views */}
+            {/* Progress restoration notification */}
+            {isDataLoaded && (trackingStartDistance !== null || pathHistory.length > 0) && (
+                <div className="px-4 pt-4">
+                    <Alert className="mb-4 bg-blue-50 border-blue-200">
+                        <AlertTitle className="text-blue-800">📍 Progress Restored</AlertTitle>
+                        <AlertDescription className="text-blue-700">
+                            Your tracking progress has been restored: {Math.round(journeyProgress)}% complete
+                            {pathHistory.length > 0 && `, ${pathHistory.length} path points recovered`}
+                        </AlertDescription>
+                    </Alert>
+                </div>
+            )}
+
+            {/* Main Content */}
             <div className="p-4">
                 {currentView === 'map' ? (
                     /* Map View */
                     <div className="space-y-4">
-                        {/* Map with overlay */}
                         <div className="relative bg-white rounded-lg border border-gray-200 overflow-hidden">
                             <div className="h-[calc(100vh-280px)] min-h-[400px]">
                                 <TrackingMap
@@ -645,9 +868,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             </div>
                         </div>
 
-                        {/* Bottom controls for map view - with collapsible package details */}
+                        {/* Controls */}
                         <div className="grid grid-cols-1 gap-4">
-                            {/* Collapsible Package Details */}
                             <Card>
                                 <CardContent className="p-4">
                                     <details className="group">
@@ -691,8 +913,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 </CardContent>
                             </Card>
 
-                            {/* Controls only */}
                             <div className="flex gap-3">
+                                {/* Battery saving toggle - always show when tracking */}
                                 {isTracking && (
                                     <Button
                                         variant="outline"
@@ -705,7 +927,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                     </Button>
                                 )}
 
-                                {!showCompletionConfirm ? (
+                                {/* Completion controls */}
+                                {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                     <Button
                                         className="flex-1 bg-[#0CAA41] hover:bg-[#0CAA41]/90"
                                         onClick={handleCompleteDelivery}
@@ -713,7 +936,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                     >
                                         Mark as Delivered
                                     </Button>
-                                ) : (
+                                ) : delivery.status === 'in_progress' && showCompletionConfirm ? (
                                     <div className="flex gap-2 flex-1">
                                         <Button
                                             variant="outline"
@@ -731,14 +954,31 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             Confirm Delivery
                                         </Button>
                                     </div>
-                                )}
+                                ) : delivery.status === 'completed' ? (
+                                    <div className="flex-1 text-center">
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                            <div className="text-green-800 font-medium">✅ Delivery Completed</div>
+                                            <div className="text-green-600 text-sm mt-1">
+                                                Great job! This delivery has been marked as complete.
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : delivery.status === 'accepted' ? (
+                                    <div className="flex-1 text-center">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <div className="text-blue-800 font-medium">🚀 Starting Tracking...</div>
+                                            <div className="text-blue-600 text-sm mt-1">
+                                                Location tracking will begin automatically
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
                     </div>
                 ) : (
                     /* Progress View */
                     <div className="max-w-md mx-auto space-y-6">
-                        {/* Header with back button */}
                         <div className="flex items-center justify-between">
                             <h2 className="text-xl font-bold text-gray-800">Delivery Progress</h2>
                             <Button
@@ -751,7 +991,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             </Button>
                         </div>
 
-                        {/* Progress Section */}
                         <Card>
                             <CardContent className="p-6">
                                 {/* Circular Progress Ring */}
@@ -775,47 +1014,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             strokeLinecap="round"
                                             strokeDasharray={`${2 * Math.PI * 50}`}
                                             strokeDashoffset={`${2 * Math.PI * 50 * (1 - journeyProgress / 100)}`}
-                                            className={`transition-all duration-500 ${getProgressRingColor()}`}
+                                            className={`transition-all duration-500 ${getProgressRingColor}`}
                                         />
                                     </svg>
                                     <div className="absolute inset-0 flex flex-col items-center justify-center">
                                         <div className="text-3xl font-bold text-gray-800">{Math.round(journeyProgress)}%</div>
                                         <div className="text-sm text-gray-500">Complete</div>
                                     </div>
-                                </div>
-
-                                {/* Linear Progress Bar */}
-                                <div className="mb-6">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="text-sm font-medium text-gray-700">Route Progress</span>
-                                        <span className="text-sm text-gray-500">{Math.round(journeyProgress)}%</span>
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-4 relative overflow-hidden">
-                                        <div
-                                            className={`h-4 rounded-full transition-all duration-500 ease-out bg-gradient-to-r ${getProgressColor()} relative`}
-                                            style={{ width: `${journeyProgress}%` }}
-                                        >
-                                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-30 animate-pulse"></div>
-                                        </div>
-                                        <div className="absolute top-0 left-1/4 w-0.5 h-4 bg-white opacity-60"></div>
-                                        <div className="absolute top-0 left-1/2 w-0.5 h-4 bg-white opacity-60"></div>
-                                        <div className="absolute top-0 left-3/4 w-0.5 h-4 bg-white opacity-60"></div>
-                                        <div
-                                            className="absolute top-0 w-5 h-4 transform -translate-x-1/2 transition-all duration-500"
-                                            style={{ left: `${journeyProgress}%` }}
-                                        >
-                                            <div className="w-full h-full bg-white border-2 border-blue-500 rounded-full shadow-sm"></div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Distance markers */}
-                                <div className="flex justify-between text-xs text-gray-500 mb-6">
-                                    <span>Start</span>
-                                    <span>25%</span>
-                                    <span>50%</span>
-                                    <span>75%</span>
-                                    <span>Goal</span>
                                 </div>
 
                                 {/* Stats Grid */}
@@ -839,7 +1044,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             <span className="text-sm">ETA</span>
                                         </div>
                                         <div className="text-xl font-bold text-blue-600">
-                                            {renderEstimatedTime()}
+                                            {renderEstimatedTime}
                                         </div>
                                         <div className="text-xs text-gray-500 mt-1">
                                             {averageSpeed.toFixed(1)} km/h avg
@@ -847,13 +1052,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                     </div>
                                 </div>
 
-                                {/* Journey Visualization */}
+                                {/* Enhanced tracking info */}
                                 {totalDistance && (
                                     <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 mb-6">
                                         <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-                                                <span className="text-sm font-medium">You are here</span>
+                                                <span className="text-sm font-medium">Journey Progress</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <Navigation className="w-4 h-4 text-green-600" />
@@ -866,14 +1071,20 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             </div>
                                         </div>
 
-                                        <div className="text-sm text-gray-600 mb-3">
+                                        <div className="text-sm text-gray-600 mb-1">
                                             Delivering to: {delivery.customer.name}
                                         </div>
+
+                                        {trackingStartTime && (
+                                            <div className="text-xs text-gray-500 mb-3">
+                                                Tracking since: {new Date(trackingStartTime).toLocaleTimeString()}
+                                            </div>
+                                        )}
 
                                         <div className="relative">
                                             <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                                                 <div
-                                                    className={`h-full bg-gradient-to-r ${getProgressColor()} rounded-full transition-all duration-500`}
+                                                    className={`h-full bg-gradient-to-r ${getProgressColor} rounded-full transition-all duration-500`}
                                                     style={{ width: `${journeyProgress}%` }}
                                                 ></div>
                                             </div>
@@ -883,6 +1094,15 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             <span className="text-gray-500">📍 Start</span>
                                             <span className="text-green-600">🏠 {delivery.customer.name}</span>
                                         </div>
+
+                                        {pathHistory.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-gray-200">
+                                                <div className="flex items-center gap-2 text-xs text-gray-600">
+                                                    <span>🗺️ Trail recorded:</span>
+                                                    <span className="font-medium text-blue-600">{pathHistory.length} points</span>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 
@@ -901,6 +1121,12 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             <span>Average:</span>
                                             <span className="font-medium">{averageSpeed.toFixed(1)} km/h</span>
                                         </div>
+                                        {speedHistory.current.length > 0 && (
+                                            <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+                                                <span>Speed samples:</span>
+                                                <span>{speedHistory.current.length}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </CardContent>
@@ -908,6 +1134,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
                         {/* Controls */}
                         <div className="space-y-3">
+                            {/* Battery saving toggle */}
                             {isTracking && (
                                 <Button
                                     variant="outline"
@@ -920,7 +1147,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 </Button>
                             )}
 
-                            {!showCompletionConfirm ? (
+                            {/* Completion controls */}
+                            {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                 <Button
                                     size="lg"
                                     className="w-full bg-[#0CAA41] hover:bg-[#0CAA41]/90"
@@ -929,7 +1157,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 >
                                     Mark as Delivered
                                 </Button>
-                            ) : (
+                            ) : delivery.status === 'in_progress' && showCompletionConfirm ? (
                                 <div className="space-y-3">
                                     <Alert>
                                         <AlertTitle>Confirm Delivery</AlertTitle>
@@ -954,7 +1182,21 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         </Button>
                                     </div>
                                 </div>
-                            )}
+                            ) : delivery.status === 'completed' ? (
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                                    <div className="text-green-800 font-medium">✅ Delivery Completed</div>
+                                    <div className="text-green-600 text-sm mt-1">
+                                        Great job! This delivery has been marked as complete.
+                                    </div>
+                                </div>
+                            ) : delivery.status === 'accepted' ? (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                                    <div className="text-blue-800 font-medium">🚀 Starting Tracking...</div>
+                                    <div className="text-blue-600 text-sm mt-1">
+                                        Location tracking will begin automatically
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 )}
