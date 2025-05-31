@@ -23,6 +23,8 @@ import {
     Zap,
     Map,
     Target,
+    Check,
+    Bell,
 } from 'lucide-react';
 
 interface RiderTrackerProps {
@@ -140,6 +142,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [trackingStartTime, setTrackingStartTime] = useState<number | null>(null);
     const [pathHistory, setPathHistory] = useState<Location[]>([]);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    
+    // Arrival detection state
+    const [hasArrived, setHasArrived] = useState(false);
+    const [showArrivalNotification, setShowArrivalNotification] = useState(false);
+    const [arrivalTime, setArrivalTime] = useState<number | null>(null);
+    const arrivalThreshold = 0.1; // 100 meters in kilometers
+    const arrivalNotificationRef = useRef<HTMLDivElement | null>(null);
 
     // Refs for values that shouldn't trigger re-renders
     const locationUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -358,7 +367,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         setLastLocationTime(Date.now());
     }, [location?.speed, location?.timestamp]);
 
-    // Progress calculation (optimized with proper dependencies)
+    // Progress calculation - modified to detect arrival
     useEffect(() => {
         if (!isDataLoaded || !location || !delivery.customer.location) return;
 
@@ -370,6 +379,26 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         );
 
         setDistance(remainingDist);
+
+        // Detect arrival at destination
+        if (!hasArrived && remainingDist <= arrivalThreshold) {
+            setHasArrived(true);
+            setArrivalTime(Date.now());
+            setShowArrivalNotification(true);
+            
+            // Auto-hide after 15 seconds
+            setTimeout(() => {
+                setShowArrivalNotification(false);
+            }, 15000);
+            
+            // Play notification sound if available
+            try {
+                const audio = new Audio('/notification.mp3');
+                audio.play().catch(err => console.log('Audio notification failed', err));
+            } catch (error) {
+                console.log('Audio notification not supported');
+            }
+        }
 
         // Handle initial distance setup
         if (isFirstLocationUpdate && (delivery.status === 'in_progress' || delivery.status === 'accepted')) {
@@ -410,7 +439,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         trackingStartDistance,
         totalDistance,
         averageSpeed,
-        isBatterySaving
+        isBatterySaving,
+        hasArrived,
+        arrivalThreshold
     ]);
 
     // Enhanced path history management (optimized)
@@ -560,12 +591,12 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
-    // Auto-start tracking (stable)
+    // Auto-start tracking (modified to not restart tracking if arrived)
     useEffect(() => {
         let mounted = true;
 
         const autoStartTracking = async () => {
-            if (!isTracking && mounted) {
+            if (!isTracking && mounted && !hasArrived) {
                 startLocationTracking();
 
                 if (delivery.status === 'accepted') {
@@ -603,7 +634,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
         };
-    }, [delivery.status, trackingId, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking]);
+    }, [delivery.status, trackingId, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking, hasArrived]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -618,6 +649,13 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
             }
         };
     }, [isConnected, disconnect]);
+
+    // Scroll to arrival notification when it appears
+    useEffect(() => {
+        if (showArrivalNotification && arrivalNotificationRef.current) {
+            arrivalNotificationRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }, [showArrivalNotification]);
 
     // Stable callback functions
     const toggleBatterySaving = useCallback(() => {
@@ -821,8 +859,47 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </div>
             </div>
 
+            {/* Arrival Notification - Fixed at top of screen */}
+            {showArrivalNotification && (
+                <div 
+                    ref={arrivalNotificationRef}
+                    className="sticky top-[56px] z-20 mx-4 mt-4 bg-green-50 border-l-4 border-green-500 p-4 rounded-md shadow-lg animate-fadeIn"
+                >
+                    <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                            <Check className="h-6 w-6 text-green-500" aria-hidden="true" />
+                        </div>
+                        <div className="ml-3">
+                            <h3 className="text-lg font-medium text-green-800">You have arrived at your destination!</h3>
+                            <div className="mt-2 text-sm text-green-700">
+                                <p>You're now {(distance || 0) < 0.01 ? 'at' : `${Math.round((distance || 0) * 1000)} meters from`} the customer's location.</p>
+                                <p className="mt-1">Please deliver the package and mark the delivery as complete.</p>
+                            </div>
+                            <div className="mt-4 flex">
+                                <Button 
+                                    size="sm" 
+                                    onClick={() => setShowCompletionConfirm(true)}
+                                    className="bg-green-500 hover:bg-green-600 text-white"
+                                >
+                                    <Bell className="h-4 w-4 mr-2" />
+                                    Mark as Delivered
+                                </Button>
+                                <Button 
+                                    size="sm" 
+                                    variant="ghost" 
+                                    onClick={() => setShowArrivalNotification(false)}
+                                    className="ml-3 text-green-700 hover:text-green-800"
+                                >
+                                    Dismiss
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Alerts */}
-            {locationIssue && (
+            {locationIssue && !showArrivalNotification && (
                 <div className="px-4 pt-4">
                     <Alert variant="warning" className="mb-4">
                         <AlertTitle>Location Issue</AlertTitle>
@@ -841,7 +918,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 <TrackingMap
                                     riderLocation={location || undefined}
                                     destinationLocation={delivery.customer.location}
-                                    isTracking={isTracking}
+                                    isTracking={isTracking && !hasArrived} // Stop tracking when arrived
                                     height="100%"
                                     delivery={{
                                         customer: delivery.customer,
@@ -852,6 +929,25 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 <MapOverlay />
                             </div>
                         </div>
+
+                        {/* Arrival Status Card - Show when arrived */}
+                        {hasArrived && !showArrivalNotification && (
+                            <Card className="border-green-200 bg-green-50">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                            <Check className="h-5 w-5 text-green-600" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-green-800 font-medium">You've arrived at the destination</h3>
+                                            <p className="text-green-700 text-sm">
+                                                {arrivalTime ? `Arrived at ${new Date(arrivalTime).toLocaleTimeString()}` : 'Ready to deliver'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Controls */}
                         <div className="grid grid-cols-1 gap-4">
@@ -899,8 +995,8 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             </Card>
 
                             <div className="flex gap-3">
-                                {/* Battery saving toggle - always show when tracking */}
-                                {isTracking && (
+                                {/* Battery saving toggle - show when tracking and not arrived */}
+                                {isTracking && !hasArrived && (
                                     <Button
                                         variant="outline"
                                         size="sm"
@@ -915,11 +1011,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 {/* Completion controls */}
                                 {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                     <Button
-                                        className="flex-1 bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                        className={`flex-1 ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'}`}
                                         onClick={handleCompleteDelivery}
-                                        disabled={isLoading || !isTracking}
+                                        disabled={isLoading}
                                     >
-                                        Mark as Delivered
+                                        {hasArrived ? 'Confirm Delivery' : 'Mark as Delivered'}
                                     </Button>
                                 ) : delivery.status === 'in_progress' && showCompletionConfirm ? (
                                     <div className="flex gap-2 flex-1">
@@ -1108,10 +1204,34 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             </CardContent>
                         </Card>
 
+                        {/* Add arrival message in progress view when arrived */}
+                        {hasArrived && (
+                            <Card className="border-green-200 bg-green-50">
+                                <CardContent className="p-4">
+                                    <div className="flex items-center">
+                                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                                            <Check className="h-5 w-5 text-green-600" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-green-800">Destination Reached!</h3>
+                                            <p className="text-green-700 mt-1">
+                                                You've arrived at the delivery location. Please complete the delivery.
+                                            </p>
+                                            {arrivalTime && (
+                                                <p className="text-xs text-green-600 mt-1">
+                                                    Arrived at {new Date(arrivalTime).toLocaleTimeString()}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         {/* Controls */}
                         <div className="space-y-3">
-                            {/* Battery saving toggle */}
-                            {isTracking && (
+                            {/* Battery saving toggle - hide when arrived */}
+                            {isTracking && !hasArrived && (
                                 <Button
                                     variant="outline"
                                     size="lg"
@@ -1123,15 +1243,15 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 </Button>
                             )}
 
-                            {/* Completion controls */}
+                            {/* Completion controls - enhance for arrival */}
                             {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                 <Button
                                     size="lg"
-                                    className="w-full bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                    className={`w-full ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'}`}
                                     onClick={handleCompleteDelivery}
-                                    disabled={isLoading || !isTracking}
+                                    disabled={isLoading}
                                 >
-                                    Mark as Delivered
+                                    {hasArrived ? 'Complete Delivery' : 'Mark as Delivered'}
                                 </Button>
                             ) : delivery.status === 'in_progress' && showCompletionConfirm ? (
                                 <div className="space-y-3">
@@ -1177,6 +1297,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     </div>
                 )}
             </div>
+            
+            {/* Add animation styles for new elements */}
+            <style jsx global>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(-20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fadeIn {
+                    animation: fadeIn 0.5s ease-out forwards;
+                }
+            `}</style>
         </div>
     );
 };
