@@ -26,8 +26,7 @@ const createRiderIcon = (heading: number = 0) => {
                 <div class="rider-marker-pulse"></div>
                 <div class="rider-marker-dot">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="8" fill="#0CAA41"/>
-                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="white"/>
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
                     </svg>
                 </div>
                 <div class="direction-arrow" style="transform: rotate(${heading}deg)">
@@ -158,23 +157,23 @@ const createStartingPointIcon = () => {
             <style>
                 .start-marker-container {
                     position: relative;
-                    width: 12px;
-                    height: 12px;
+                    width: 18px;
+                    height: 18px;
                 }
                 .start-marker-dot {
                     position: absolute;
-                    top: 3px;
-                    left: 3px;
-                    width: 6px;
-                    height: 6px;
+                    top: 4px;
+                    left: 4px;
+                    width: 10px;
+                    height: 10px;
                     background-color: #FF3B30;
                     border-radius: 50%;
                     z-index: 2;
                 }
                 .start-marker-pulse {
                     position: absolute;
-                    width: 12px;
-                    height: 12px;
+                    width: 18px;
+                    height: 18px;
                     border-radius: 50%;
                     background-color: rgba(255, 59, 48, 0.6);
                     animation: pulse-start 1.5s infinite;
@@ -196,8 +195,8 @@ const createStartingPointIcon = () => {
                 }
             </style>
         `,
-        iconSize: [12, 12],
-        iconAnchor: [6, 6],
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
     });
 };
 
