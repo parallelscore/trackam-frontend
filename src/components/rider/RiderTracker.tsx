@@ -1,4 +1,4 @@
-//src/components/rider/RiderTracker.tsx - Complete fixed version
+//src/components/rider/RiderTracker.tsx - Part 1: Imports and Setup
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -295,9 +295,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         onConnect: () => {
             console.log('✅ WebSocket connected to:', wsUrl);
             setConnectedClients(1);
-
-            // Don't send join_tracking message - it's not supported by the backend
-            // The backend handles connection automatically
         },
         onDisconnect: () => {
             console.log('❌ WebSocket disconnected');
@@ -615,7 +612,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
             if (isConnected) {
-                // Don't send leave_tracking - backend doesn't support it
                 setTimeout(() => {
                     disconnect();
                 }, 100);
@@ -724,7 +720,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         return 'stroke-orange-500';
     }, [journeyProgress]);
 
-    // Map overlay component for ETA and distance
+    // Map overlay component for ETA and distance - with auto-hide functionality
     const MapOverlay = useMemo(() => () => (
         <div className="absolute inset-0 z-[1000] pointer-events-none">
             {/* Top-right view toggle button */}
@@ -740,9 +736,9 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 </Button>
             </div>
 
-            {/* Stats positioned next to zoom controls */}
-            <div className="absolute top-4 left-16 space-y-2 pointer-events-none">
-                <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 pointer-events-auto">
+            {/* Auto-hiding stats positioned next to zoom controls */}
+            <div className="absolute top-4 left-16 space-y-2 pointer-events-none group">
+                <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 pointer-events-auto opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity duration-300">
                     <div className="flex items-center gap-3">
                         <div className="text-center">
                             <div className="flex items-center gap-1 text-xs text-gray-600 mb-0.5">
@@ -766,15 +762,22 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     </div>
                 </div>
 
-                {/* Speed indicator */}
+                {/* Speed indicator - also auto-hiding */}
                 {isTracking && location?.speed && (
-                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-1.5 pointer-events-auto">
+                    <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-1.5 pointer-events-auto opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity duration-300">
                         <div className="flex items-center gap-2 text-xs">
                             <Zap className="w-3 h-3 text-blue-500" />
                             <span className="font-medium">{(location.speed * 3.6).toFixed(1)} km/h</span>
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Hover hint - shows briefly then fades */}
+            <div className="absolute top-20 left-16 pointer-events-none">
+                <div className="bg-gray-800/80 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-1000">
+                    Hover to show stats
+                </div>
             </div>
         </div>
     ), [distance, renderEstimatedTime, isTracking, location?.speed]);
@@ -813,11 +816,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                             {getConnectionIcon}
                             <span>{connectedClients} watching</span>
-                            {pathHistory.length > 0 && (
-                                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                    {pathHistory.length} points
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -829,19 +827,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     <Alert variant="warning" className="mb-4">
                         <AlertTitle>Location Issue</AlertTitle>
                         <AlertDescription>{locationIssue}</AlertDescription>
-                    </Alert>
-                </div>
-            )}
-
-            {/* Progress restoration notification */}
-            {isDataLoaded && (trackingStartDistance !== null || pathHistory.length > 0) && (
-                <div className="px-4 pt-4">
-                    <Alert className="mb-4 bg-blue-50 border-blue-200">
-                        <AlertTitle className="text-blue-800">📍 Progress Restored</AlertTitle>
-                        <AlertDescription className="text-blue-700">
-                            Your tracking progress has been restored: {Math.round(journeyProgress)}% complete
-                            {pathHistory.length > 0 && `, ${pathHistory.length} path points recovered`}
-                        </AlertDescription>
                     </Alert>
                 </div>
             )}
@@ -1094,15 +1079,6 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                             <span className="text-gray-500">📍 Start</span>
                                             <span className="text-green-600">🏠 {delivery.customer.name}</span>
                                         </div>
-
-                                        {pathHistory.length > 0 && (
-                                            <div className="mt-3 pt-3 border-t border-gray-200">
-                                                <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                    <span>🗺️ Trail recorded:</span>
-                                                    <span className="font-medium text-blue-600">{pathHistory.length} points</span>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
 
