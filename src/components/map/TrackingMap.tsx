@@ -146,6 +146,52 @@ const createDestinationIcon = () => {
     });
 };
 
+// Custom starting point icon
+const createStartingPointIcon = () => {
+    return L.divIcon({
+        className: 'custom-start-marker',
+        html: `
+            <div class="start-marker-container">
+                <div class="start-marker-pin">
+                    <svg width="28" height="36" viewBox="0 0 24 29" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 0C18.627 0 24 5.373 24 12C24 18.627 12 29 12 29S0 18.627 0 12C0 5.373 5.373 0 12 0Z" fill="#1A2C56"/>
+                        <circle cx="12" cy="12" r="6" fill="white"/>
+                        <svg x="8" y="8" width="8" height="8" viewBox="0 0 24 24" fill="#1A2C56">
+                            <path d="M12 2L2 7L12 12L22 7L12 2Z" />
+                            <path d="M2 17L12 22L22 17" />
+                            <path d="M2 12L12 17L22 12" />
+                        </svg>
+                    </svg>
+                </div>
+                <div class="start-label">START</div>
+            </div>
+            <style>
+                .start-marker-container {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                }
+                .start-marker-pin {
+                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+                }
+                .start-label {
+                    background-color: #1A2C56;
+                    color: white;
+                    font-size: 8px;
+                    font-weight: bold;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    margin-top: 2px;
+                    white-space: nowrap;
+                }
+            </style>
+        `,
+        iconSize: [56, 50],
+        iconAnchor: [28, 36],
+    });
+};
+
 interface MapCenterUpdaterProps {
     center: [number, number];
 }
@@ -225,6 +271,9 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
         location.latitude,
         location.longitude
     ]);
+
+    // Get starting point from path history (first point)
+    const startingPoint = pathHistory.length > 0 ? pathHistory[0] : null;
 
     // Calculate bounds to fit all markers and path
     useEffect(() => {
@@ -352,13 +401,6 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                                                 {new Date(riderLocation.timestamp).toLocaleTimeString()}
                                             </span>
                                         </div>
-
-                                        {pathHistory.length > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <span>🛤️</span>
-                                                <span className="text-gray-600">{pathHistory.length} points tracked</span>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             </Popup>
@@ -420,10 +462,49 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                     </Marker>
                 )}
 
+                {/* Starting point marker - Add this new code */}
+                {startingPoint && pathHistory.length > 1 && (
+                    <Marker
+                        position={[startingPoint.latitude, startingPoint.longitude]}
+                        icon={createStartingPointIcon()}
+                    >
+                        <Popup closeButton={false} className="custom-popup">
+                            <div className="p-3 min-w-[180px]">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#1A2C56"/>
+                                            <path d="M2 17L12 22L22 17" fill="#1A2C56"/>
+                                            <path d="M2 12L12 17L22 12" fill="#1A2C56"/>
+                                        </svg>
+                                    </div>
+                                    <h3 className="font-semibold text-blue-700">🏁 Starting Point</h3>
+                                </div>
+
+                                <div className="space-y-2 text-sm">
+                                    <div className="flex items-center gap-2">
+                                        <span>📍</span>
+                                        <span className="text-gray-600 font-mono text-xs">
+                                            {startingPoint.latitude.toFixed(6)}, {startingPoint.longitude.toFixed(6)}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                        <span>🕒</span>
+                                        <span className="text-gray-600">
+                                            {new Date(startingPoint.timestamp).toLocaleTimeString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Popup>
+                    </Marker>
+                )}
+
                 <MapCenterUpdater center={center} />
             </MapContainer>
 
-            {/* Collapsible Map Legend */}
+            {/* Collapsible Map Legend - Keep original with trail points count */}
             {(riderLocation || destinationLocation || pathHistory.length > 0) && (
                 <div className="absolute bottom-4 left-4 z-[1000]">
                     {/* Toggle Button */}
@@ -462,6 +543,14 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                                         <div className="w-2 h-2 bg-white rounded-full"></div>
                                     </div>
                                     <span className="text-gray-700">Customer</span>
+                                </div>
+                            )}
+                            {startingPoint && pathHistory.length > 3 && (
+                                <div className="flex items-center gap-2">
+                                    <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                    <span className="text-gray-700">Start Point</span>
                                 </div>
                             )}
                             {pathHistory.length > 0 && (
