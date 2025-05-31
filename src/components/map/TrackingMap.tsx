@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -200,17 +200,71 @@ const createStartingPointIcon = () => {
     });
 };
 
-interface MapCenterUpdaterProps {
-    center: [number, number];
+interface MapControllerProps {
+    riderLocation?: Location;
+    destinationLocation?: Location;
+    pathHistory: Location[];
+    shouldRecenter: boolean;
+    onRecenterComplete: () => void;
 }
 
-// Helper component to update map center
-const MapCenterUpdater: React.FC<MapCenterUpdaterProps> = ({ center }) => {
+// Optimized map controller that only updates when needed
+const MapController: React.FC<MapControllerProps> = ({
+                                                         riderLocation,
+                                                         destinationLocation,
+                                                         pathHistory,
+                                                         shouldRecenter,
+                                                         onRecenterComplete,
+                                                     }) => {
     const map = useMap();
+    const lastRecenterRef = useRef<number>(0);
 
+    // Handle recentering only when explicitly requested
     useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [center, map]);
+        if (!shouldRecenter || !riderLocation) return;
+
+        const now = Date.now();
+        // Prevent rapid recentering calls
+        if (now - lastRecenterRef.current < 1000) return;
+
+        lastRecenterRef.current = now;
+
+        try {
+            if (destinationLocation) {
+                // Fit bounds to include both rider and destination
+                const bounds = L.latLngBounds(
+                    [riderLocation.latitude, riderLocation.longitude],
+                    [destinationLocation.latitude, destinationLocation.longitude]
+                );
+
+                // Include path history in bounds if available
+                if (pathHistory.length > 0) {
+                    pathHistory.forEach(location => {
+                        bounds.extend([location.latitude, location.longitude]);
+                    });
+                }
+
+                map.fitBounds(bounds, {
+                    padding: [50, 50],
+                    animate: true,
+                    duration: 0.5
+                });
+            } else {
+                // Just center on rider
+                map.setView([riderLocation.latitude, riderLocation.longitude], 15, {
+                    animate: true,
+                    duration: 0.5
+                });
+            }
+        } catch (error) {
+            console.warn('Error recentering map:', error);
+        }
+
+        // Notify that recentering is complete
+        setTimeout(() => {
+            onRecenterComplete();
+        }, 600);
+    }, [shouldRecenter, riderLocation, destinationLocation, pathHistory, map, onRecenterComplete]);
 
     return null;
 };
@@ -220,7 +274,7 @@ interface TrackingMapProps {
     destinationLocation?: Location;
     isTracking: boolean;
     height?: string;
-    pathHistory?: Location[]; // Added pathHistory prop
+    pathHistory?: Location[];
     delivery?: {
         customer: {
             name: string;
@@ -240,14 +294,16 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                                                      destinationLocation,
                                                      isTracking,
                                                      height = '400px',
-                                                     pathHistory = [], // Default to empty array
+                                                     pathHistory = [],
                                                      delivery
                                                  }) => {
     const mapRef = useRef<L.Map | null>(null);
-    const [isLegendOpen, setIsLegendOpen] = React.useState(false);
+    const [isLegendOpen, setIsLegendOpen] = useState(false);
+    const [shouldRecenter, setShouldRecenter] = useState(false);
+    const [isInitialized, setIsInitialized] = useState(false);
 
     // Calculate rider heading from path history
-    const calculateHeading = (): number => {
+    const calculateHeading = useCallback((): number => {
         if (pathHistory.length < 2) return 0;
 
         const current = pathHistory[pathHistory.length - 1];
@@ -264,28 +320,31 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
         heading = (heading + 360) % 360; // Normalize to 0-360
 
         return heading;
-    };
+    }, [pathHistory]);
 
-    const riderHeading = calculateHeading();
+    const riderHeading = useMemo(() => calculateHeading(), [calculateHeading]);
 
     // Default to Lagos, Nigeria if no locations provided
     const defaultCenter: [number, number] = [6.5244, 3.3792];
-    const center = riderLocation
-        ? [riderLocation.latitude, riderLocation.longitude] as [number, number]
-        : defaultCenter;
+    const center = useMemo(() => {
+        return riderLocation
+            ? [riderLocation.latitude, riderLocation.longitude] as [number, number]
+            : defaultCenter;
+    }, [riderLocation]);
 
-    // Convert path history to leaflet LatLng format
-    const pathCoordinates: [number, number][] = pathHistory.map(location => [
-        location.latitude,
-        location.longitude
-    ]);
+    // Convert path history to leaflet LatLng format (memoized)
+    const pathCoordinates: [number, number][] = useMemo(() => {
+        return pathHistory.map(location => [location.latitude, location.longitude]);
+    }, [pathHistory]);
 
     // Get starting point from path history (first point)
-    const startingPoint = pathHistory.length > 0 ? pathHistory[0] : null;
+    const startingPoint = useMemo(() => {
+        return pathHistory.length > 0 ? pathHistory[0] : null;
+    }, [pathHistory]);
 
-    // Calculate bounds to fit all markers and path
+    // Initial setup - only fit bounds once when map is first loaded
     useEffect(() => {
-        if (mapRef.current && riderLocation && destinationLocation) {
+        if (!isInitialized && mapRef.current && riderLocation && destinationLocation) {
             const bounds = L.latLngBounds(
                 [riderLocation.latitude, riderLocation.longitude],
                 [destinationLocation.latitude, destinationLocation.longitude]
@@ -299,8 +358,200 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
             }
 
             mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+            setIsInitialized(true);
         }
-    }, [riderLocation, destinationLocation, pathHistory]);
+    }, [riderLocation, destinationLocation, pathHistory, isInitialized]);
+
+    // Handle recenter button click
+    const handleRecenter = useCallback(() => {
+        setShouldRecenter(true);
+    }, []);
+
+    // Handle recenter completion
+    const handleRecenterComplete = useCallback(() => {
+        setShouldRecenter(false);
+    }, []);
+
+    // Memoized marker components to prevent unnecessary re-renders
+    const RiderMarker = useMemo(() => {
+        if (!riderLocation) return null;
+
+        return (
+            <Marker
+                position={[riderLocation.latitude, riderLocation.longitude]}
+                icon={createRiderIcon(riderHeading)}
+            >
+                <Popup closeButton={false} className="custom-popup">
+                    <div className="p-3 min-w-[180px]">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
+                                </svg>
+                            </div>
+                            <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span>📍</span>
+                                <span className="text-gray-600 font-mono text-xs">
+                                    {riderLocation.latitude.toFixed(6)}, {riderLocation.longitude.toFixed(6)}
+                                </span>
+                            </div>
+
+                            {riderLocation.accuracy && (
+                                <div className="flex items-center gap-2">
+                                    <span>🎯</span>
+                                    <span className="text-gray-600">±{Math.round(riderLocation.accuracy)}m</span>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                                <span>🕒</span>
+                                <span className="text-gray-600">
+                                    {new Date(riderLocation.timestamp).toLocaleTimeString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </Popup>
+            </Marker>
+        );
+    }, [riderLocation, riderHeading]);
+
+    const AccuracyCircle = useMemo(() => {
+        if (!riderLocation?.accuracy || riderLocation.accuracy >= 100) return null;
+
+        return (
+            <Circle
+                center={[riderLocation.latitude, riderLocation.longitude]}
+                radius={riderLocation.accuracy}
+                pathOptions={{
+                    color: '#0CAA41',
+                    fillColor: '#0CAA41',
+                    fillOpacity: 0.1,
+                    weight: 2,
+                }}
+            />
+        );
+    }, [riderLocation]);
+
+    const DestinationMarker = useMemo(() => {
+        if (!destinationLocation || !delivery) return null;
+
+        return (
+            <Marker
+                position={[destinationLocation.latitude, destinationLocation.longitude]}
+                icon={createDestinationIcon()}
+            >
+                <Popup closeButton={false} className="custom-popup">
+                    <div className="p-3 min-w-[200px]">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="#FF9500"/>
+                                </svg>
+                            </div>
+                            <h3 className="font-semibold text-orange-700">🏠 Destination</h3>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span>👤</span>
+                                <span className="text-gray-700">{delivery.customer.name}</span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span>📞</span>
+                                <span className="text-gray-600 font-mono text-xs">{delivery.customer.phone_number}</span>
+                            </div>
+
+                            <div className="flex items-start gap-2">
+                                <span>📍</span>
+                                <span className="text-gray-600 text-xs leading-relaxed">
+                                    {delivery.customer.address}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </Popup>
+            </Marker>
+        );
+    }, [destinationLocation, delivery]);
+
+    const StartingPointMarker = useMemo(() => {
+        if (!startingPoint || pathHistory.length <= 1) return null;
+
+        return (
+            <Marker
+                position={[startingPoint.latitude, startingPoint.longitude]}
+                icon={createStartingPointIcon()}
+            >
+                <Popup closeButton={false} className="custom-popup">
+                    <div className="p-3 min-w-[180px]">
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#1A2C56"/>
+                                    <path d="M2 17L12 22L22 17" fill="#1A2C56"/>
+                                    <path d="M2 12L12 17L22 12" fill="#1A2C56"/>
+                                </svg>
+                            </div>
+                            <h3 className="font-semibold text-blue-700">🏁 Starting Point</h3>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center gap-2">
+                                <span>📍</span>
+                                <span className="text-gray-600 font-mono text-xs">
+                                    {startingPoint.latitude.toFixed(6)}, {startingPoint.longitude.toFixed(6)}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <span>🕒</span>
+                                <span className="text-gray-600">
+                                    {new Date(startingPoint.timestamp).toLocaleTimeString()}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </Popup>
+            </Marker>
+        );
+    }, [startingPoint, pathHistory.length]);
+
+    const PathTrail = useMemo(() => {
+        if (!isTracking || pathCoordinates.length <= 1) return null;
+
+        return (
+            <Polyline
+                positions={pathCoordinates}
+                pathOptions={{
+                    color: '#0CAA41',
+                    weight: 4,
+                    opacity: 0.8,
+                    dashArray: '5, 10',
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                }}
+            >
+                <Popup closeButton={false} className="custom-popup">
+                    <div className="p-2">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                            <span className="font-medium text-green-700">🚴 Rider's Trail</span>
+                        </div>
+                        <div className="text-sm text-gray-600">
+                            <div>📍 {pathCoordinates.length} tracking points</div>
+                            <div>📏 Path shows rider's journey</div>
+                        </div>
+                    </div>
+                </Popup>
+            </Polyline>
+        );
+    }, [isTracking, pathCoordinates]);
 
     return (
         <div style={{ height, width: '100%' }} className="relative">
@@ -317,202 +568,60 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {/* Path History Trail - Render this BEFORE markers so it appears behind them */}
-                {isTracking && pathCoordinates.length > 1 && (
-                    <Polyline
-                        positions={pathCoordinates}
-                        pathOptions={{
-                            color: '#0CAA41',
-                            weight: 4,
-                            opacity: 0.8,
-                            dashArray: '5, 10',
-                            lineCap: 'round',
-                            lineJoin: 'round'
-                        }}
-                    >
-                        <Popup closeButton={false} className="custom-popup">
-                            <div className="p-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                                    <span className="font-medium text-green-700">🚴 Rider's Trail</span>
-                                </div>
-                                <div className="text-sm text-gray-600">
-                                    <div>📍 {pathCoordinates.length} tracking points</div>
-                                    <div>📏 Path shows rider's journey</div>
-                                </div>
-                            </div>
-                        </Popup>
-                    </Polyline>
-                )}
+                {/* Path History Trail */}
+                {PathTrail}
 
-                {/* Alternative: Smoother gradient path (comment out the above Polyline and uncomment this for a fancier effect) */}
-                {/*
-                {isTracking && pathCoordinates.length > 1 && (
-                    <>
-                        <Polyline
-                            positions={pathCoordinates}
-                            pathOptions={{
-                                color: '#0CAA41',
-                                weight: 6,
-                                opacity: 0.3,
-                            }}
-                        />
-                        <Polyline
-                            positions={pathCoordinates}
-                            pathOptions={{
-                                color: '#0CAA41',
-                                weight: 3,
-                                opacity: 0.8,
-                                dashArray: '8, 12',
-                            }}
-                        />
-                    </>
-                )}
-                */}
+                {/* Rider location */}
+                {RiderMarker}
+                {AccuracyCircle}
 
-                {/* Rider location with simplified tooltip */}
-                {riderLocation && (
-                    <>
-                        <Marker
-                            position={[riderLocation.latitude, riderLocation.longitude]}
-                            icon={createRiderIcon(riderHeading)}
-                        >
-                            <Popup closeButton={false} className="custom-popup">
-                                <div className="p-3 min-w-[180px]">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
-                                            </svg>
-                                        </div>
-                                        <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
-                                    </div>
+                {/* Destination location */}
+                {DestinationMarker}
 
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-center gap-2">
-                                            <span>📍</span>
-                                            <span className="text-gray-600 font-mono text-xs">
-                                                {riderLocation.latitude.toFixed(6)}, {riderLocation.longitude.toFixed(6)}
-                                            </span>
-                                        </div>
+                {/* Starting point marker */}
+                {StartingPointMarker}
 
-                                        {riderLocation.accuracy && (
-                                            <div className="flex items-center gap-2">
-                                                <span>🎯</span>
-                                                <span className="text-gray-600">±{Math.round(riderLocation.accuracy)}m</span>
-                                            </div>
-                                        )}
-
-                                        <div className="flex items-center gap-2">
-                                            <span>🕒</span>
-                                            <span className="text-gray-600">
-                                                {new Date(riderLocation.timestamp).toLocaleTimeString()}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </Popup>
-                        </Marker>
-
-                        {/* Accuracy circle */}
-                        {riderLocation.accuracy && riderLocation.accuracy < 100 && (
-                            <Circle
-                                center={[riderLocation.latitude, riderLocation.longitude]}
-                                radius={riderLocation.accuracy}
-                                pathOptions={{
-                                    color: '#0CAA41',
-                                    fillColor: '#0CAA41',
-                                    fillOpacity: 0.1,
-                                    weight: 2,
-                                }}
-                            />
-                        )}
-                    </>
-                )}
-
-                {/* Destination location with simplified customer tooltip */}
-                {destinationLocation && delivery && (
-                    <Marker
-                        position={[destinationLocation.latitude, destinationLocation.longitude]}
-                        icon={createDestinationIcon()}
-                    >
-                        <Popup closeButton={false} className="custom-popup">
-                            <div className="p-3 min-w-[200px]">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="#FF9500"/>
-                                        </svg>
-                                    </div>
-                                    <h3 className="font-semibold text-orange-700">🏠 Destination</h3>
-                                </div>
-
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <span>👤</span>
-                                        <span className="text-gray-700">{delivery.customer.name}</span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <span>📞</span>
-                                        <span className="text-gray-600 font-mono text-xs">{delivery.customer.phone_number}</span>
-                                    </div>
-
-                                    <div className="flex items-start gap-2">
-                                        <span>📍</span>
-                                        <span className="text-gray-600 text-xs leading-relaxed">
-                                            {delivery.customer.address}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                )}
-
-                {/* Starting point marker - Add this new code */}
-                {startingPoint && pathHistory.length > 1 && (
-                    <Marker
-                        position={[startingPoint.latitude, startingPoint.longitude]}
-                        icon={createStartingPointIcon()}
-                    >
-                        <Popup closeButton={false} className="custom-popup">
-                            <div className="p-3 min-w-[180px]">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#1A2C56"/>
-                                            <path d="M2 17L12 22L22 17" fill="#1A2C56"/>
-                                            <path d="M2 12L12 17L22 12" fill="#1A2C56"/>
-                                        </svg>
-                                    </div>
-                                    <h3 className="font-semibold text-blue-700">🏁 Starting Point</h3>
-                                </div>
-
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex items-center gap-2">
-                                        <span>📍</span>
-                                        <span className="text-gray-600 font-mono text-xs">
-                                            {startingPoint.latitude.toFixed(6)}, {startingPoint.longitude.toFixed(6)}
-                                        </span>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <span>🕒</span>
-                                        <span className="text-gray-600">
-                                            {new Date(startingPoint.timestamp).toLocaleTimeString()}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </Popup>
-                    </Marker>
-                )}
-
-                <MapCenterUpdater center={center} />
+                {/* Map controller for handling recentering */}
+                <MapController
+                    riderLocation={riderLocation}
+                    destinationLocation={destinationLocation}
+                    pathHistory={pathHistory}
+                    shouldRecenter={shouldRecenter}
+                    onRecenterComplete={handleRecenterComplete}
+                />
             </MapContainer>
 
-            {/* Collapsible Map Legend - Keep original with trail points count */}
+            {/* Enhanced Map Controls - Bottom Right */}
+            <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-2">
+                {/* Recenter Button */}
+                <button
+                    onClick={handleRecenter}
+                    className={`bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 border border-gray-200 hover:bg-white transition-all duration-200 ${
+                        shouldRecenter ? 'bg-blue-50 border-blue-300' : ''
+                    }`}
+                    title="Recenter map to show rider and destination"
+                    disabled={shouldRecenter}
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className={`${shouldRecenter ? 'animate-spin text-blue-600' : 'text-gray-700'} transition-colors`}
+                    >
+                        <path
+                            d="M12 2L12 6M12 18L12 22M22 12L18 12M6 12L2 12M20.485 20.485L17.657 17.657M6.343 6.343L3.515 3.515M20.485 3.515L17.657 6.343M6.343 17.657L3.515 20.485"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* Collapsible Map Legend - Keep original */}
             {(riderLocation || destinationLocation || pathHistory.length > 0) && (
                 <div className="absolute bottom-4 left-4 z-[1000]">
                     {/* Toggle Button */}
