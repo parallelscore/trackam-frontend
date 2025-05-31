@@ -152,43 +152,52 @@ const createStartingPointIcon = () => {
         className: 'custom-start-marker',
         html: `
             <div class="start-marker-container">
-                <div class="start-marker-pin">
-                    <svg width="28" height="36" viewBox="0 0 24 29" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 0C18.627 0 24 5.373 24 12C24 18.627 12 29 12 29S0 18.627 0 12C0 5.373 5.373 0 12 0Z" fill="#1A2C56"/>
-                        <circle cx="12" cy="12" r="6" fill="white"/>
-                        <svg x="8" y="8" width="8" height="8" viewBox="0 0 24 24" fill="#1A2C56">
-                            <path d="M12 2L2 7L12 12L22 7L12 2Z" />
-                            <path d="M2 17L12 22L22 17" />
-                            <path d="M2 12L12 17L22 12" />
-                        </svg>
-                    </svg>
-                </div>
-                <div class="start-label">START</div>
+                <div class="start-marker-pulse"></div>
+                <div class="start-marker-dot"></div>
             </div>
             <style>
                 .start-marker-container {
                     position: relative;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
+                    width: 12px;
+                    height: 12px;
                 }
-                .start-marker-pin {
-                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+                .start-marker-dot {
+                    position: absolute;
+                    top: 3px;
+                    left: 3px;
+                    width: 6px;
+                    height: 6px;
+                    background-color: #FF3B30;
+                    border-radius: 50%;
+                    z-index: 2;
                 }
-                .start-label {
-                    background-color: #1A2C56;
-                    color: white;
-                    font-size: 8px;
-                    font-weight: bold;
-                    padding: 2px 4px;
-                    border-radius: 3px;
-                    margin-top: 2px;
-                    white-space: nowrap;
+                .start-marker-pulse {
+                    position: absolute;
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 50%;
+                    background-color: rgba(255, 59, 48, 0.6);
+                    animation: pulse-start 1.5s infinite;
+                    z-index: 1;
+                }
+                @keyframes pulse-start {
+                    0% {
+                        transform: scale(0.5);
+                        opacity: 0.8;
+                    }
+                    50% {
+                        transform: scale(1);
+                        opacity: 0.4;
+                    }
+                    100% {
+                        transform: scale(0.5);
+                        opacity: 0.8;
+                    }
                 }
             </style>
         `,
-        iconSize: [56, 50],
-        iconAnchor: [28, 36],
+        iconSize: [12, 12],
+        iconAnchor: [6, 6],
     });
 };
 
