@@ -1,4 +1,4 @@
-// src/pages/TrackingPage.tsx - Updated with enhanced flow
+// src/pages/TrackingPage.tsx - Updated to use public API
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
@@ -12,7 +12,7 @@ import { Button } from '../components/ui/button';
 
 const TrackingPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
-    const { getDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
+    const { getPublicDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
     const [estimatedTime, setEstimatedTime] = useState<string | undefined>(undefined);
     const [distance, setDistance] = useState<number | null>(null);
     const [hasLocationAccess, setHasLocationAccess] = useState(false);
@@ -21,7 +21,8 @@ const TrackingPage: React.FC = () => {
     useEffect(() => {
         const fetchDelivery = async () => {
             if (trackingId) {
-                await getDeliveryByTrackingId(trackingId);
+                // Use the public API endpoint that doesn't require authentication
+                await getPublicDeliveryByTrackingId(trackingId);
             }
         };
 
@@ -31,7 +32,7 @@ const TrackingPage: React.FC = () => {
         const intervalId = setInterval(fetchDelivery, 10000);
 
         return () => clearInterval(intervalId);
-    }, [trackingId, getDeliveryByTrackingId]);
+    }, [trackingId, getPublicDeliveryByTrackingId]);
 
     // Calculate estimated time and distance
     useEffect(() => {
@@ -121,7 +122,7 @@ const TrackingPage: React.FC = () => {
                     <CardContent className="p-6">
                         <div className="text-center text-red-600">
                             <p>Error: {error}</p>
-                            <p className="mt-2">Please try again later.</p>
+                            <p className="mt-2">Please check your tracking ID and try again.</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -134,6 +135,7 @@ const TrackingPage: React.FC = () => {
                     <CardContent className="p-6">
                         <div className="text-center">
                             <p>No delivery found with tracking ID: {trackingId}</p>
+                            <p className="mt-2 text-gray-600">Please check your tracking ID and try again.</p>
                         </div>
                     </CardContent>
                 </Card>
