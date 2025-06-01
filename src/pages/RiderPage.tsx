@@ -15,7 +15,7 @@ const RiderPage: React.FC = () => {
     const [searchParams] = useSearchParams();
 
     // Get delivery info from DeliveryContext (for initial fetch)
-    const { getDeliveryByTrackingId } = useDelivery();
+    const { getPublicDeliveryByTrackingId } = useDelivery();
 
     // Get rider-specific functionality from RiderContext
     const {
@@ -112,7 +112,7 @@ const RiderPage: React.FC = () => {
 
             try {
                 console.log('Fetching delivery with tracking ID:', finalTrackingId);
-                const deliveryData = await getDeliveryByTrackingId(finalTrackingId);
+                const deliveryData = await getPublicDeliveryByTrackingId(finalTrackingId);
 
                 if (deliveryData) {
                     // Update the rider context with the fetched delivery
@@ -133,7 +133,7 @@ const RiderPage: React.FC = () => {
         };
 
         fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId, setCurrentDelivery]);
+    }, [trackingId, getPublicDeliveryByTrackingId, setCurrentDelivery]);
 
     // Check for restored progress
     const checkForRestoredProgress = (trackingId: string) => {
