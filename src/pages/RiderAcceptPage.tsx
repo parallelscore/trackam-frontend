@@ -20,7 +20,7 @@ const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
     const { acceptDelivery, declineDelivery, setLocationPermissionGranted } = useRider();
-    const { getDeliveryByTrackingId, isLoading } = useDelivery();
+    const { getPublicDeliveryByTrackingId, isLoading } = useDelivery();
 
     const [delivery, setDelivery] = useState<any>(null);
     const [loadingDelivery, setLoadingDelivery] = useState(true);
@@ -58,7 +58,7 @@ const RiderAcceptPage: React.FC = () => {
 
             setLoadingDelivery(true);
             try {
-                const deliveryData = await getDeliveryByTrackingId(tracking_id);
+                const deliveryData = await getPublicDeliveryByTrackingId(tracking_id);
 
                 if (deliveryData) {
                     setDelivery(deliveryData);
