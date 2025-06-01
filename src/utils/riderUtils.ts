@@ -1,7 +1,6 @@
 // src/utils/riderUtils.ts
 import { generateWhatsAppLink } from './utils';
 import toast from 'react-hot-toast';
-import { Location } from '@/types';
 
 /**
  * Helper functions for rider operations
