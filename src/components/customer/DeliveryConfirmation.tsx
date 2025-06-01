@@ -39,7 +39,7 @@ const DeliveryConfirmation: React.FC<DeliveryConfirmationProps> = ({ delivery })
                     <div className="space-y-4">
                         <div>
                             <h3 className="text-sm font-medium text-gray-500">Tracking ID</h3>
-                            <p className="font-bold">{delivery.trackingId}</p>
+                            <p className="font-bold">{delivery.tracking_id}</p>
                         </div>
 
                         <div>
@@ -50,7 +50,7 @@ const DeliveryConfirmation: React.FC<DeliveryConfirmationProps> = ({ delivery })
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500">Delivery Date</h3>
-                                <p>{formatDateTime(delivery.updatedAt)}</p>
+                                <p>{formatDateTime(delivery.updated_at)}</p>
                             </div>
                             <div>
                                 <h3 className="text-sm font-medium text-gray-500">Delivered By</h3>
