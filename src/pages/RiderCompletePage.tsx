@@ -11,7 +11,7 @@ import { formatDateTime } from '../utils/utils';
 const RiderCompletePage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
     const navigate = useNavigate();
-    const { getDeliveryByTrackingId } = useDelivery();
+    const { getPublicDeliveryByTrackingId } = useDelivery();
     const { currentDelivery, setCurrentDelivery, isLoading } = useRider();
     const [loadingDelivery, setLoadingDelivery] = useState(true);
 
@@ -19,7 +19,7 @@ const RiderCompletePage: React.FC = () => {
         const fetchDelivery = async () => {
             if (trackingId) {
                 setLoadingDelivery(true);
-                const delivery = await getDeliveryByTrackingId(trackingId);
+                const delivery = await getPublicDeliveryByTrackingId(trackingId);
                 if (delivery) {
                     setCurrentDelivery(delivery);
                 }
@@ -33,7 +33,7 @@ const RiderCompletePage: React.FC = () => {
         } else {
             setLoadingDelivery(false);
         }
-    }, [trackingId, getDeliveryByTrackingId, currentDelivery, setCurrentDelivery]);
+    }, [trackingId, getPublicDeliveryByTrackingId, currentDelivery, setCurrentDelivery]);
 
     const handleFindNewDelivery = () => {
         // This would typically navigate to a rider dashboard where they can see available deliveries
@@ -125,7 +125,7 @@ const RiderCompletePage: React.FC = () => {
                         <div>
                             <h3 className="text-sm font-medium text-gray-500">Customer</h3>
                             <p>{currentDelivery.customer.name}</p>
-                            <p className="text-sm text-gray-500">{currentDelivery.customer.address}</p>
+                            <p className="text-sm text-gray-500">{currentDelivery.customer?.address}</p>
                         </div>
 
                         <div>
