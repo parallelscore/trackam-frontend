@@ -7,20 +7,20 @@ import { useDelivery } from '../context/DeliveryContext';
 
 const DeliveryConfirmedPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
-    const { getDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
+    const { getPublicDeliveryByTrackingId, currentDelivery, isLoading, error } = useDelivery();
     const [loadingDelivery, setLoadingDelivery] = useState(true);
 
     useEffect(() => {
         const fetchDelivery = async () => {
             if (trackingId) {
                 setLoadingDelivery(true);
-                await getDeliveryByTrackingId(trackingId);
+                await getPublicDeliveryByTrackingId(trackingId);
                 setLoadingDelivery(false);
             }
         };
 
         fetchDelivery();
-    }, [trackingId, getDeliveryByTrackingId]);
+    }, [trackingId, getPublicDeliveryByTrackingId]);
 
     const renderContent = () => {
         if (loadingDelivery || isLoading) {
