@@ -107,28 +107,28 @@ const PhoneLoginPage: React.FC = () => {
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <motion.div
                         animate={{
-                            scale: [1, 1.1, 1],
-                            rotate: [0, 5, -5, 0]
+                            scale: [1, 1.2, 1],
+                            rotate: [0, -8, 8, 0]
                         }}
                         transition={{
                             duration: 8,
                             repeat: Infinity,
                             ease: "easeInOut"
                         }}
-                        className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-xl"
+                        className="absolute top-16 right-20 w-36 h-36 bg-primary/10 rounded-full blur-2xl"
                     />
                     <motion.div
                         animate={{
-                            scale: [1, 0.9, 1],
-                            rotate: [0, -3, 3, 0]
+                            scale: [1, 0.8, 1],
+                            rotate: [0, 12, -12, 0]
                         }}
                         transition={{
-                            duration: 10,
+                            duration: 12,
                             repeat: Infinity,
                             ease: "easeInOut",
-                            delay: 2
+                            delay: 3
                         }}
-                        className="absolute bottom-20 right-10 w-24 h-24 bg-accent/10 rounded-full blur-xl"
+                        className="absolute bottom-20 left-16 w-28 h-28 bg-accent/10 rounded-full blur-2xl"
                     />
                 </div>
 
@@ -138,7 +138,7 @@ const PhoneLoginPage: React.FC = () => {
                     animate="visible"
                     className="w-full max-w-md relative z-10"
                 >
-                    <Card className="bg-white/80 backdrop-blur-xl shadow-2xl border-0 overflow-hidden relative">
+                    <Card className="bg-white/90 backdrop-blur-xl shadow-2xl border-0 overflow-hidden relative">
                         {/* Gradient border effect */}
                         <div className="absolute inset-0 bg-gradient-to-r from-primary via-accent to-secondary rounded-xl p-0.5">
                             <div className="bg-white rounded-xl h-full w-full" />
@@ -148,7 +148,7 @@ const PhoneLoginPage: React.FC = () => {
                             <CardHeader className="text-center pb-6">
                                 <motion.div
                                     variants={itemVariants}
-                                    className="w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
+                                    className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
                                 >
                                     <motion.div
                                         animate={{
@@ -161,19 +161,19 @@ const PhoneLoginPage: React.FC = () => {
                                             ease: "easeInOut"
                                         }}
                                     >
-                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                         </svg>
                                     </motion.div>
 
                                     {/* Pulsing rings */}
                                     <motion.div
-                                        className="absolute inset-0 rounded-2xl border-2 border-primary/40"
+                                        className="absolute inset-0 rounded-3xl border-2 border-primary/40"
                                         animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
                                         transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
                                     />
                                     <motion.div
-                                        className="absolute inset-0 rounded-2xl border-2 border-accent/40"
+                                        className="absolute inset-0 rounded-3xl border-2 border-accent/40"
                                         animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
                                         transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
                                     />
@@ -190,7 +190,7 @@ const PhoneLoginPage: React.FC = () => {
                             </CardHeader>
 
                             <CardContent className="px-8 pb-6">
-                                <Form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                                <Form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                                     <motion.div variants={itemVariants}>
                                         <FormItem className="text-center">
                                             <div className="flex items-center justify-center mb-2">
@@ -244,7 +244,7 @@ const PhoneLoginPage: React.FC = () => {
                                                     <Input
                                                         id="phoneNumber"
                                                         placeholder="Enter your phone number"
-                                                        className="h-16 text-lg text-center border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
+                                                        className="h-16 text-center text-xl border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
                                                         {...register('phoneNumber', {
                                                             required: 'Phone number is required',
                                                             pattern: {
@@ -258,13 +258,13 @@ const PhoneLoginPage: React.FC = () => {
                                             
                                             {/* Phone validation progress indicators */}
                                             {phoneNumber && (
-                                                <div className="flex justify-center mt-4 space-x-3">
+                                                <div className="flex justify-center mt-4 space-x-2">
                                                     {[...Array(10)].map((_, i) => (
                                                         <motion.div
                                                             key={i}
-                                                            className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                                                            className={`w-3 h-3 rounded-full transition-all duration-300 ${
                                                                 i < phoneNumber.replace(/[^0-9]/g, '').slice(-10).length
-                                                                    ? isValidPhone ? 'bg-green-500' : 'bg-amber-500'
+                                                                    ? isValidPhone ? 'bg-primary shadow-lg' : 'bg-amber-500'
                                                                     : 'bg-gray-200'
                                                             }`}
                                                             animate={i < phoneNumber.replace(/[^0-9]/g, '').slice(-10).length ? { scale: [1, 1.2, 1] } : {}}
@@ -328,7 +328,7 @@ const PhoneLoginPage: React.FC = () => {
                             </CardContent>
 
                             <CardFooter className="px-8 pb-8">
-                                <motion.div variants={itemVariants} className="w-full text-center space-y-4">
+                                <motion.div variants={itemVariants} className="w-full text-center space-y-3">
                                     <div className="text-sm text-gray-600">
                                         Don't have an account?{' '}
                                         <Link
@@ -339,40 +339,52 @@ const PhoneLoginPage: React.FC = () => {
                                         </Link>
                                     </div>
 
-                                    <div className="flex items-center gap-2 justify-center text-xs text-gray-500">
-                                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        Secure login with OTP verification
+                                    <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+                                        <div className="flex items-center gap-1">
+                                            <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Secure login
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                            </svg>
+                                            OTP protected
+                                        </div>
                                     </div>
                                 </motion.div>
                             </CardFooter>
                         </div>
 
-                        {/* Floating particles */}
-                        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                            {[...Array(4)].map((_, i) => (
-                                <motion.div
-                                    key={i}
-                                    className="absolute w-1 h-1 bg-primary/30 rounded-full"
-                                    style={{
-                                        left: `${20 + i * 20}%`,
-                                        top: `${10 + i * 15}%`,
-                                    }}
-                                    animate={{
-                                        y: [0, -20, 0],
-                                        opacity: [0.3, 0.8, 0.3],
-                                        scale: [1, 1.5, 1]
-                                    }}
-                                    transition={{
-                                        duration: 3 + i * 0.5,
-                                        repeat: Infinity,
-                                        ease: "easeInOut",
-                                        delay: i * 0.4
-                                    }}
-                                />
-                            ))}
-                        </div>
+                        {/* Floating particles - match OTP page success animation style */}
+                        <AnimatePresence>
+                            {phoneNumber && isValidPhone && (
+                                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                                    {[...Array(4)].map((_, i) => (
+                                        <motion.div
+                                            key={i}
+                                            className="absolute w-2 h-2 bg-accent/60 rounded-full"
+                                            style={{
+                                                left: `${Math.random() * 100}%`,
+                                                top: `${Math.random() * 100}%`,
+                                            }}
+                                            initial={{ scale: 0, opacity: 0 }}
+                                            animate={{
+                                                scale: [0, 1, 0],
+                                                opacity: [0, 1, 0],
+                                                y: [0, -40]
+                                            }}
+                                            transition={{
+                                                duration: 1.5,
+                                                ease: "easeOut",
+                                                delay: i * 0.1
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </AnimatePresence>
                     </Card>
                 </motion.div>
             </div>
