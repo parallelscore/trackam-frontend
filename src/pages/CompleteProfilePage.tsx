@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/common/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -20,6 +21,7 @@ import {
     FormErrorMessage,
     FormDescription
 } from '../components/ui/form';
+import { Badge } from '../components/ui/badge';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,18 +33,61 @@ interface CompleteProfileFormData {
     profileImage: FileList;
 }
 
+// Animation variants
+const fadeInUp = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        transition: { duration: 0.6, ease: "easeOut" }
+    }
+};
+
+const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+        opacity: 1,
+        transition: {
+            staggerChildren: 0.1
+        }
+    }
+};
+
+const scaleIn = {
+    hidden: { scale: 0.8, opacity: 0 },
+    visible: {
+        scale: 1,
+        opacity: 1,
+        transition: { duration: 0.5, ease: "easeOut" }
+    }
+};
+
+const slideInLeft = {
+    hidden: { x: -50, opacity: 0 },
+    visible: {
+        x: 0,
+        opacity: 1,
+        transition: { duration: 0.6, ease: "easeOut" }
+    }
+};
+
 const CompleteProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+    const [step, setStep] = useState(1);
+    const totalSteps = 3;
     const { completeProfile, isAuthenticated, isLoading } = useAuth();
 
     const {
         register,
         handleSubmit,
-        formState: { errors },
-        watch
+        formState: { errors, isValid },
+        watch,
+        trigger,
+        getValues
     } = useForm<CompleteProfileFormData>({
+        mode: 'onChange',
         defaultValues: {
             firstName: '',
             lastName: '',
@@ -58,12 +103,23 @@ const CompleteProfilePage: React.FC = () => {
     useEffect(() => {
         if (profileImage && profileImage.length > 0) {
             const file = profileImage[0];
-            const reader = new FileReader();
 
+            // Check file size (5MB limit)
+            if (file.size > 5 * 1024 * 1024) {
+                toast.error('Image size should be less than 5MB');
+                return;
+            }
+
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+                toast.error('Please select a valid image file');
+                return;
+            }
+
+            const reader = new FileReader();
             reader.onloadend = () => {
                 setProfileImageUrl(reader.result as string);
             };
-
             reader.readAsDataURL(file);
         }
     }, [profileImage]);
@@ -104,8 +160,13 @@ const CompleteProfilePage: React.FC = () => {
                 sessionStorage.removeItem('registrationPhone');
                 sessionStorage.removeItem('otpVerified');
 
-                // Navigate to vendor dashboard
-                navigate('/vendor');
+                // Show success message
+                toast.success('Profile completed successfully! Welcome to TrackAm! 🎉');
+
+                // Navigate to vendor dashboard after a brief delay
+                setTimeout(() => {
+                    navigate('/vendor');
+                }, 1500);
             }
         } catch (error) {
             console.error('Profile completion error:', error);
@@ -118,12 +179,14 @@ const CompleteProfilePage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // Skip profile completion
+            // Navigate to vendor dashboard
             navigate('/vendor');
 
             // Clear registration data from session storage
             sessionStorage.removeItem('registrationPhone');
             sessionStorage.removeItem('otpVerified');
+
+            toast.success('Welcome to TrackAm! You can complete your profile later.');
         } catch (error) {
             console.error('Skip profile error:', error);
         } finally {
@@ -131,162 +194,469 @@ const CompleteProfilePage: React.FC = () => {
         }
     };
 
+    const nextStep = async () => {
+        const currentStepFields = getFieldsForStep(step);
+        const isCurrentStepValid = await trigger(currentStepFields);
+
+        if (isCurrentStepValid) {
+            setStep(step + 1);
+        }
+    };
+
+    const prevStep = () => {
+        setStep(step - 1);
+    };
+
+    const getFieldsForStep = (stepNumber: number): (keyof CompleteProfileFormData)[] => {
+        switch (stepNumber) {
+            case 1:
+                return ['firstName', 'lastName'];
+            case 2:
+                return ['businessName'];
+            case 3:
+                return ['email'];
+            default:
+                return [];
+        }
+    };
+
     if (isLoading) {
         return (
             <Layout>
-                <div className="flex justify-center items-center min-h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary/5 to-accent/5">
+                    <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="text-center"
+                    >
+                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className="text-lg font-medium text-secondary">Loading...</p>
+                    </motion.div>
                 </div>
             </Layout>
         );
     }
 
+    const progressPercentage = (step / totalSteps) * 100;
+
     return (
         <Layout>
-            <div className="max-w-2xl mx-auto px-4 py-12">
-                <Card className="shadow-md">
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-2xl font-bold text-secondary">Complete Your Profile</CardTitle>
-                        <CardDescription>
-                            Provide additional information to personalize your account
-                        </CardDescription>
-                    </CardHeader>
+            {/* Background with animated elements */}
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-accent/5 relative overflow-hidden">
+                {/* Animated background elements */}
+                <motion.div
+                    animate={{
+                        rotate: [0, 360],
+                        scale: [1, 1.2, 1]
+                    }}
+                    transition={{
+                        duration: 20,
+                        repeat: Infinity,
+                        ease: "linear"
+                    }}
+                    className="absolute top-20 right-20 w-32 h-32 border border-primary/10 rounded-full hidden lg:block"
+                />
+                <motion.div
+                    animate={{
+                        y: [-20, 20, -20],
+                        x: [-10, 10, -10]
+                    }}
+                    transition={{
+                        duration: 15,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute bottom-20 left-20 w-24 h-24 bg-gradient-to-r from-accent/10 to-primary/10 rounded-full hidden lg:block"
+                />
 
-                    <CardContent>
-                        <Form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                            <div className="flex flex-col items-center mb-6">
-                                <div className="relative mb-4">
-                                    <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden border-2 border-primary">
-                                        {profileImageUrl ? (
-                                            <img
-                                                src={profileImageUrl}
-                                                alt="Profile preview"
-                                                className="h-full w-full object-cover"
-                                            />
-                                        ) : (
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                            </svg>
+                <div className="max-w-2xl mx-auto px-4 py-8 lg:py-16 relative z-10">
+                    <motion.div
+                        initial="hidden"
+                        animate="visible"
+                        variants={staggerContainer}
+                        className="space-y-8"
+                    >
+                        {/* Header */}
+                        <motion.div variants={fadeInUp} className="text-center">
+                            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-primary to-accent text-white px-4 py-2 rounded-full text-sm font-medium mb-4">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                                Almost there!
+                            </div>
+                            <h1 className="text-3xl lg:text-4xl font-bold text-secondary mb-2">
+                                Complete Your Profile
+                            </h1>
+                            <p className="text-lg text-gray-600">
+                                Tell us about yourself and your business to personalize your TrackAm experience
+                            </p>
+                        </motion.div>
+
+                        {/* Progress Bar */}
+                        <motion.div variants={fadeInUp} className="w-full">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-sm font-medium text-gray-500">
+                                    Step {step} of {totalSteps}
+                                </span>
+                                <span className="text-sm font-medium text-primary">
+                                    {Math.round(progressPercentage)}% Complete
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                <motion.div
+                                    className="h-full bg-gradient-to-r from-primary to-accent rounded-full"
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progressPercentage}%` }}
+                                    transition={{ duration: 0.5, ease: "easeOut" }}
+                                />
+                            </div>
+                        </motion.div>
+
+                        {/* Main Card */}
+                        <motion.div variants={scaleIn}>
+                            <Card className="shadow-2xl border-0 bg-white/80 backdrop-blur-sm">
+                                <CardHeader className="text-center pb-6">
+                                    <motion.div
+                                        key={step}
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.3 }}
+                                    >
+                                        {step === 1 && (
+                                            <>
+                                                <div className="w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                </div>
+                                                <CardTitle className="text-2xl text-secondary">Personal Information</CardTitle>
+                                                <CardDescription className="text-base">
+                                                    Let's start with your basic details
+                                                </CardDescription>
+                                            </>
                                         )}
+                                        {step === 2 && (
+                                            <>
+                                                <div className="w-16 h-16 bg-gradient-to-r from-accent to-secondary rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                </div>
+                                                <CardTitle className="text-2xl text-secondary">Business Details</CardTitle>
+                                                <CardDescription className="text-base">
+                                                    Tell us about your business
+                                                </CardDescription>
+                                            </>
+                                        )}
+                                        {step === 3 && (
+                                            <>
+                                                <div className="w-16 h-16 bg-gradient-to-r from-secondary to-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                    </svg>
+                                                </div>
+                                                <CardTitle className="text-2xl text-secondary">Contact & Profile</CardTitle>
+                                                <CardDescription className="text-base">
+                                                    Finalize your profile setup
+                                                </CardDescription>
+                                            </>
+                                        )}
+                                    </motion.div>
+                                </CardHeader>
+
+                                <CardContent className="px-6 lg:px-8">
+                                    <Form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                                        <AnimatePresence mode="wait">
+                                            {step === 1 && (
+                                                <motion.div
+                                                    key="step1"
+                                                    variants={staggerContainer}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    exit={{ opacity: 0, x: -50 }}
+                                                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                                                >
+                                                    <motion.div variants={slideInLeft}>
+                                                        <FormItem>
+                                                            <FormLabel htmlFor="firstName" className="text-base font-medium">
+                                                                First Name
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    id="firstName"
+                                                                    placeholder="Enter your first name"
+                                                                    className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    {...register('firstName', {
+                                                                        required: 'First name is required',
+                                                                        minLength: { value: 2, message: 'First name must be at least 2 characters' }
+                                                                    })}
+                                                                />
+                                                            </FormControl>
+                                                            {errors.firstName && (
+                                                                <FormErrorMessage>{errors.firstName.message}</FormErrorMessage>
+                                                            )}
+                                                        </FormItem>
+                                                    </motion.div>
+
+                                                    <motion.div variants={slideInLeft}>
+                                                        <FormItem>
+                                                            <FormLabel htmlFor="lastName" className="text-base font-medium">
+                                                                Last Name
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    id="lastName"
+                                                                    placeholder="Enter your last name"
+                                                                    className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    {...register('lastName', {
+                                                                        required: 'Last name is required',
+                                                                        minLength: { value: 2, message: 'Last name must be at least 2 characters' }
+                                                                    })}
+                                                                />
+                                                            </FormControl>
+                                                            {errors.lastName && (
+                                                                <FormErrorMessage>{errors.lastName.message}</FormErrorMessage>
+                                                            )}
+                                                        </FormItem>
+                                                    </motion.div>
+                                                </motion.div>
+                                            )}
+
+                                            {step === 2 && (
+                                                <motion.div
+                                                    key="step2"
+                                                    variants={fadeInUp}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    exit={{ opacity: 0, x: -50 }}
+                                                >
+                                                    <FormItem>
+                                                        <FormLabel htmlFor="businessName" className="text-base font-medium">
+                                                            Business Name
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                id="businessName"
+                                                                placeholder="Enter your business name"
+                                                                className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                {...register('businessName', {
+                                                                    required: 'Business name is required',
+                                                                    minLength: { value: 2, message: 'Business name must be at least 2 characters' }
+                                                                })}
+                                                            />
+                                                        </FormControl>
+                                                        <FormDescription>
+                                                            This will be displayed on your delivery notifications
+                                                        </FormDescription>
+                                                        {errors.businessName && (
+                                                            <FormErrorMessage>{errors.businessName.message}</FormErrorMessage>
+                                                        )}
+                                                    </FormItem>
+                                                </motion.div>
+                                            )}
+
+                                            {step === 3 && (
+                                                <motion.div
+                                                    key="step3"
+                                                    variants={staggerContainer}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    exit={{ opacity: 0, x: -50 }}
+                                                    className="space-y-6"
+                                                >
+                                                    {/* Profile Image Upload */}
+                                                    <motion.div variants={fadeInUp} className="flex flex-col items-center mb-6">
+                                                        <div className="relative mb-4">
+                                                            <motion.div
+                                                                whileHover={{ scale: 1.05 }}
+                                                                className="h-32 w-32 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 flex items-center justify-center overflow-hidden border-4 border-white shadow-xl"
+                                                            >
+                                                                {profileImageUrl ? (
+                                                                    <motion.img
+                                                                        initial={{ scale: 0 }}
+                                                                        animate={{ scale: 1 }}
+                                                                        src={profileImageUrl}
+                                                                        alt="Profile preview"
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                    </svg>
+                                                                )}
+                                                            </motion.div>
+                                                            <label
+                                                                htmlFor="profileImage"
+                                                                className="absolute bottom-0 right-0 bg-gradient-to-r from-primary to-accent text-white p-3 rounded-full cursor-pointer hover:shadow-lg transform hover:scale-110 transition-all duration-200"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                </svg>
+                                                                <input
+                                                                    id="profileImage"
+                                                                    type="file"
+                                                                    className="hidden"
+                                                                    accept="image/*"
+                                                                    {...register('profileImage')}
+                                                                />
+                                                            </label>
+                                                        </div>
+                                                        <p className="text-sm text-gray-500 text-center">
+                                                            Upload a profile picture (optional)
+                                                            <br />
+                                                            <span className="text-xs">Max size: 5MB</span>
+                                                        </p>
+                                                    </motion.div>
+
+                                                    {/* Email Input */}
+                                                    <motion.div variants={fadeInUp}>
+                                                        <FormItem>
+                                                            <FormLabel htmlFor="email" className="text-base font-medium">
+                                                                Email Address
+                                                            </FormLabel>
+                                                            <FormControl>
+                                                                <Input
+                                                                    id="email"
+                                                                    type="email"
+                                                                    placeholder="Enter your email address"
+                                                                    className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    {...register('email', {
+                                                                        required: 'Email is required',
+                                                                        pattern: {
+                                                                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                                                                            message: 'Please enter a valid email address'
+                                                                        }
+                                                                    })}
+                                                                />
+                                                            </FormControl>
+                                                            <FormDescription>
+                                                                We'll send a verification link to this email
+                                                            </FormDescription>
+                                                            {errors.email && (
+                                                                <FormErrorMessage>{errors.email.message}</FormErrorMessage>
+                                                            )}
+                                                        </FormItem>
+                                                    </motion.div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </Form>
+                                </CardContent>
+
+                                <CardFooter className="flex flex-col space-y-4 px-6 lg:px-8 pb-8">
+                                    {/* Navigation Buttons */}
+                                    <div className="flex flex-col sm:flex-row justify-between w-full gap-4">
+                                        <div className="flex gap-3">
+                                            {step > 1 && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, x: -20 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    whileHover={{ scale: 1.02 }}
+                                                    whileTap={{ scale: 0.98 }}
+                                                >
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        onClick={prevStep}
+                                                        className="px-6 py-3 h-12 border-2 hover:border-primary"
+                                                        disabled={isSubmitting}
+                                                    >
+                                                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                                        </svg>
+                                                        Back
+                                                    </Button>
+                                                </motion.div>
+                                            )}
+
+                                            <motion.div
+                                                whileHover={{ scale: 1.02 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    onClick={handleSkip}
+                                                    className="px-6 py-3 h-12 border-2 hover:border-gray-300"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    Skip for Now
+                                                </Button>
+                                            </motion.div>
+                                        </div>
+
+                                        <motion.div
+                                            whileHover={{ scale: 1.02 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            {step < totalSteps ? (
+                                                <Button
+                                                    type="button"
+                                                    onClick={nextStep}
+                                                    className="w-full sm:w-auto px-8 py-3 h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-lg"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    Continue
+                                                    <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleSubmit(onSubmit)}
+                                                    className="w-full sm:w-auto px-8 py-3 h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-lg"
+                                                    disabled={isSubmitting || !isValid}
+                                                >
+                                                    {isSubmitting ? (
+                                                        <>
+                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                                            Completing...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            Complete Profile
+                                                            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </>
+                                                    )}
+                                                </Button>
+                                            )}
+                                        </motion.div>
                                     </div>
-                                    <label htmlFor="profileImage" className="absolute bottom-0 right-0 bg-primary text-white p-1 rounded-full cursor-pointer">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        <input
-                                            id="profileImage"
-                                            type="file"
-                                            className="hidden"
-                                            accept="image/*"
-                                            {...register('profileImage')}
-                                        />
-                                    </label>
-                                </div>
-                                <p className="text-sm text-gray-500">Upload a profile picture</p>
-                            </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <FormItem>
-                                    <FormLabel htmlFor="firstName">First Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            id="firstName"
-                                            placeholder="Enter your first name"
-                                            {...register('firstName', {
-                                                required: 'First name is required'
-                                            })}
-                                        />
-                                    </FormControl>
-                                    {errors.firstName && (
-                                        <FormErrorMessage>{errors.firstName.message}</FormErrorMessage>
-                                    )}
-                                </FormItem>
+                                    {/* Steps Indicator */}
+                                    <div className="flex justify-center space-x-2 pt-4">
+                                        {[1, 2, 3].map((stepNumber) => (
+                                            <motion.div
+                                                key={stepNumber}
+                                                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                                    stepNumber === step
+                                                        ? 'bg-gradient-to-r from-primary to-accent scale-125'
+                                                        : stepNumber < step
+                                                            ? 'bg-primary/60'
+                                                            : 'bg-gray-300'
+                                                }`}
+                                                whileHover={{ scale: 1.2 }}
+                                            />
+                                        ))}
+                                    </div>
+                                </CardFooter>
+                            </Card>
+                        </motion.div>
 
-                                <FormItem>
-                                    <FormLabel htmlFor="lastName">Last Name</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            id="lastName"
-                                            placeholder="Enter your last name"
-                                            {...register('lastName', {
-                                                required: 'Last name is required'
-                                            })}
-                                        />
-                                    </FormControl>
-                                    {errors.lastName && (
-                                        <FormErrorMessage>{errors.lastName.message}</FormErrorMessage>
-                                    )}
-                                </FormItem>
-                            </div>
-
-                            <FormItem>
-                                <FormLabel htmlFor="businessName">Business Name</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        id="businessName"
-                                        placeholder="Enter your business name"
-                                        {...register('businessName', {
-                                            required: 'Business name is required'
-                                        })}
-                                    />
-                                </FormControl>
-                                {errors.businessName && (
-                                    <FormErrorMessage>{errors.businessName.message}</FormErrorMessage>
-                                )}
-                            </FormItem>
-
-                            <FormItem>
-                                <FormLabel htmlFor="email">Email Address</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        id="email"
-                                        type="email"
-                                        placeholder="Enter your email address"
-                                        {...register('email', {
-                                            required: 'Email is required',
-                                            pattern: {
-                                                value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                                message: 'Invalid email address'
-                                            }
-                                        })}
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    We'll send a verification link to this email
-                                </FormDescription>
-                                {errors.email && (
-                                    <FormErrorMessage>{errors.email.message}</FormErrorMessage>
-                                )}
-                            </FormItem>
-
-                            <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-3 pt-2">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="md:w-1/3"
-                                    onClick={handleSkip}
-                                    disabled={isSubmitting}
-                                >
-                                    Skip for Now
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    className="md:w-2/3"
-                                    disabled={isSubmitting}
-                                >
-                                    {isSubmitting ? 'Completing Profile...' : 'Complete Profile'}
-                                </Button>
-                            </div>
-                        </Form>
-                    </CardContent>
-
-                    <CardFooter className="flex flex-col text-center">
-                        <p className="text-sm text-gray-500">
-                            You can always update your profile information later from your account settings.
-                        </p>
-                    </CardFooter>
-                </Card>
+                        {/* Footer Message */}
+                        <motion.div variants={fadeInUp} className="text-center">
+                            <p className="text-sm text-gray-500">
+                                🔒 Your information is secure and will only be used to personalize your TrackAm experience.
+                                <br />
+                                You can always update your profile information later from your account settings.
+                            </p>
+                        </motion.div>
+                    </motion.div>
+                </div>
             </div>
         </Layout>
     );
