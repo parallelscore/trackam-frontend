@@ -1,4 +1,4 @@
-// src/services/deliveryService.ts
+// src/services/deliveryService.ts - Updated to use public endpoints where appropriate
 import axios from 'axios';
 import { determineApiUrl } from './authService';
 
@@ -13,7 +13,15 @@ const apiClient = axios.create({
     },
 });
 
-// Add interceptor to include auth token in requests
+// Create a separate client for public endpoints (no auth token)
+const publicApiClient = axios.create({
+    baseURL: API_URL,
+    headers: {
+        'Content-Type': 'application/json',
+    },
+});
+
+// Add interceptor to include auth token in requests for authenticated endpoints
 apiClient.interceptors.request.use((config) => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -24,8 +32,7 @@ apiClient.interceptors.request.use((config) => {
 
 // Delivery service
 const deliveryService = {
-    // Get all deliveries with optional filtering
-
+    // Get all deliveries with optional filtering (REQUIRES AUTH - vendor only)
     getDeliveries: async (filters: {
         delivery_status?: string;
         search?: string;
@@ -56,7 +63,7 @@ const deliveryService = {
         }
     },
 
-    // Create a new delivery
+    // Create a new delivery (REQUIRES AUTH - vendor only)
     createDelivery: async (deliveryData: {
         customer: {
             name: string;
@@ -91,7 +98,7 @@ const deliveryService = {
         }
     },
 
-    // Get delivery by ID
+    // Get delivery by ID (REQUIRES AUTH - vendor only)
     getDeliveryById: async (id: string) => {
         try {
             const response = await apiClient.get(`/deliveries/${id}`);
@@ -110,7 +117,7 @@ const deliveryService = {
         }
     },
 
-    // Get delivery by tracking ID
+    // Get delivery by tracking ID for vendor (REQUIRES AUTH - vendor only)
     getDeliveryByTracking: async (trackingId: string) => {
         try {
             const response = await apiClient.get(`/deliveries/tracking/${trackingId}`);
@@ -129,7 +136,26 @@ const deliveryService = {
         }
     },
 
-    // Get dashboard statistics
+    // Get delivery by tracking ID - PUBLIC (NO AUTH - for riders/customers)
+    getPublicDeliveryByTracking: async (trackingId: string) => {
+        try {
+            const response = await publicApiClient.get(`/public/deliveries/track/${trackingId}`);
+            return {
+                success: true,
+                data: response.data,
+            };
+        } catch (error: unknown) {
+            const errorMessage =
+                (error as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
+                'Failed to fetch delivery. Please try again.';
+            return {
+                success: false,
+                error: errorMessage,
+            };
+        }
+    },
+
+    // Get dashboard statistics (REQUIRES AUTH - vendor only)
     getDashboardStats: async (period: 'day' | 'week' | 'month' | 'all' = 'all') => {
         try {
             const response = await apiClient.get(`/deliveries/stats/dashboard?period=${period}`);
@@ -148,10 +174,10 @@ const deliveryService = {
         }
     },
 
-    // Complete a delivery (mark as received by customer)
+    // Complete a delivery (PUBLIC - NO AUTH - used by customers)
     completeDelivery: async (trackingId: string) => {
         try {
-            const response = await apiClient.post(`/deliveries/tracking/${trackingId}/complete`);
+            const response = await publicApiClient.post(`/customer/confirm/${trackingId}`);
             return {
                 success: true,
                 data: response.data,
@@ -167,7 +193,7 @@ const deliveryService = {
         }
     },
 
-    // Get delivery analytics for charts
+    // Get delivery analytics for charts (REQUIRES AUTH - vendor only)
     getDeliveryAnalytics: async (timeRange: 'week' | 'month' | 'year' = 'week') => {
         try {
             const response = await apiClient.get(`/deliveries/stats/analytics?time_range=${timeRange}`);
@@ -186,7 +212,7 @@ const deliveryService = {
         }
     },
 
-    // Get top riders
+    // Get top riders (REQUIRES AUTH - vendor only)
     getTopRiders: async (limit: number = 5) => {
         try {
             const response = await apiClient.get(`/deliveries/stats/top-riders?limit=${limit}`);
