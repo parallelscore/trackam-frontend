@@ -49,7 +49,7 @@ const PhoneRegisterPage: React.FC = () => {
 
     const phoneNumber = watch('phoneNumber');
     const agreeToTerms = watch('agreeToTerms');
-    
+
     // Check if phone number matches Nigerian format
     const isValidPhone = phoneNumber ? /^(\+?234|0)[789]\d{9}$/.test(phoneNumber) : false;
 
@@ -111,28 +111,28 @@ const PhoneRegisterPage: React.FC = () => {
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     <motion.div
                         animate={{
-                            scale: [1, 1.2, 1],
-                            rotate: [0, -8, 8, 0]
+                            scale: [1, 1.3, 1],
+                            rotate: [0, 10, -10, 0]
                         }}
                         transition={{
-                            duration: 8,
+                            duration: 10,
                             repeat: Infinity,
                             ease: "easeInOut"
                         }}
-                        className="absolute top-16 right-20 w-36 h-36 bg-primary/10 rounded-full blur-2xl"
+                        className="absolute top-10 left-1/4 w-32 h-32 bg-primary/10 rounded-full blur-2xl"
                     />
                     <motion.div
                         animate={{
-                            scale: [1, 0.8, 1],
-                            rotate: [0, 12, -12, 0]
+                            scale: [1, 0.7, 1],
+                            rotate: [0, -15, 15, 0]
                         }}
                         transition={{
-                            duration: 12,
+                            duration: 14,
                             repeat: Infinity,
                             ease: "easeInOut",
-                            delay: 3
+                            delay: 2
                         }}
-                        className="absolute bottom-20 left-16 w-28 h-28 bg-accent/10 rounded-full blur-2xl"
+                        className="absolute bottom-10 right-1/4 w-40 h-40 bg-accent/10 rounded-full blur-2xl"
                     />
                 </div>
 
@@ -157,10 +157,10 @@ const PhoneRegisterPage: React.FC = () => {
                                     <motion.div
                                         animate={{
                                             scale: [1, 1.1, 1],
-                                            rotate: [0, -5, 5, 0]
+                                            rotate: [0, 5, -5, 0]
                                         }}
                                         transition={{
-                                            duration: 3,
+                                            duration: 2,
                                             repeat: Infinity,
                                             ease: "easeInOut"
                                         }}
@@ -172,14 +172,14 @@ const PhoneRegisterPage: React.FC = () => {
 
                                     {/* Pulsing rings */}
                                     <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-primary/40"
-                                        animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
-                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
+                                        className="absolute inset-0 rounded-3xl border-2 border-primary/30"
+                                        animate={{ scale: [1, 1.2, 1], opacity: [0.7, 0, 0.7] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
                                     />
                                     <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-accent/40"
-                                        animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
-                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
+                                        className="absolute inset-0 rounded-3xl border-2 border-accent/30"
+                                        animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
                                     />
                                 </motion.div>
 
@@ -400,21 +400,21 @@ const PhoneRegisterPage: React.FC = () => {
                                             <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                             </svg>
-                                            Secure & verified
+                                            Code expires in 10 minutes
                                         </div>
                                     </div>
                                 </motion.div>
                             </CardFooter>
                         </div>
 
-                        {/* Floating particles - match the login page animation style */}
+                        {/* Floating particles - match the verification page animation style */}
                         <AnimatePresence>
                             {phoneNumber && isValidPhone && (
                                 <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                    {[...Array(4)].map((_, i) => (
+                                    {[...Array(8)].map((_, i) => (
                                         <motion.div
                                             key={i}
-                                            className="absolute w-2 h-2 bg-accent/60 rounded-full"
+                                            className="absolute w-2 h-2 bg-primary/60 rounded-full"
                                             style={{
                                                 left: `${Math.random() * 100}%`,
                                                 top: `${Math.random() * 100}%`,
@@ -423,10 +423,10 @@ const PhoneRegisterPage: React.FC = () => {
                                             animate={{
                                                 scale: [0, 1, 0],
                                                 opacity: [0, 1, 0],
-                                                y: [0, -40]
+                                                y: [0, -50]
                                             }}
                                             transition={{
-                                                duration: 1.5,
+                                                duration: 2,
                                                 ease: "easeOut",
                                                 delay: i * 0.1
                                             }}
