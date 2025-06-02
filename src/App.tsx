@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { AnimatePresence } from 'framer-motion';
 import { DeliveryProvider } from './context/DeliveryContext';
 import { RiderProvider, useRider } from './context/RiderContext';
 import { AuthProvider } from './context/AuthContext';
@@ -110,59 +111,90 @@ function App() {
                         <PermissionSynchronizer />
 
                         <Router>
+                            {/* Enhanced Toaster with modern styling */}
                             <Toaster
-                                position="top-right"
+                                position="bottom-right"
                                 toastOptions={{
                                     duration: 5000,
                                     style: {
                                         background: '#FFFFFF',
                                         color: '#333333',
-                                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                        borderRadius: '0.5rem',
+                                        boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+                                        borderRadius: '12px',
+                                        border: '1px solid rgba(0, 0, 0, 0.05)',
+                                        fontSize: '14px',
+                                        fontWeight: '500',
+                                        backdropFilter: 'blur(10px)',
                                     },
                                     success: {
                                         style: {
+                                            background: 'linear-gradient(135deg, #0CAA41 0%, #0CAA41 100%)',
+                                            color: '#FFFFFF',
                                             border: '1px solid #0CAA41',
-                                            borderLeft: '6px solid #0CAA41',
+                                            borderLeft: '6px solid #FFFFFF',
+                                        },
+                                        iconTheme: {
+                                            primary: '#FFFFFF',
+                                            secondary: '#0CAA41',
                                         },
                                     },
                                     error: {
                                         style: {
-                                            border: '1px solid #FF0000',
-                                            borderLeft: '6px solid #FF0000',
+                                            background: 'linear-gradient(135deg, #FF4444 0%, #CC0000 100%)',
+                                            color: '#FFFFFF',
+                                            border: '1px solid #FF4444',
+                                            borderLeft: '6px solid #FFFFFF',
+                                        },
+                                        iconTheme: {
+                                            primary: '#FFFFFF',
+                                            secondary: '#FF4444',
+                                        },
+                                    },
+                                    loading: {
+                                        style: {
+                                            background: 'linear-gradient(135deg, #FF9500 0%, #FFB366 100%)',
+                                            color: '#FFFFFF',
+                                            border: '1px solid #FF9500',
+                                            borderLeft: '6px solid #FFFFFF',
+                                        },
+                                        iconTheme: {
+                                            primary: '#FFFFFF',
+                                            secondary: '#FF9500',
                                         },
                                     },
                                 }}
                             />
 
-                            <Routes>
-                                {/* Home page */}
-                                <Route path="/" element={<HomePage />} />
+                            <AnimatePresence mode="wait">
+                                <Routes>
+                                    {/* Home page */}
+                                    <Route path="/" element={<HomePage />} />
 
-                                {/* Authentication routes */}
-                                <Route path="/login" element={<PhoneLoginPage />} />
-                                <Route path="/verify-login-otp" element={<LoginOtpPage />} />
-                                <Route path="/register" element={<PhoneRegisterPage />} />
-                                <Route path="/verify-otp" element={<OtpVerificationPage />} />
-                                <Route path="/complete-profile" element={<CompleteProfilePage />} />
-                                <Route path="/profile" element={<ProfilePage />} />
+                                    {/* Authentication routes */}
+                                    <Route path="/login" element={<PhoneLoginPage />} />
+                                    <Route path="/verify-login-otp" element={<LoginOtpPage />} />
+                                    <Route path="/register" element={<PhoneRegisterPage />} />
+                                    <Route path="/verify-otp" element={<OtpVerificationPage />} />
+                                    <Route path="/complete-profile" element={<CompleteProfilePage />} />
+                                    <Route path="/profile" element={<ProfilePage />} />
 
-                                {/* Vendor routes */}
-                                <Route path="/vendor" element={<VendorDashboard />} />
+                                    {/* Vendor routes */}
+                                    <Route path="/vendor" element={<VendorDashboard />} />
 
-                                {/* Rider routes - more specific routes must come before general ones */}
-                                <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
-                                <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
-                                <Route path="/rider/:trackingId" element={<RiderPage />} />
+                                    {/* Rider routes - more specific routes must come before general ones */}
+                                    <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
+                                    <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
+                                    <Route path="/rider/:trackingId" element={<RiderPage />} />
 
-                                {/* Customer tracking routes */}
-                                <Route path="/track" element={<TrackSearchPage />} />
-                                <Route path="/track/:trackingId" element={<TrackingPage />} />
-                                <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
+                                    {/* Customer tracking routes */}
+                                    <Route path="/track" element={<TrackSearchPage />} />
+                                    <Route path="/track/:trackingId" element={<TrackingPage />} />
+                                    <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
 
-                                {/* Fallback route */}
-                                <Route path="*" element={<HomePage />} />
-                            </Routes>
+                                    {/* Fallback route */}
+                                    <Route path="*" element={<HomePage />} />
+                                </Routes>
+                            </AnimatePresence>
                         </Router>
                     </RiderProvider>
                 </WebSocketProvider>
