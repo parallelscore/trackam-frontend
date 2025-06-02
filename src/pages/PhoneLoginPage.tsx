@@ -192,12 +192,12 @@ const PhoneLoginPage: React.FC = () => {
                             <CardContent className="px-8 pb-6">
                                 <Form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                                     <motion.div variants={itemVariants}>
-                                        <FormItem>
-                                            <div className="flex items-center justify-between">
+                                        <FormItem className="text-center">
+                                            <div className="flex items-center justify-center mb-2">
                                                 <FormLabel htmlFor="phoneNumber" className="text-gray-700 font-medium">
                                                     Phone Number
                                                 </FormLabel>
-                                                <div className="relative inline-block">
+                                                <div className="relative inline-block ml-2">
                                                     <motion.button
                                                         type="button"
                                                         className="text-gray-500 hover:text-primary focus:outline-none transition-colors"
@@ -238,12 +238,13 @@ const PhoneLoginPage: React.FC = () => {
                                                     </AnimatePresence>
                                                 </div>
                                             </div>
-                                            <div className="relative">
+                                            
+                                            <div className="relative max-w-xs mx-auto">
                                                 <FormControl>
                                                     <Input
                                                         id="phoneNumber"
                                                         placeholder="Enter your phone number"
-                                                        className="h-16 text-lg border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
+                                                        className="h-16 text-lg text-center border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
                                                         {...register('phoneNumber', {
                                                             required: 'Phone number is required',
                                                             pattern: {
@@ -279,11 +280,12 @@ const PhoneLoginPage: React.FC = () => {
                                                         initial={{ opacity: 0, y: -10 }}
                                                         animate={{ opacity: 1, y: 0 }}
                                                         exit={{ opacity: 0, y: -10 }}
+                                                        className="flex items-center justify-center gap-2 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
                                                     >
-                                                        <FormErrorMessage className="flex items-center gap-2 mt-2">
-                                                            <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
+                                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <FormErrorMessage>
                                                             {errors.phoneNumber.message}
                                                         </FormErrorMessage>
                                                     </motion.div>
@@ -292,10 +294,10 @@ const PhoneLoginPage: React.FC = () => {
                                         </FormItem>
                                     </motion.div>
 
-                                    <motion.div variants={itemVariants}>
+                                    <motion.div variants={itemVariants} className="flex justify-center">
                                         <Button
                                             type="submit"
-                                            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+                                            className="w-full max-w-xs h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
                                             disabled={isSubmitting || !isValidPhone}
                                         >
                                             {/* Button background animation */}
