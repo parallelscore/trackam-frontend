@@ -148,11 +148,35 @@ const PhoneLoginPage: React.FC = () => {
                             <CardHeader className="text-center pb-6">
                                 <motion.div
                                     variants={itemVariants}
-                                    className="w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl"
+                                    className="w-16 h-16 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
                                 >
-                                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
+                                    <motion.div
+                                        animate={{
+                                            scale: [1, 1.1, 1],
+                                            rotate: [0, -5, 5, 0]
+                                        }}
+                                        transition={{
+                                            duration: 3,
+                                            repeat: Infinity,
+                                            ease: "easeInOut"
+                                        }}
+                                    >
+                                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                    </motion.div>
+
+                                    {/* Pulsing rings */}
+                                    <motion.div
+                                        className="absolute inset-0 rounded-2xl border-2 border-primary/40"
+                                        animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
+                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
+                                    />
+                                    <motion.div
+                                        className="absolute inset-0 rounded-2xl border-2 border-accent/40"
+                                        animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
+                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
+                                    />
                                 </motion.div>
 
                                 <motion.div variants={itemVariants}>
@@ -219,7 +243,7 @@ const PhoneLoginPage: React.FC = () => {
                                                     <Input
                                                         id="phoneNumber"
                                                         placeholder="Enter your phone number"
-                                                        className="h-12 text-lg border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
+                                                        className="h-16 text-lg border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
                                                         {...register('phoneNumber', {
                                                             required: 'Phone number is required',
                                                             pattern: {
@@ -271,7 +295,7 @@ const PhoneLoginPage: React.FC = () => {
                                     <motion.div variants={itemVariants}>
                                         <Button
                                             type="submit"
-                                            className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
+                                            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
                                             disabled={isSubmitting || !isValidPhone}
                                         >
                                             {/* Button background animation */}
