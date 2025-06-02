@@ -22,6 +22,8 @@ import {
     FormDescription
 } from '../components/ui/form';
 import { Badge } from '../components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 
@@ -78,14 +80,17 @@ const CompleteProfilePage: React.FC = () => {
     const [step, setStep] = useState(1);
     const totalSteps = 3;
     const { completeProfile, isAuthenticated, isLoading } = useAuth();
+    const [showSkipDialog, setShowSkipDialog] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     const {
         register,
         handleSubmit,
-        formState: { errors, isValid },
+        formState: { errors, isValid, dirtyFields },
         watch,
         trigger,
-        getValues
+        getValues,
+        setValue
     } = useForm<CompleteProfileFormData>({
         mode: 'onChange',
         defaultValues: {
@@ -131,6 +136,41 @@ const CompleteProfilePage: React.FC = () => {
             toast.error('Please complete the registration process');
         }
     }, [isAuthenticated, isLoading, navigate]);
+
+    const handleFileSelect = (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+
+        const file = files[0];
+
+        // Check file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size should be less than 5MB');
+            return;
+        }
+
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select a valid image file');
+            return;
+        }
+
+        setValue('profileImage', files);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        handleFileSelect(e.dataTransfer.files);
+    };
 
     const onSubmit = async (data: CompleteProfileFormData) => {
         setIsSubmitting(true);
@@ -191,6 +231,7 @@ const CompleteProfilePage: React.FC = () => {
             console.error('Skip profile error:', error);
         } finally {
             setIsSubmitting(false);
+            setShowSkipDialog(false);
         }
     };
 
@@ -229,8 +270,14 @@ const CompleteProfilePage: React.FC = () => {
                         animate={{ scale: 1, opacity: 1 }}
                         className="text-center"
                     >
-                        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="text-lg font-medium text-secondary">Loading...</p>
+                        <div className="flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 relative">
+                                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute"></div>
+                                <div className="w-12 h-12 border-4 border-accent border-b-transparent rounded-full animate-spin absolute top-2 left-2" style={{animationDirection: 'reverse', animationDuration: '1s'}}></div>
+                            </div>
+                            <p className="text-lg font-medium text-secondary mt-4">Loading your profile...</p>
+                            <p className="text-sm text-gray-500">Please wait a moment</p>
+                        </div>
                     </motion.div>
                 </div>
             </Layout>
@@ -386,6 +433,8 @@ const CompleteProfilePage: React.FC = () => {
                                                                     id="firstName"
                                                                     placeholder="Enter your first name"
                                                                     className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    aria-required="true"
+                                                                    aria-invalid={errors.firstName ? "true" : "false"}
                                                                     {...register('firstName', {
                                                                         required: 'First name is required',
                                                                         minLength: { value: 2, message: 'First name must be at least 2 characters' }
@@ -393,7 +442,15 @@ const CompleteProfilePage: React.FC = () => {
                                                                 />
                                                             </FormControl>
                                                             {errors.firstName && (
-                                                                <FormErrorMessage>{errors.firstName.message}</FormErrorMessage>
+                                                                <FormErrorMessage role="alert">{errors.firstName.message}</FormErrorMessage>
+                                                            )}
+                                                            {dirtyFields.firstName && !errors.firstName && (
+                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
+                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    Looks good!
+                                                                </p>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
@@ -408,6 +465,8 @@ const CompleteProfilePage: React.FC = () => {
                                                                     id="lastName"
                                                                     placeholder="Enter your last name"
                                                                     className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    aria-required="true"
+                                                                    aria-invalid={errors.lastName ? "true" : "false"}
                                                                     {...register('lastName', {
                                                                         required: 'Last name is required',
                                                                         minLength: { value: 2, message: 'Last name must be at least 2 characters' }
@@ -415,7 +474,15 @@ const CompleteProfilePage: React.FC = () => {
                                                                 />
                                                             </FormControl>
                                                             {errors.lastName && (
-                                                                <FormErrorMessage>{errors.lastName.message}</FormErrorMessage>
+                                                                <FormErrorMessage role="alert">{errors.lastName.message}</FormErrorMessage>
+                                                            )}
+                                                            {dirtyFields.lastName && !errors.lastName && (
+                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
+                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    Looks good!
+                                                                </p>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
@@ -431,14 +498,32 @@ const CompleteProfilePage: React.FC = () => {
                                                     exit={{ opacity: 0, x: -50 }}
                                                 >
                                                     <FormItem>
-                                                        <FormLabel htmlFor="businessName" className="text-base font-medium">
-                                                            Business Name
-                                                        </FormLabel>
+                                                        <div className="flex items-center justify-between">
+                                                            <FormLabel htmlFor="businessName" className="text-base font-medium">
+                                                                Business Name
+                                                            </FormLabel>
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="text-gray-400 hover:text-gray-600 cursor-help">
+                                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                            </svg>
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent side="top" className="bg-secondary text-white p-2">
+                                                                        <p>This name will appear on customer notifications</p>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                        </div>
                                                         <FormControl>
                                                             <Input
                                                                 id="businessName"
                                                                 placeholder="Enter your business name"
                                                                 className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                aria-required="true"
+                                                                aria-invalid={errors.businessName ? "true" : "false"}
                                                                 {...register('businessName', {
                                                                     required: 'Business name is required',
                                                                     minLength: { value: 2, message: 'Business name must be at least 2 characters' }
@@ -449,7 +534,15 @@ const CompleteProfilePage: React.FC = () => {
                                                             This will be displayed on your delivery notifications
                                                         </FormDescription>
                                                         {errors.businessName && (
-                                                            <FormErrorMessage>{errors.businessName.message}</FormErrorMessage>
+                                                            <FormErrorMessage role="alert">{errors.businessName.message}</FormErrorMessage>
+                                                        )}
+                                                        {dirtyFields.businessName && !errors.businessName && (
+                                                            <p className="text-sm text-green-600 mt-1 flex items-center">
+                                                                <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                </svg>
+                                                                Perfect! Your business name looks professional.
+                                                            </p>
                                                         )}
                                                     </FormItem>
                                                 </motion.div>
@@ -464,12 +557,20 @@ const CompleteProfilePage: React.FC = () => {
                                                     exit={{ opacity: 0, x: -50 }}
                                                     className="space-y-6"
                                                 >
-                                                    {/* Profile Image Upload */}
+                                                    {/* Profile Image Upload with drag and drop */}
                                                     <motion.div variants={fadeInUp} className="flex flex-col items-center mb-6">
                                                         <div className="relative mb-4">
                                                             <motion.div
                                                                 whileHover={{ scale: 1.05 }}
-                                                                className="h-32 w-32 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 flex items-center justify-center overflow-hidden border-4 border-white shadow-xl"
+                                                                className={`h-32 w-32 rounded-full flex items-center justify-center overflow-hidden border-4 border-white shadow-xl ${
+                                                                    isDragging ? 'bg-gradient-to-r from-primary/30 to-accent/30 ring-4 ring-primary/50' : 'bg-gradient-to-r from-primary/10 to-accent/10'
+                                                                }`}
+                                                                onDragOver={handleDragOver}
+                                                                onDragLeave={handleDragLeave}
+                                                                onDrop={handleDrop}
+                                                                role="button"
+                                                                aria-label="Upload profile image"
+                                                                tabIndex={0}
                                                             >
                                                                 {profileImageUrl ? (
                                                                     <motion.img
@@ -480,9 +581,14 @@ const CompleteProfilePage: React.FC = () => {
                                                                         className="h-full w-full object-cover"
                                                                     />
                                                                 ) : (
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                                    </svg>
+                                                                    <div className="flex flex-col items-center justify-center">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                                        </svg>
+                                                                        {isDragging && (
+                                                                            <span className="text-xs text-primary mt-2 font-medium">Drop image</span>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </motion.div>
                                                             <label
@@ -498,15 +604,18 @@ const CompleteProfilePage: React.FC = () => {
                                                                     type="file"
                                                                     className="hidden"
                                                                     accept="image/*"
+                                                                    aria-label="Upload profile picture"
                                                                     {...register('profileImage')}
                                                                 />
                                                             </label>
                                                         </div>
-                                                        <p className="text-sm text-gray-500 text-center">
+                                                        <div className="text-sm text-gray-500 text-center">
                                                             Upload a profile picture (optional)
                                                             <br />
                                                             <span className="text-xs">Max size: 5MB</span>
-                                                        </p>
+                                                            <br />
+                                                            <Badge variant="outline" className="mt-1 text-xs">Drag & Drop supported</Badge>
+                                                        </div>
                                                     </motion.div>
 
                                                     {/* Email Input */}
@@ -521,6 +630,9 @@ const CompleteProfilePage: React.FC = () => {
                                                                     type="email"
                                                                     placeholder="Enter your email address"
                                                                     className="h-12 text-lg border-2 focus:border-primary transition-colors"
+                                                                    aria-required="true"
+                                                                    aria-invalid={errors.email ? "true" : "false"}
+                                                                    autoComplete="email"
                                                                     {...register('email', {
                                                                         required: 'Email is required',
                                                                         pattern: {
@@ -534,7 +646,15 @@ const CompleteProfilePage: React.FC = () => {
                                                                 We'll send a verification link to this email
                                                             </FormDescription>
                                                             {errors.email && (
-                                                                <FormErrorMessage>{errors.email.message}</FormErrorMessage>
+                                                                <FormErrorMessage role="alert">{errors.email.message}</FormErrorMessage>
+                                                            )}
+                                                            {dirtyFields.email && !errors.email && (
+                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
+                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                                    </svg>
+                                                                    Valid email format
+                                                                </p>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
@@ -561,6 +681,7 @@ const CompleteProfilePage: React.FC = () => {
                                                         onClick={prevStep}
                                                         className="px-6 py-3 h-12 border-2 hover:border-primary"
                                                         disabled={isSubmitting}
+                                                        aria-label="Go back to previous step"
                                                     >
                                                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -577,9 +698,10 @@ const CompleteProfilePage: React.FC = () => {
                                                 <Button
                                                     type="button"
                                                     variant="outline"
-                                                    onClick={handleSkip}
+                                                    onClick={() => setShowSkipDialog(true)}
                                                     className="px-6 py-3 h-12 border-2 hover:border-gray-300"
                                                     disabled={isSubmitting}
+                                                    aria-label="Skip profile completion for now"
                                                 >
                                                     Skip for Now
                                                 </Button>
@@ -596,6 +718,7 @@ const CompleteProfilePage: React.FC = () => {
                                                     onClick={nextStep}
                                                     className="w-full sm:w-auto px-8 py-3 h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-lg"
                                                     disabled={isSubmitting}
+                                                    aria-label={`Continue to step ${step + 1}`}
                                                 >
                                                     Continue
                                                     <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -608,6 +731,7 @@ const CompleteProfilePage: React.FC = () => {
                                                     onClick={handleSubmit(onSubmit)}
                                                     className="w-full sm:w-auto px-8 py-3 h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-lg"
                                                     disabled={isSubmitting || !isValid}
+                                                    aria-label="Complete profile setup"
                                                 >
                                                     {isSubmitting ? (
                                                         <>
@@ -628,18 +752,23 @@ const CompleteProfilePage: React.FC = () => {
                                     </div>
 
                                     {/* Steps Indicator */}
-                                    <div className="flex justify-center space-x-2 pt-4">
+                                    <div className="flex justify-center space-x-2 pt-4" role="navigation" aria-label="Form steps">
                                         {[1, 2, 3].map((stepNumber) => (
-                                            <motion.div
+                                            <motion.button
                                                 key={stepNumber}
+                                                type="button"
+                                                onClick={() => stepNumber < step && setStep(stepNumber)}
                                                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
                                                     stepNumber === step
                                                         ? 'bg-gradient-to-r from-primary to-accent scale-125'
                                                         : stepNumber < step
-                                                            ? 'bg-primary/60'
+                                                            ? 'bg-primary/60 cursor-pointer'
                                                             : 'bg-gray-300'
                                                 }`}
-                                                whileHover={{ scale: 1.2 }}
+                                                whileHover={stepNumber < step ? { scale: 1.2 } : {}}
+                                                aria-label={`Go to step ${stepNumber}`}
+                                                aria-current={stepNumber === step ? "step" : undefined}
+                                                disabled={stepNumber > step}
                                             />
                                         ))}
                                     </div>
@@ -650,7 +779,12 @@ const CompleteProfilePage: React.FC = () => {
                         {/* Footer Message */}
                         <motion.div variants={fadeInUp} className="text-center">
                             <p className="text-sm text-gray-500">
-                                🔒 Your information is secure and will only be used to personalize your TrackAm experience.
+                                <span className="inline-flex items-center">
+                                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    Your information is secure and will only be used to personalize your TrackAm experience.
+                                </span>
                                 <br />
                                 You can always update your profile information later from your account settings.
                             </p>
@@ -658,6 +792,43 @@ const CompleteProfilePage: React.FC = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {/* Skip Confirmation Dialog */}
+            <Dialog open={showSkipDialog} onOpenChange={setShowSkipDialog}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Skip Profile Completion?</DialogTitle>
+                        <DialogDescription>
+                            You can complete your profile later, but having a complete profile helps customers recognize and trust your business.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center gap-4 py-4">
+                        <div className="bg-amber-100 p-3 rounded-full">
+                            <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p className="text-sm text-gray-600">
+                                A complete profile:
+                            </p>
+                            <ul className="text-sm list-disc list-inside pl-1 pt-1 text-gray-600">
+                                <li>Builds customer trust</li>
+                                <li>Helps with delivery communications</li>
+                                <li>Improves your dashboard experience</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <DialogFooter className="flex sm:justify-between gap-3">
+                        <Button type="button" variant="outline" onClick={() => setShowSkipDialog(false)}>
+                            Continue Setup
+                        </Button>
+                        <Button type="button" variant="destructive" onClick={handleSkip}>
+                            Skip Anyway
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Layout>
     );
 };
