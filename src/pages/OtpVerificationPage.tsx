@@ -222,7 +222,7 @@ const OtpVerificationPage: React.FC = () => {
                             <CardHeader className="text-center pb-6">
                                 <motion.div
                                     variants={itemVariants}
-                                    className="w-20 h-20 bg-gradient-to-r from-secondary to-primary rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
+                                    className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
                                 >
                                     <motion.div
                                         animate={{
