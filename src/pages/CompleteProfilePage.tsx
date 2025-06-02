@@ -21,7 +21,6 @@ import {
     FormErrorMessage,
     FormDescription
 } from '../components/ui/form';
-import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import toast from 'react-hot-toast';
@@ -76,20 +75,19 @@ const slideInLeft = {
 const CompleteProfilePage: React.FC = () => {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+    const [profileImageUrl] = useState<string | null>(null);
     const [step, setStep] = useState(1);
     const totalSteps = 3;
     const { completeProfile, isAuthenticated, isLoading } = useAuth();
     const [showSkipDialog, setShowSkipDialog] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
 
+
     const {
         register,
         handleSubmit,
         formState: { errors, isValid, dirtyFields },
-        watch,
         trigger,
-        getValues,
         setValue
     } = useForm<CompleteProfileFormData>({
         mode: 'onChange',
@@ -100,34 +98,6 @@ const CompleteProfilePage: React.FC = () => {
             email: ''
         }
     });
-
-    // Watch for profile image changes
-    const profileImage = watch('profileImage');
-
-    // Update profile image preview when file is selected
-    useEffect(() => {
-        if (profileImage && profileImage.length > 0) {
-            const file = profileImage[0];
-
-            // Check file size (5MB limit)
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('Image size should be less than 5MB');
-                return;
-            }
-
-            // Check file type
-            if (!file.type.startsWith('image/')) {
-                toast.error('Please select a valid image file');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setProfileImageUrl(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-        }
-    }, [profileImage]);
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -717,7 +687,7 @@ const CompleteProfilePage: React.FC = () => {
                                                     type="button"
                                                     onClick={nextStep}
                                                     className="w-full sm:w-auto px-8 py-3 h-12 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-medium shadow-lg"
-                                                    disabled={isSubmitting}
+                                                    disabled={isSubmitting || !isValid}
                                                     aria-label={`Continue to step ${step + 1}`}
                                                 >
                                                     Continue
@@ -733,19 +703,7 @@ const CompleteProfilePage: React.FC = () => {
                                                     disabled={isSubmitting || !isValid}
                                                     aria-label="Complete profile setup"
                                                 >
-                                                    {isSubmitting ? (
-                                                        <>
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                                            Completing...
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            Complete Profile
-                                                            <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                                                            </svg>
-                                                        </>
-                                                    )}
+                                                    {isSubmitting ? 'Completing...' : 'Complete Profile'}
                                                 </Button>
                                             )}
                                         </motion.div>
@@ -795,36 +753,81 @@ const CompleteProfilePage: React.FC = () => {
 
             {/* Skip Confirmation Dialog */}
             <Dialog open={showSkipDialog} onOpenChange={setShowSkipDialog}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>Skip Profile Completion?</DialogTitle>
-                        <DialogDescription>
-                            You can complete your profile later, but having a complete profile helps customers recognize and trust your business.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex items-center gap-4 py-4">
-                        <div className="bg-amber-100 p-3 rounded-full">
-                            <svg className="w-7 h-7 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-sm border-0 shadow-2xl">
+                    <DialogHeader className="text-center pb-2">
+                        <div className="w-20 h-20 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        <div>
-                            <p className="text-sm text-gray-600">
-                                A complete profile:
-                            </p>
-                            <ul className="text-sm list-disc list-inside pl-1 pt-1 text-gray-600">
-                                <li>Builds customer trust</li>
-                                <li>Helps with delivery communications</li>
-                                <li>Improves your dashboard experience</li>
+                        <DialogTitle className="text-2xl font-bold text-secondary">
+                            Skip Profile Completion?
+                        </DialogTitle>
+                        <DialogDescription className="text-base text-gray-600 mt-2">
+                            You can complete your profile later, but having a complete profile helps customers recognize and trust your business.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="py-6">
+                        <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl p-6 border border-primary/10">
+                            <h4 className="font-semibold text-secondary mb-3 flex items-center">
+                                <svg className="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Benefits of completing your profile:
+                            </h4>
+                            <ul className="space-y-2 text-sm text-gray-600">
+                                <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-primary rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                                    <span>Builds customer trust and credibility</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-accent rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                                    <span>Improves delivery communication</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-secondary rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                                    <span>Enhances your dashboard experience</span>
+                                </li>
+                                <li className="flex items-start">
+                                    <span className="w-2 h-2 bg-primary rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                                    <span>Helps customers identify your business</span>
+                                </li>
                             </ul>
                         </div>
                     </div>
-                    <DialogFooter className="flex sm:justify-between gap-3">
-                        <Button type="button" variant="outline" onClick={() => setShowSkipDialog(false)}>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowSkipDialog(false)}
+                            className="flex-1 h-12 border-2 border-primary/20 hover:border-primary hover:bg-primary/5 transition-all duration-200"
+                        >
+                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 15l-3-3m0 0l3-3m-3 3h8M3 12a9 9 0 1118 0 9 9 0 01-18 0z" />
+                            </svg>
                             Continue Setup
                         </Button>
-                        <Button type="button" variant="destructive" onClick={handleSkip}>
-                            Skip Anyway
+                        <Button
+                            type="button"
+                            onClick={handleSkip}
+                            className="flex-1 h-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white transition-all duration-200"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    Skipping...
+                                </>
+                            ) : (
+                                <>
+                                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Skip Anyway
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
