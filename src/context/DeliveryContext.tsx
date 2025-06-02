@@ -1,11 +1,10 @@
-// src/context/DeliveryContext.tsx
+// src/context/DeliveryContext.tsx - Updated to use public endpoints for tracking
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import deliveryService from '../services/deliveryService';
 import { mockDeliveryService } from '../services/mockDeliveryService';
 import { Delivery } from '@/types';
 import { USE_MOCK_SERVICE } from '../config/serviceConfig';
-
 
 interface DashboardStats {
     total_deliveries: number;
@@ -34,7 +33,6 @@ interface RiderStats {
     averageDeliveryTimeMinutes: number;
 }
 
-
 interface DeliveryContextProps {
     deliveries: Delivery[];
     currentDelivery: Delivery | null;
@@ -46,6 +44,7 @@ interface DeliveryContextProps {
     fetchDeliveries: (filters?: { status?: string; search?: string; page?: number; limit?: number }) => Promise<void>;
     getDeliveryById: (id: string) => Promise<Delivery | null>;
     getDeliveryByTrackingId: (trackingId: string) => Promise<Delivery | null>;
+    getPublicDeliveryByTrackingId: (trackingId: string) => Promise<Delivery | null>;
     createDelivery: (deliveryData: Delivery) => Promise<Delivery | null>;
     completeDelivery: (trackingId: string) => Promise<{success: boolean; data?: Delivery; error?: string}>;
     getDashboardStats: (period?: 'day' | 'week' | 'month' | 'all') => Promise<DashboardStats>;
@@ -76,7 +75,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
-    // Fetch deliveries with optional filtering
+    // Fetch deliveries with optional filtering (REQUIRES AUTH - vendor only)
     const fetchDeliveries = async (filters?: { status?: string; search?: string; page?: number; limit?: number }) => {
         setIsLoading(true);
         setError(null);
@@ -118,7 +117,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
                 setCurrentPage(page);
                 setTotalPages(totalPages);
             } else {
-                // Using a real API service
+                // Using real API service (requires authentication)
                 const result = await deliveryService.getDeliveries(filters ?? {});
 
                 if (result.success) {
@@ -139,7 +138,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Create a new delivery
+    // Create a new delivery (REQUIRES AUTH - vendor only)
     const createDelivery = async (deliveryData: Delivery): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
@@ -171,7 +170,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Get delivery by ID
+    // Get delivery by ID (REQUIRES AUTH - vendor only)
     const getDeliveryById = async (id: string): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
@@ -208,7 +207,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Get delivery by tracking ID
+    // Get delivery by tracking ID (REQUIRES AUTH - vendor only)
     const getDeliveryByTrackingId = async (trackingId: string): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
@@ -250,8 +249,51 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
+    // Get delivery by tracking ID - PUBLIC (NO AUTH - for riders/customers)
+    const getPublicDeliveryByTrackingId = async (trackingId: string): Promise<Delivery | null> => {
+        setIsLoading(true);
+        setError(null);
 
-    // Get dashboard statistics
+        try {
+            let delivery;
+
+            if (USE_MOCK_SERVICE) {
+                // Use the same mock service method
+                delivery = await mockDeliveryService.getDeliveryByTrackingId(trackingId);
+            } else {
+                // Use the public API endpoint (no authentication required)
+                const result = await deliveryService.getPublicDeliveryByTracking(trackingId);
+
+                if (result?.success) {
+                    delivery = result.data;
+                } else {
+                    const errorMsg = result?.error ?? 'Failed to fetch delivery';
+                    // Don't show toast for public tracking errors - just set error state
+                    setError(errorMsg);
+                    return null;
+                }
+            }
+
+            if (delivery) {
+                // Only update if it's different from the current delivery
+                if (!currentDelivery || currentDelivery.tracking_id !== delivery.tracking_id) {
+                    setCurrentDelivery(delivery);
+                }
+                return delivery;
+            } else {
+                setError('Delivery not found');
+                return null;
+            }
+        } catch (error) {
+            console.error('Error fetching public delivery:', error);
+            setError('Failed to fetch delivery. Please try again.');
+            return null;
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Get dashboard statistics (REQUIRES AUTH - vendor only)
     const getDashboardStats = async (period: 'day' | 'week' | 'month' | 'all' = 'all'): Promise<DashboardStats> => {
         setIsLoading(true);
         setError(null);
@@ -344,7 +386,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Get delivery analytics for charts
+    // Get delivery analytics for charts (REQUIRES AUTH - vendor only)
     const getDeliveryAnalytics = async (timeRange: 'week' | 'month' | 'year' = 'week'): Promise<DeliveryAnalyticsItem[]> => {
         setIsLoading(true);
         setError(null);
@@ -458,7 +500,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Get top riders
+    // Get top riders (REQUIRES AUTH - vendor only)
     const getTopRiders = async (limit: number = 5): Promise<RiderStats[]> => {
         setIsLoading(true);
         setError(null);
@@ -556,7 +598,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Complete delivery functionality
+    // Complete delivery functionality (PUBLIC - NO AUTH - used by customers)
     const completeDelivery = async (trackingId: string): Promise<{success: boolean; data?: Delivery; error?: string}> => {
         if (!trackingId) {
             return { success: false, error: 'Invalid tracking ID' };
@@ -596,10 +638,13 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         }
     };
 
-    // Load initial deliveries
+    // Load initial deliveries (only if authenticated)
     useEffect(() => {
-        // Only do this once
-        fetchDeliveries();
+        // Only fetch deliveries if user is authenticated (has a token)
+        const token = localStorage.getItem('token');
+        if (token || USE_MOCK_SERVICE) {
+            fetchDeliveries();
+        }
     }, []);
 
     const value = useMemo(() => ({
@@ -613,8 +658,9 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         fetchDeliveries,
         getDeliveryById,
         getDeliveryByTrackingId,
+        getPublicDeliveryByTrackingId, // New public method
         createDelivery,
-        completeDelivery, // Added this method
+        completeDelivery,
         getDashboardStats,
         getDeliveryAnalytics,
         getTopRiders,
@@ -626,8 +672,6 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         totalPages,
         isLoading,
         error,
-        // We don't need to include function dependencies as they won't change between renders
-        // unless we're recreating them inside the component body (which we're not)
     ]);
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;
