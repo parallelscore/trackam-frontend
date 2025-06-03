@@ -21,6 +21,12 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({ deliveries, isLoadi
         }
     };
 
+    // Generate WhatsApp message for customer
+    // const handleShareWithCustomer = (delivery: Delivery) => {
+    //     const message = `Hello ${delivery.customer.name}, track your delivery here: ${delivery.tracking.customerLink}`;
+    //     const whatsappLink = generateWhatsAppLink(delivery.customer.phoneNumber, message);
+    //     window.open(whatsappLink, '_blank');
+    // };
 
     if (isLoading) {
         return (
