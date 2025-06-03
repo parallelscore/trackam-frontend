@@ -237,37 +237,31 @@ const ActiveDeliveries: React.FC = () => {
                 gradient: 'from-blue-500 to-indigo-600',
                 bgColor: 'bg-blue-50',
                 textColor: 'text-blue-700',
-                icon: '📝'
             },
             'assigned': {
                 gradient: 'from-purple-500 to-violet-600',
                 bgColor: 'bg-purple-50',
                 textColor: 'text-purple-700',
-                icon: '👤'
             },
             'accepted': {
                 gradient: 'from-cyan-500 to-blue-600',
                 bgColor: 'bg-cyan-50',
                 textColor: 'text-cyan-700',
-                icon: '✅'
             },
             'in_progress': {
                 gradient: 'from-orange-500 to-amber-600',
                 bgColor: 'bg-orange-50',
                 textColor: 'text-orange-700',
-                icon: '🚚'
             },
             'completed': {
                 gradient: 'from-emerald-500 to-green-600',
                 bgColor: 'bg-emerald-50',
                 textColor: 'text-emerald-700',
-                icon: '✨'
             },
             'cancelled': {
                 gradient: 'from-red-500 to-rose-600',
                 bgColor: 'bg-red-50',
                 textColor: 'text-red-700',
-                icon: '❌'
             }
         };
         return statusMap[status as keyof typeof statusMap] || statusMap.created;
@@ -337,7 +331,6 @@ const ActiveDeliveries: React.FC = () => {
                                                 >
                                                     <Badge className={`${getStatusColor(delivery.status)} shadow-sm`}>
                                                         <span className="flex items-center gap-1">
-                                                            <span>{statusStyle.icon}</span>
                                                             {getStatusText(delivery.status)}
                                                         </span>
                                                     </Badge>
@@ -587,7 +580,6 @@ const ActiveDeliveries: React.FC = () => {
                                         >
                                             <Badge className={`${getStatusColor(delivery.status)} shadow-sm`}>
                                                 <span className="flex items-center gap-1">
-                                                    <span>{statusStyle.icon}</span>
                                                     {getStatusText(delivery.status)}
                                                 </span>
                                             </Badge>
