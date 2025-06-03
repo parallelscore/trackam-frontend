@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, useInView } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/common/Layout';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -17,69 +17,14 @@ import {
 import { useDelivery } from '../context/DeliveryContext';
 import { useRider } from '../context/RiderContext';
 
-// Enhanced animation variants matching VendorDashboard
-const fadeInUp = {
-    hidden: { opacity: 0, y: 40, scale: 0.95 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: {
-            duration: 0.7,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            type: "spring",
-            stiffness: 100
-        }
-    }
-};
-
-const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.12,
-            delayChildren: 0.1
-        }
-    }
-};
-
-const slideInLeft = {
-    hidden: { opacity: 0, x: -60, scale: 0.95 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        scale: 1,
-        transition: {
-            duration: 0.8,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            type: "spring",
-            stiffness: 80
-        }
-    }
-};
-
-const slideInRight = {
-    hidden: { opacity: 0, x: 60, scale: 0.95 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        scale: 1,
-        transition: {
-            duration: 0.8,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            type: "spring",
-            stiffness: 80
-        }
-    }
-};
 
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
     const { acceptDelivery, declineDelivery, setLocationPermissionGranted } = useRider();
-    const { getPublicDeliveryByTrackingId, isLoading } = useDelivery();
+    const { getPublicDeliveryByTrackingId, isLoading: contextIsLoading } = useDelivery();
 
+    // State management
     const [delivery, setDelivery] = useState<any>(null);
     const [loadingDelivery, setLoadingDelivery] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -93,71 +38,74 @@ const RiderAcceptPage: React.FC = () => {
     const [isDeclined, setIsDeclined] = useState(false);
     const [showLocationSettings, setShowLocationSettings] = useState(false);
     const [showImportantInfo, setShowImportantInfo] = useState(false);
-
-    // Animation refs
-    const headerRef = useRef(null);
-    const contentRef = useRef(null);
-    const headerInView = useInView(headerRef, { once: true, margin: "-100px" });
-    const contentInView = useInView(contentRef, { once: true, margin: "-50px" });
-
-    // Detect platform
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Only detect platform once
     useEffect(() => {
-        const userAgent = navigator.userAgent;
-        if (/iPhone|iPad|iPod/.test(userAgent)) {
-            setPlatformName('iOS');
-        } else if (/Android/.test(userAgent)) {
-            setPlatformName('Android');
-        } else if (/Mac/.test(userAgent)) {
-            setPlatformName('macOS');
-        } else if (/Windows/.test(userAgent)) {
-            setPlatformName('Windows');
-        } else {
-            setPlatformName('your device');
-        }
-    }, []);
-
-    useEffect(() => {
-        const fetchDelivery = async () => {
-            if (!tracking_id) return;
-
-            setLoadingDelivery(true);
-            try {
-                const deliveryData = await getPublicDeliveryByTrackingId(tracking_id);
-
-                if (deliveryData) {
-                    setDelivery(deliveryData);
-                    // Check if already accepted
-                    if (deliveryData.status === 'accepted' ||
-                        deliveryData.status === 'in_progress' ||
-                        deliveryData.status === 'completed') {
-                        setIsAccepted(true);
-                    } else if (deliveryData.status === 'cancelled') {
-                        setIsDeclined(true);
-                    }
-                } else {
-                    setError('Delivery not found');
-                }
-            } catch (err) {
-                console.error('Error fetching delivery:', err);
-                setError('Failed to load delivery information');
-            } finally {
-                setLoadingDelivery(false);
+        const detectPlatform = () => {
+            const userAgent = navigator.userAgent;
+            if (/iPhone|iPad|iPod/.test(userAgent)) {
+                return 'iOS';
+            } else if (/Android/.test(userAgent)) {
+                return 'Android';
+            } else if (/Mac/.test(userAgent)) {
+                return 'macOS';
+            } else if (/Windows/.test(userAgent)) {
+                return 'Windows';
+            } else {
+                return 'your device';
             }
         };
+        
+        setPlatformName(detectPlatform());
+    }, []);
 
-        fetchDelivery();
-    }, [tracking_id, getPublicDeliveryByTrackingId]);
-
-    const handleAcceptClick = () => {
-        setShowAcceptConfirmation(true);
-    };
-
-    const handleDeclineClick = () => {
-        setShowDeclineConfirmation(true);
-    };
-
-    const handleLocationSuccess = async (position: GeolocationPosition) => {
+    // Memoize fetch delivery function to prevent unnecessary re-renders
+    const fetchDelivery = useCallback(async () => {
         if (!tracking_id) return;
+        
+        setLoadingDelivery(true);
+        try {
+            const deliveryData = await getPublicDeliveryByTrackingId(tracking_id);
+            console.log('Fetched delivery data:', deliveryData);
+
+            if (deliveryData) {
+                setDelivery(deliveryData);
+                // Check if already accepted
+                if (deliveryData.status === 'accepted' ||
+                    deliveryData.status === 'in_progress' ||
+                    deliveryData.status === 'completed') {
+                    setIsAccepted(true);
+                } else if (deliveryData.status === 'cancelled') {
+                    setIsDeclined(true);
+                }
+            } else {
+                setError('Delivery not found');
+            }
+        } catch (err) {
+            console.error('Error fetching delivery:', err);
+            setError('Failed to load delivery information');
+        } finally {
+            setLoadingDelivery(false);
+        }
+    }, [tracking_id]);
+
+    // Fetch data only once on mount
+    useEffect(() => {
+        fetchDelivery();
+    }, [fetchDelivery]);
+
+    const handleAcceptClick = useCallback(() => {
+        setShowAcceptConfirmation(true);
+    }, []);
+
+    const handleDeclineClick = useCallback(() => {
+        setShowDeclineConfirmation(true);
+    }, []);
+
+    const handleLocationSuccess = useCallback(async (position: GeolocationPosition) => {
+        if (!tracking_id) return;
+        setIsLoading(true);
 
         console.log('Initial rider position:', {
             latitude: position.coords.latitude,
@@ -193,11 +141,13 @@ const RiderAcceptPage: React.FC = () => {
         } catch (err) {
             console.error('Error accepting delivery:', err);
             setError('An unexpected error occurred');
+        } finally {
+            setIsLoading(false);
+            setShowAcceptConfirmation(false);
         }
-        setShowAcceptConfirmation(false);
-    };
+    }, [tracking_id, acceptDelivery, navigate, setLocationPermissionGranted]);
 
-    const handleLocationError = (error: GeolocationPositionError) => {
+    const handleLocationError = useCallback((error: GeolocationPositionError) => {
         console.log('Location permission error:', error);
 
         const message = getLocationErrorMessage(error);
@@ -208,9 +158,9 @@ const RiderAcceptPage: React.FC = () => {
         }
 
         setShowAcceptConfirmation(false);
-    };
+    }, []);
 
-    const handleConfirmAccept = async () => {
+    const handleConfirmAccept = useCallback(() => {
         if (!tracking_id) return;
 
         setLocationError(null);
@@ -227,10 +177,11 @@ const RiderAcceptPage: React.FC = () => {
             3,
             1500
         );
-    };
+    }, [tracking_id, handleLocationSuccess, handleLocationError]);
 
-    const handleConfirmDecline = async () => {
+    const handleConfirmDecline = useCallback(async () => {
         if (!tracking_id) return;
+        setIsLoading(true);
 
         try {
             const result = await declineDelivery(tracking_id);
@@ -248,22 +199,24 @@ const RiderAcceptPage: React.FC = () => {
             console.error('Error declining delivery:', err);
             setError('An unexpected error occurred');
         } finally {
+            setIsLoading(false);
             setShowDeclineConfirmation(false);
         }
-    };
+    }, [tracking_id, declineDelivery, delivery]);
 
-    const handleRetryLocation = () => {
+    const handleRetryLocation = useCallback(() => {
         setLocationRetries(prev => prev + 1);
         setLocationError(null);
         setShowLocationSettings(false);
         handleConfirmAccept();
-    };
+    }, [handleConfirmAccept]);
 
-    const toggleImportantInfo = () => {
+    const toggleImportantInfo = useCallback(() => {
         setShowImportantInfo(prev => !prev);
-    };
+    }, []);
 
-    const ImportantInfoModal = () => (
+    // Memoize the modal to prevent re-renders
+    const ImportantInfoModal = useMemo(() => () => (
         <AnimatePresence>
             {showImportantInfo && (
                 <motion.div
@@ -342,9 +295,12 @@ const RiderAcceptPage: React.FC = () => {
                 </motion.div>
             )}
         </AnimatePresence>
-    );
+    ), [showImportantInfo]);
 
-    if (loadingDelivery || isLoading) {
+    // Combined loading state from both sources
+    const isPageLoading = loadingDelivery || contextIsLoading;
+
+    if (isPageLoading) {
         return (
             <Layout>
                 <div className="min-h-screen bg-gradient-to-br from-white via-gray-50/50 to-slate-50/30">
@@ -449,65 +405,29 @@ const RiderAcceptPage: React.FC = () => {
             <div className="absolute inset-0 -z-10 overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/50 to-slate-50/30" />
 
-                {/* Animated gradient overlays */}
-                <motion.div
-                    animate={{
-                        x: [0, 120, 0],
-                        y: [0, -60, 0],
-                        scale: [1, 1.3, 1],
-                        opacity: [0.15, 0.35, 0.15]
-                    }}
-                    transition={{
-                        duration: 15,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className="absolute top-[10%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-r from-blue-100/30 to-indigo-100/30 blur-3xl"
-                />
-
-                <motion.div
-                    animate={{
-                        x: [0, -100, 0],
-                        y: [0, 40, 0],
-                        scale: [1, 1.4, 1],
-                        opacity: [0.1, 0.25, 0.1]
-                    }}
-                    transition={{
-                        duration: 20,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className="absolute bottom-[15%] left-[10%] w-80 h-80 rounded-full bg-gradient-to-r from-purple-200/20 to-blue-200/20 blur-3xl"
-                />
+                {/* Static background elements instead of animated ones */}
+                <div className="absolute top-[10%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-r from-green-100/30 to-emerald-100/30 blur-3xl" />
+                <div className="absolute bottom-[15%] left-[10%] w-80 h-80 rounded-full bg-gradient-to-r from-emerald-200/20 to-teal-200/20 blur-3xl" />
             </div>
 
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
                 {/* Enhanced Header Section */}
                 <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
+                    initial={{ opacity: 1, y: 0 }}
                     className="mb-8"
                 >
                     <div className="relative rounded-3xl shadow-2xl overflow-hidden">
-                        {/* Header gradient background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600" />
+                        {/* Header gradient background - matching green theme */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-400 via-emerald-400 to-teal-500" />
 
-                        {/* Overlay with subtle texture */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600/80 via-indigo-600/75 to-purple-700/80" />
+                        {/* Overlay with subtle texture - matching green theme */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/80 via-emerald-500/75 to-teal-600/80" />
 
                         <div className="relative p-8 md:p-12">
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between relative z-10">
                                 <div>
                                     <div className="inline-flex items-center gap-3 bg-white/15 backdrop-blur-md rounded-full px-6 py-3 text-sm text-white/95 mb-4 border border-white/20 shadow-lg">
-                                        <motion.span
-                                            className="w-3 h-3 bg-blue-200 rounded-full"
-                                            animate={{
-                                                scale: [1, 1.2, 1],
-                                                opacity: [0.7, 1, 0.7]
-                                            }}
-                                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                                        />
+                                        <span className="w-3 h-3 bg-emerald-200 rounded-full" />
                                         <span className="font-medium">Delivery Assignment</span>
                                     </div>
 
@@ -521,13 +441,12 @@ const RiderAcceptPage: React.FC = () => {
                                 </div>
 
                                 <div className="mt-6 md:mt-0">
-                                    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-xl px-4 py-3 border border-white/20">
-                                        <Badge className={`${getStatusColor(delivery.status)} text-white font-medium`}>
-                                            {getStatusText(delivery.status)}
-                                        </Badge>
-                                        <span className="text-white/80 text-sm">
-                                            ID: {tracking_id?.slice(-6).toUpperCase()}
-                                        </span>
+                                    <div className="bg-white/20 backdrop-blur-md rounded-xl px-6 py-4 border border-white/30 shadow-lg">
+                                        <div className="text-center">
+                                            <Badge className={`${getStatusColor(delivery.status)} text-white font-semibold text-base px-6 py-1`}>
+                                                {getStatusText(delivery.status)}
+                                            </Badge>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -537,12 +456,7 @@ const RiderAcceptPage: React.FC = () => {
 
                 {/* Location Error Alert */}
                 {locationError && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="mb-6"
-                    >
+                    <div className="mb-6">
                         <Alert variant="destructive" className="bg-red-50/90 backdrop-blur-sm border border-red-200/60 shadow-lg">
                             <AlertTitle className="flex items-center gap-2 text-red-800">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -568,16 +482,11 @@ const RiderAcceptPage: React.FC = () => {
                                 )}
                             </AlertDescription>
                         </Alert>
-                    </motion.div>
+                    </div>
                 )}
 
-                {/* Package and Customer Information Grid */}
-                <motion.div
-                    initial={{ opacity: 0, y: 30 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.2 }}
-                    className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
-                >
+                {/* Package and Customer Information Grid - No animations */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     {/* Package Information */}
                     <Card className="bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 to-indigo-50/30" />
@@ -664,15 +573,10 @@ const RiderAcceptPage: React.FC = () => {
                             </div>
                         </CardContent>
                     </Card>
-                </motion.div>
+                </div>
 
                 {/* Important Info Button */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.4 }}
-                    className="flex justify-center mb-6"
-                >
+                <div className="flex justify-center mb-6">
                     <Button
                         variant="outline"
                         onClick={toggleImportantInfo}
@@ -683,35 +587,26 @@ const RiderAcceptPage: React.FC = () => {
                         </svg>
                         View Important Delivery Information
                     </Button>
-                </motion.div>
+                </div>
 
                 {/* Action Cards */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, delay: 0.6 }}
-                >
+                <div>
                     <AnimatePresence mode="wait">
                         {showAcceptConfirmation ? (
                             <motion.div
                                 key="accept-confirmation"
-                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                initial={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                                transition={{ duration: 0.4 }}
+                                transition={{ duration: 0.3 }}
                             >
                                 <Card className="border-2 border-green-200 bg-green-50/80 backdrop-blur-xl shadow-xl">
                                     <CardContent className="pt-8 pb-6">
                                         <div className="text-center mb-6">
-                                            <motion.div
-                                                className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4"
-                                                animate={{ scale: [1, 1.1, 1] }}
-                                                transition={{ duration: 2, repeat: Infinity }}
-                                            >
+                                            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                                 </svg>
-                                            </motion.div>
+                                            </div>
                                             <AlertTitle className="font-bold text-xl text-green-800 mb-2">Confirm Acceptance</AlertTitle>
                                             <AlertDescription className="text-green-700 space-y-2">
                                                 <p className="text-lg">Are you sure you want to accept this delivery?</p>
@@ -750,23 +645,18 @@ const RiderAcceptPage: React.FC = () => {
                         ) : showDeclineConfirmation ? (
                             <motion.div
                                 key="decline-confirmation"
-                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                initial={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                                transition={{ duration: 0.4 }}
+                                transition={{ duration: 0.3 }}
                             >
                                 <Card className="border-2 border-red-200 bg-red-50/80 backdrop-blur-xl shadow-xl">
                                     <CardContent className="pt-8 pb-6">
                                         <div className="text-center mb-6">
-                                            <motion.div
-                                                className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4"
-                                                animate={{ scale: [1, 1.1, 1] }}
-                                                transition={{ duration: 2, repeat: Infinity }}
-                                            >
+                                            <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                                 </svg>
-                                            </motion.div>
+                                            </div>
                                             <AlertTitle className="font-bold text-xl text-red-800 mb-2">Confirm Decline</AlertTitle>
                                             <AlertDescription className="text-red-700">
                                                 <p className="text-lg">Are you sure you want to decline this delivery?</p>
@@ -777,6 +667,7 @@ const RiderAcceptPage: React.FC = () => {
                                                 variant="outline"
                                                 className="flex-1 py-3 text-gray-700 border-gray-300 hover:bg-gray-50"
                                                 onClick={() => setShowDeclineConfirmation(false)}
+                                                disabled={isLoading}
                                             >
                                                 Cancel
                                             </Button>
@@ -784,8 +675,16 @@ const RiderAcceptPage: React.FC = () => {
                                                 variant="destructive"
                                                 className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 font-semibold shadow-lg"
                                                 onClick={handleConfirmDecline}
+                                                disabled={isLoading}
                                             >
-                                                Yes, Decline
+                                                {isLoading ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                                        Processing...
+                                                    </div>
+                                                ) : (
+                                                    'Yes, Decline'
+                                                )}
                                             </Button>
                                         </div>
                                     </CardContent>
@@ -794,10 +693,9 @@ const RiderAcceptPage: React.FC = () => {
                         ) : (
                             <motion.div
                                 key="action-buttons"
-                                initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                initial={{ opacity: 1, scale: 1, y: 0 }}
                                 exit={{ opacity: 0, scale: 0.95, y: -20 }}
-                                transition={{ duration: 0.4 }}
+                                transition={{ duration: 0.3 }}
                             >
                                 <Card className="bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl">
                                     <CardContent className="p-8">
@@ -832,88 +730,8 @@ const RiderAcceptPage: React.FC = () => {
                             </motion.div>
                         )}
                     </AnimatePresence>
-                </motion.div>
-            </div>
-
-            {/* Enhanced Floating Action Elements */}
-            <motion.div
-                className="fixed bottom-8 right-8 z-40 pointer-events-none"
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 1.5, duration: 0.5 }}
-            >
-                {/* Floating help bubble */}
-                <motion.div
-                    className="bg-blue-500 text-white p-3 rounded-full shadow-xl backdrop-blur-sm border border-blue-400/50"
-                    animate={{
-                        y: [0, -8, 0],
-                        boxShadow: [
-                            "0 10px 25px rgba(59, 130, 246, 0.3)",
-                            "0 15px 35px rgba(59, 130, 246, 0.4)",
-                            "0 10px 25px rgba(59, 130, 246, 0.3)"
-                        ]
-                    }}
-                    transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </motion.div>
-
-                {/* Floating particles around help bubble */}
-                {[...Array(6)].map((_, i) => (
-                    <motion.div
-                        key={i}
-                        className="absolute w-2 h-2 bg-blue-300/60 rounded-full"
-                        style={{
-                            left: `${Math.cos((i * 60) * Math.PI / 180) * 40 + 20}px`,
-                            top: `${Math.sin((i * 60) * Math.PI / 180) * 40 + 20}px`,
-                        }}
-                        animate={{
-                            scale: [0, 1, 0],
-                            opacity: [0, 0.8, 0],
-                        }}
-                        transition={{
-                            duration: 2,
-                            repeat: Infinity,
-                            delay: i * 0.3,
-                            ease: "easeInOut"
-                        }}
-                    />
-                ))}
-            </motion.div>
-
-            {/* Floating progress indicator */}
-            <motion.div
-                className="fixed bottom-8 left-8 z-40"
-                initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 2, duration: 0.6 }}
-            >
-                <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/60 p-4">
-                    <div className="flex items-center gap-3">
-                        <motion.div
-                            className="w-3 h-3 bg-blue-500 rounded-full"
-                            animate={{
-                                scale: [1, 1.3, 1],
-                                opacity: [0.7, 1, 0.7]
-                            }}
-                            transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: "easeInOut"
-                            }}
-                        />
-                        <span className="text-sm font-medium text-gray-700">
-                            Ready to Accept
-                        </span>
-                    </div>
                 </div>
-            </motion.div>
+            </div>
         </Layout>
     );
 };
