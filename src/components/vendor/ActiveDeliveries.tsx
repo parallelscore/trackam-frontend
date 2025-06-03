@@ -288,7 +288,7 @@ const ActiveDeliveries: React.FC = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence mode="sync">
                             {deliveries.map((delivery, index) => {
                                 const statusStyle = getEnhancedStatusStyling(delivery.status);
 
@@ -543,7 +543,7 @@ const ActiveDeliveries: React.FC = () => {
                 variants={tableVariants}
                 className="space-y-4"
             >
-                <AnimatePresence mode="wait">
+                <AnimatePresence mode="sync">
                     {deliveries.map((delivery, index) => {
                         const statusStyle = getEnhancedStatusStyling(delivery.status);
 
@@ -899,7 +899,7 @@ const ActiveDeliveries: React.FC = () => {
                         </motion.div>
 
                         {/* Enhanced Content */}
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence mode="sync">
                             {isLoading ? (
                                 <motion.div
                                     key="loading"
