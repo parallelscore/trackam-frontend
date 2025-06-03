@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence, useAnimation, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useInView } from 'framer-motion';
 import Layout from '../components/common/Layout';
 import CreateDeliveryForm from '../components/vendor/CreateDeliveryForm';
 import ActiveDeliveries from '../components/vendor/ActiveDeliveries';
@@ -10,12 +10,10 @@ import DeliveryMetrics from '../components/vendor/DeliveryMetrics';
 import TopRiders from '../components/vendor/TopRiders';
 import DashboardAnalytics from '../components/vendor/DashboardAnalytics';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import { useAuth } from '../context/AuthContext';
 import { useDelivery } from '../context/DeliveryContext';
 
-// Enhanced animation variants with warmer feel
+// Enhanced animation variants with a warmer feel
 const fadeInUp = {
     hidden: { opacity: 0, y: 40, scale: 0.95 },
     visible: {
@@ -72,19 +70,6 @@ const slideInRight = {
     }
 };
 
-const cardHover = {
-    hover: {
-        y: -8,
-        scale: 1.02,
-        boxShadow: "0 20px 40px rgba(255, 149, 0, 0.15), 0 10px 20px rgba(26, 44, 86, 0.1)",
-        transition: { duration: 0.3, ease: "easeOut" }
-    },
-    tap: {
-        scale: 0.98,
-        transition: { duration: 0.1 }
-    }
-};
-
 const glowEffect = {
     initial: { boxShadow: "0 0 0 rgba(255, 149, 0, 0)" },
     animate: {
@@ -111,8 +96,6 @@ const VendorDashboard: React.FC = () => {
 
     // InView hooks for animations
     const headerInView = useInView(headerRef, { once: true, margin: "-100px" });
-    const statsInView = useInView(statsRef, { once: true, margin: "-50px" });
-    const analyticsInView = useInView(analyticsRef, { once: true, margin: "-50px" });
 
     // Get current path to determine if we're already on create delivery page
     const isCreateDeliveryPage = location.pathname.includes('/vendor') && activeTab === 'create';
@@ -142,90 +125,138 @@ const VendorDashboard: React.FC = () => {
 
     return (
         <Layout>
-            {/* Enhanced Background with lighter green gradients and animated elements */}
+            {/* Enhanced Background with white/off-white base and visible animated elements */}
             <div className="absolute inset-0 -z-10 overflow-hidden">
-                {/* Primary lighter gradient background */}
-                <div className="absolute inset-0 bg-gradient-to-br from-green-50/90 via-emerald-50/70 to-blue-50/60" />
+                {/* Clean white/off-white gradient background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white via-gray-50/50 to-slate-50/30" />
 
-                {/* Animated gradient overlays with Footer.tsx inspired colors */}
+                {/* More visible animated gradient overlays with subtle green accents */}
                 <motion.div
                     animate={{
-                        x: [0, 100, 0],
-                        y: [0, -50, 0],
-                        scale: [1, 1.2, 1],
-                        opacity: [0.2, 0.4, 0.2]
+                        x: [0, 120, 0],
+                        y: [0, -60, 0],
+                        scale: [1, 1.3, 1],
+                        opacity: [0.15, 0.35, 0.15]
+                    }}
+                    transition={{
+                        duration: 15,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute top-[10%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-r from-green-100/30 to-emerald-100/30 blur-3xl"
+                />
+
+                <motion.div
+                    animate={{
+                        x: [0, -100, 0],
+                        y: [0, 40, 0],
+                        scale: [1, 1.4, 1],
+                        opacity: [0.1, 0.25, 0.1]
                     }}
                     transition={{
                         duration: 20,
                         repeat: Infinity,
                         ease: "easeInOut"
                     }}
-                    className="absolute top-[10%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-r from-green-100/40 to-blue-100/40 blur-3xl"
+                    className="absolute bottom-[15%] left-[10%] w-80 h-80 rounded-full bg-gradient-to-r from-emerald-200/20 to-teal-200/20 blur-3xl"
                 />
 
                 <motion.div
                     animate={{
-                        x: [0, -80, 0],
-                        y: [0, 30, 0],
-                        scale: [1, 1.3, 1],
-                        opacity: [0.15, 0.35, 0.15]
-                    }}
-                    transition={{
-                        duration: 25,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className="absolute bottom-[20%] left-[15%] w-80 h-80 rounded-full bg-gradient-to-r from-emerald-100/30 to-teal-100/30 blur-3xl"
-                />
-
-                <motion.div
-                    animate={{
-                        x: [0, 60, 0],
-                        y: [0, -80, 0],
-                        scale: [1, 1.1, 1],
-                        opacity: [0.2, 0.4, 0.2]
+                        x: [0, 80, 0],
+                        y: [0, -100, 0],
+                        scale: [1, 1.2, 1],
+                        opacity: [0.12, 0.3, 0.12]
                     }}
                     transition={{
                         duration: 18,
                         repeat: Infinity,
                         ease: "easeInOut"
                     }}
-                    className="absolute top-[50%] left-[50%] w-72 h-72 rounded-full bg-gradient-to-r from-blue-100/25 to-green-100/25 blur-3xl"
+                    className="absolute top-[40%] left-[60%] w-72 h-72 rounded-full bg-gradient-to-r from-teal-100/25 to-green-100/25 blur-3xl"
                 />
 
-                {/* Animated geometric patterns */}
+                {/* Visible animated geometric patterns */}
                 <motion.div
                     animate={{
                         rotate: [0, 360],
-                        scale: [1, 1.1, 1],
-                        opacity: [0.1, 0.3, 0.1]
+                        scale: [1, 1.3, 1],
+                        opacity: [0.08, 0.2, 0.08]
+                    }}
+                    transition={{
+                        duration: 25,
+                        repeat: Infinity,
+                        ease: "linear"
+                    }}
+                    className="absolute top-[15%] left-[5%] w-40 h-40 border-2 border-green-200/30 rounded-full"
+                />
+
+                <motion.div
+                    animate={{
+                        rotate: [360, 0],
+                        scale: [1, 1.4, 1],
+                        opacity: [0.06, 0.18, 0.06]
                     }}
                     transition={{
                         duration: 30,
                         repeat: Infinity,
                         ease: "linear"
                     }}
-                    className="absolute top-[20%] left-[10%] w-32 h-32 border border-green-200/40 rounded-full"
+                    className="absolute bottom-[25%] right-[10%] w-32 h-32 border-3 border-emerald-200/25 rounded-lg transform rotate-45"
+                />
+
+                {/* Additional floating shapes */}
+                <motion.div
+                    animate={{
+                        y: [0, -30, 0],
+                        x: [0, 20, 0],
+                        rotate: [0, 180, 360],
+                        opacity: [0.08, 0.2, 0.08]
+                    }}
+                    transition={{
+                        duration: 12,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute top-[60%] left-[20%] w-16 h-16 bg-gradient-to-br from-green-300/15 to-emerald-300/15 rounded-full"
                 />
 
                 <motion.div
                     animate={{
-                        rotate: [360, 0],
-                        scale: [1, 1.2, 1],
-                        opacity: [0.05, 0.2, 0.05]
+                        y: [0, 40, 0],
+                        x: [0, -30, 0],
+                        scale: [1, 1.5, 1],
+                        opacity: [0.1, 0.25, 0.1]
                     }}
                     transition={{
-                        duration: 40,
+                        duration: 16,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute bottom-[40%] right-[30%] w-20 h-20 bg-teal-200/15 rounded-lg transform rotate-12"
+                />
+
+                {/* Subtle dot pattern */}
+                <div className="absolute inset-0" style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2310b981' fill-opacity='0.03'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='21' cy='7' r='1'/%3E%3Ccircle cx='35' cy='7' r='1'/%3E%3Ccircle cx='49' cy='7' r='1'/%3E%3Ccircle cx='7' cy='21' r='1'/%3E%3Ccircle cx='21' cy='21' r='1'/%3E%3Ccircle cx='35' cy='21' r='1'/%3E%3Ccircle cx='49' cy='21' r='1'/%3E%3Ccircle cx='7' cy='35' r='1'/%3E%3Ccircle cx='21' cy='35' r='1'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3Ccircle cx='49' cy='35' r='1'/%3E%3Ccircle cx='7' cy='49' r='1'/%3E%3Ccircle cx='21' cy='49' r='1'/%3E%3Ccircle cx='35' cy='49' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }} />
+
+                {/* Animated wave pattern */}
+                <motion.div
+                    animate={{
+                        backgroundPosition: ["0% 0%", "100% 100%", "0% 0%"]
+                    }}
+                    transition={{
+                        duration: 20,
                         repeat: Infinity,
                         ease: "linear"
                     }}
-                    className="absolute bottom-[30%] right-[15%] w-24 h-24 border-2 border-blue-200/30 rounded-lg transform rotate-45"
+                    className="absolute inset-0 opacity-5"
+                    style={{
+                        backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(16, 185, 129, 0.05) 2px, rgba(16, 185, 129, 0.05) 4px)`,
+                        backgroundSize: "30px 30px"
+                    }}
                 />
-
-                {/* Subtle dot pattern with softer colors */}
-                <div className="absolute inset-0" style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230CAA41' fill-opacity='0.05'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='21' cy='7' r='1'/%3E%3Ccircle cx='35' cy='7' r='1'/%3E%3Ccircle cx='49' cy='7' r='1'/%3E%3Ccircle cx='7' cy='21' r='1'/%3E%3Ccircle cx='21' cy='21' r='1'/%3E%3Ccircle cx='35' cy='21' r='1'/%3E%3Ccircle cx='49' cy='21' r='1'/%3E%3Ccircle cx='7' cy='35' r='1'/%3E%3Ccircle cx='21' cy='35' r='1'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3Ccircle cx='49' cy='35' r='1'/%3E%3Ccircle cx='7' cy='49' r='1'/%3E%3Ccircle cx='21' cy='49' r='1'/%3E%3Ccircle cx='35' cy='49' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                }} />
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
@@ -243,11 +274,11 @@ const VendorDashboard: React.FC = () => {
                         initial="initial"
                         animate="animate"
                     >
-                        {/* Lighter green with blue accent gradient background */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-green-400 via-emerald-400 to-blue-500" />
+                        {/* Light, cool green gradient background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-400 via-emerald-400 to-teal-500" />
 
                         {/* Overlay with subtle texture */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/85 via-emerald-500/80 to-blue-600/85" />
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/80 via-emerald-500/75 to-teal-600/80" />
 
                         {/* Animated mesh gradient overlay */}
                         <motion.div
@@ -269,14 +300,14 @@ const VendorDashboard: React.FC = () => {
                                     y: [0, -15, 0],
                                     rotate: [0, 10, -10, 0],
                                     scale: [1, 1.1, 1],
-                                    opacity: [0.5, 0.8, 0.5]
+                                    opacity: [0.4, 0.7, 0.4]
                                 }}
                                 transition={{
                                     duration: 12,
                                     repeat: Infinity,
                                     ease: "easeInOut"
                                 }}
-                                className="absolute top-8 right-8 w-16 h-16 bg-gradient-to-br from-blue-200/30 to-green-200/30 rounded-2xl backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
+                                className="absolute top-8 right-8 w-16 h-16 bg-gradient-to-br from-emerald-200/35 to-teal-200/35 rounded-2xl backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
                             />
 
                             <motion.div
@@ -284,14 +315,14 @@ const VendorDashboard: React.FC = () => {
                                     x: [0, 15, 0],
                                     y: [0, -8, 0],
                                     scale: [1, 1.15, 1],
-                                    opacity: [0.4, 0.7, 0.4]
+                                    opacity: [0.35, 0.6, 0.35]
                                 }}
                                 transition={{
                                     duration: 10,
                                     repeat: Infinity,
                                     ease: "easeInOut"
                                 }}
-                                className="absolute bottom-8 left-12 w-12 h-12 bg-gradient-to-br from-emerald-200/30 to-blue-200/30 rounded-full backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
+                                className="absolute bottom-8 left-12 w-12 h-12 bg-gradient-to-br from-green-200/35 to-emerald-200/35 rounded-full backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
                             />
 
                             {/* Additional floating shapes */}
@@ -316,7 +347,7 @@ const VendorDashboard: React.FC = () => {
                                         className="inline-flex items-center gap-3 bg-white/15 backdrop-blur-md rounded-full px-6 py-3 text-sm text-white/95 mb-4 border border-white/20 shadow-lg"
                                     >
                                         <motion.span
-                                            className="w-3 h-3 bg-blue-200 rounded-full"
+                                            className="w-3 h-3 bg-emerald-200 rounded-full"
                                             animate={{
                                                 scale: [1, 1.2, 1],
                                                 opacity: [0.7, 1, 0.7]
@@ -339,7 +370,7 @@ const VendorDashboard: React.FC = () => {
                                         className="text-white/90 text-lg font-medium"
                                         style={{ textShadow: "0 2px 10px rgba(0,0,0,0.2)" }}
                                     >
-                                        Welcome back, <span className="text-blue-200 font-semibold">{user?.first_name || user?.business_name || 'Vendor'}</span>
+                                        Welcome back, <span className="text-emerald-200 font-semibold">{user?.first_name || user?.business_name || 'Vendor'}</span> 👋
                                     </motion.p>
                                 </motion.div>
 
@@ -357,11 +388,11 @@ const VendorDashboard: React.FC = () => {
                                         >
                                             <Button
                                                 onClick={() => handleTabChange('create')}
-                                                className="bg-white hover:bg-blue-50 text-green-600 font-semibold px-6 py-4 md:px-8 md:py-6 text-base md:text-lg shadow-xl border-0 rounded-xl transition-all duration-300 relative overflow-hidden group"
+                                                className="bg-white hover:bg-emerald-50 text-green-600 font-semibold px-6 py-4 md:px-8 md:py-6 text-base md:text-lg shadow-xl border-0 rounded-xl transition-all duration-300 relative overflow-hidden group"
                                             >
                                                 {/* Button background animation */}
                                                 <motion.div
-                                                    className="absolute inset-0 bg-gradient-to-r from-blue-50 to-green-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                    className="absolute inset-0 bg-gradient-to-r from-emerald-50 to-green-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                                                     initial={false}
                                                 />
 
@@ -396,23 +427,25 @@ const VendorDashboard: React.FC = () => {
                 >
                     <div className="relative">
                         <motion.div
-                            className="flex flex-wrap bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl p-2 border border-green-100/60"
-                            whileHover={{ boxShadow: "0 20px 40px rgba(59, 130, 246, 0.08)" }}
+                            className="flex flex-wrap bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl p-2 border border-emerald-100/60"
+                            whileHover={{ boxShadow: "0 20px 40px rgba(16, 185, 129, 0.1)" }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Active tab indicator */}
+                            {/* Active tab indicator - fixed positioning */}
                             <motion.div
-                                className="absolute inset-y-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl shadow-lg"
+                                className="absolute inset-y-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl shadow-lg"
                                 layout
                                 initial={false}
                                 animate={{
-                                    x: activeTab === 'overview' ? 8 : activeTab === 'deliveries' ? '33.333%' : '66.666%',
-                                    width: '30%'
+                                    x: activeTab === 'overview' ? '0.5rem' :
+                                        activeTab === 'deliveries' ? 'calc(33.333% + 0.5rem)' :
+                                            'calc(66.666% + 0.5rem)',
+                                    width: 'calc(33.333% - 1rem)'
                                 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 40 }}
                             />
 
-                            {(['overview', 'deliveries', 'create'] as const).map((tab, index) => {
+                            {(['overview', 'deliveries', 'create'] as const).map((tab) => {
                                 const icons = {
                                     overview: (
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -451,7 +484,7 @@ const VendorDashboard: React.FC = () => {
                                             className={`w-full py-4 px-4 ${
                                                 activeTab === tab
                                                     ? 'text-white font-semibold'
-                                                    : 'text-gray-600 hover:text-blue-600 font-medium'
+                                                    : 'text-gray-600 hover:text-emerald-600 font-medium'
                                             } rounded-xl transition-all duration-300 border-0 bg-transparent`}
                                             onClick={() => handleTabChange(tab)}
                                         >
@@ -534,8 +567,9 @@ const VendorDashboard: React.FC = () => {
                                         />
                                     </motion.div>
                                 </motion.div>
+
                             </motion.div>
-                        )}
+                            )}
 
                         {activeTab === 'deliveries' && (
                             <ActiveDeliveries />
@@ -557,19 +591,19 @@ const VendorDashboard: React.FC = () => {
                     <motion.button
                         whileHover={{
                             scale: 1.1,
-                            boxShadow: "0 15px 30px rgba(59, 130, 246, 0.2)",
+                            boxShadow: "0 15px 30px rgba(16, 185, 129, 0.25)",
                             y: -3
                         }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => handleTabChange('create')}
-                        className="relative bg-gradient-to-br from-green-500 to-blue-500 text-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-2xl border-2 border-white/20 backdrop-blur-sm overflow-hidden"
+                        className="relative bg-gradient-to-br from-green-500 to-emerald-500 text-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-2xl border-2 border-white/20 backdrop-blur-sm overflow-hidden"
                         style={{
-                            filter: "drop-shadow(0 8px 16px rgba(59, 130, 246, 0.2))"
+                            filter: "drop-shadow(0 8px 16px rgba(16, 185, 129, 0.2))"
                         }}
                     >
                         {/* Button glow effect */}
                         <motion.div
-                            className="absolute inset-0 bg-gradient-to-br from-blue-400 to-green-400 opacity-0"
+                            className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-400 opacity-0"
                             whileHover={{ opacity: 0.3 }}
                             transition={{ duration: 0.3 }}
                         />
