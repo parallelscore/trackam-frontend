@@ -15,13 +15,19 @@ import { Badge } from '../components/ui/badge';
 import { useAuth } from '../context/AuthContext';
 import { useDelivery } from '../context/DeliveryContext';
 
-// Animation variants
+// Enhanced animation variants with warmer feel
 const fadeInUp = {
-    hidden: { opacity: 0, y: 30 },
+    hidden: { opacity: 0, y: 40, scale: 0.95 },
     visible: {
         opacity: 1,
         y: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
+        scale: 1,
+        transition: {
+            duration: 0.7,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            type: "spring",
+            stiffness: 100
+        }
     }
 };
 
@@ -30,26 +36,64 @@ const staggerContainer = {
     visible: {
         opacity: 1,
         transition: {
-            staggerChildren: 0.15
+            staggerChildren: 0.12,
+            delayChildren: 0.1
         }
     }
 };
 
 const slideInLeft = {
-    hidden: { opacity: 0, x: -50 },
+    hidden: { opacity: 0, x: -60, scale: 0.95 },
     visible: {
         opacity: 1,
         x: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
+        scale: 1,
+        transition: {
+            duration: 0.8,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            type: "spring",
+            stiffness: 80
+        }
     }
 };
 
 const slideInRight = {
-    hidden: { opacity: 0, x: 50 },
+    hidden: { opacity: 0, x: 60, scale: 0.95 },
     visible: {
         opacity: 1,
         x: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
+        scale: 1,
+        transition: {
+            duration: 0.8,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            type: "spring",
+            stiffness: 80
+        }
+    }
+};
+
+const cardHover = {
+    hover: {
+        y: -8,
+        scale: 1.02,
+        boxShadow: "0 20px 40px rgba(255, 149, 0, 0.15), 0 10px 20px rgba(26, 44, 86, 0.1)",
+        transition: { duration: 0.3, ease: "easeOut" }
+    },
+    tap: {
+        scale: 0.98,
+        transition: { duration: 0.1 }
+    }
+};
+
+const glowEffect = {
+    initial: { boxShadow: "0 0 0 rgba(255, 149, 0, 0)" },
+    animate: {
+        boxShadow: [
+            "0 0 20px rgba(255, 149, 0, 0.3)",
+            "0 0 40px rgba(255, 149, 0, 0.1)",
+            "0 0 20px rgba(255, 149, 0, 0.3)"
+        ],
+        transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
     }
 };
 
@@ -66,9 +110,9 @@ const VendorDashboard: React.FC = () => {
     const analyticsRef = useRef(null);
 
     // InView hooks for animations
-    const headerInView = useInView(headerRef, { once: true });
-    const statsInView = useInView(statsRef, { once: true });
-    const analyticsInView = useInView(analyticsRef, { once: true });
+    const headerInView = useInView(headerRef, { once: true, margin: "-100px" });
+    const statsInView = useInView(statsRef, { once: true, margin: "-50px" });
+    const analyticsInView = useInView(analyticsRef, { once: true, margin: "-50px" });
 
     // Get current path to determine if we're already on create delivery page
     const isCreateDeliveryPage = location.pathname.includes('/vendor') && activeTab === 'create';
@@ -98,228 +142,359 @@ const VendorDashboard: React.FC = () => {
 
     return (
         <Layout>
-            {/* Enhanced Background Pattern with warm gradients */}
-            <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 via-accent/5 to-primary/8 -z-10 overflow-hidden">
-                <div className="absolute inset-0" style={{
-                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='0.025'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='21' cy='7' r='1'/%3E%3Ccircle cx='35' cy='7' r='1'/%3E%3Ccircle cx='49' cy='7' r='1'/%3E%3Ccircle cx='7' cy='21' r='1'/%3E%3Ccircle cx='21' cy='21' r='1'/%3E%3Ccircle cx='35' cy='21' r='1'/%3E%3Ccircle cx='49' cy='21' r='1'/%3E%3Ccircle cx='7' cy='35' r='1'/%3E%3Ccircle cx='21' cy='35' r='1'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3Ccircle cx='49' cy='35' r='1'/%3E%3Ccircle cx='7' cy='49' r='1'/%3E%3Ccircle cx='21' cy='49' r='1'/%3E%3Ccircle cx='35' cy='49' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                }} />
-                
-                {/* Added subtle animated gradient orbs */}
+            {/* Enhanced Background with lighter green gradients and animated elements */}
+            <div className="absolute inset-0 -z-10 overflow-hidden">
+                {/* Primary lighter gradient background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-green-50/90 via-emerald-50/70 to-blue-50/60" />
+
+                {/* Animated gradient overlays with Footer.tsx inspired colors */}
                 <motion.div
                     animate={{
-                        x: [0, 10, 0],
-                        y: [0, -15, 0],
-                        scale: [1, 1.1, 1],
-                        opacity: [0.4, 0.6, 0.4]
-                    }}
-                    transition={{
-                        duration: 10,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                    className="absolute top-[20%] right-[25%] w-64 h-64 rounded-full bg-gradient-to-r from-secondary/10 to-primary/10 blur-3xl"
-                />
-                
-                <motion.div
-                    animate={{
-                        x: [0, -20, 0],
-                        y: [0, 20, 0],
+                        x: [0, 100, 0],
+                        y: [0, -50, 0],
                         scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3]
+                        opacity: [0.2, 0.4, 0.2]
                     }}
                     transition={{
-                        duration: 15,
+                        duration: 20,
                         repeat: Infinity,
                         ease: "easeInOut"
                     }}
-                    className="absolute bottom-[15%] left-[20%] w-80 h-80 rounded-full bg-gradient-to-r from-accent/10 to-secondary/10 blur-3xl"
+                    className="absolute top-[10%] right-[20%] w-96 h-96 rounded-full bg-gradient-to-r from-green-100/40 to-blue-100/40 blur-3xl"
                 />
+
+                <motion.div
+                    animate={{
+                        x: [0, -80, 0],
+                        y: [0, 30, 0],
+                        scale: [1, 1.3, 1],
+                        opacity: [0.15, 0.35, 0.15]
+                    }}
+                    transition={{
+                        duration: 25,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute bottom-[20%] left-[15%] w-80 h-80 rounded-full bg-gradient-to-r from-emerald-100/30 to-teal-100/30 blur-3xl"
+                />
+
+                <motion.div
+                    animate={{
+                        x: [0, 60, 0],
+                        y: [0, -80, 0],
+                        scale: [1, 1.1, 1],
+                        opacity: [0.2, 0.4, 0.2]
+                    }}
+                    transition={{
+                        duration: 18,
+                        repeat: Infinity,
+                        ease: "easeInOut"
+                    }}
+                    className="absolute top-[50%] left-[50%] w-72 h-72 rounded-full bg-gradient-to-r from-blue-100/25 to-green-100/25 blur-3xl"
+                />
+
+                {/* Animated geometric patterns */}
+                <motion.div
+                    animate={{
+                        rotate: [0, 360],
+                        scale: [1, 1.1, 1],
+                        opacity: [0.1, 0.3, 0.1]
+                    }}
+                    transition={{
+                        duration: 30,
+                        repeat: Infinity,
+                        ease: "linear"
+                    }}
+                    className="absolute top-[20%] left-[10%] w-32 h-32 border border-green-200/40 rounded-full"
+                />
+
+                <motion.div
+                    animate={{
+                        rotate: [360, 0],
+                        scale: [1, 1.2, 1],
+                        opacity: [0.05, 0.2, 0.05]
+                    }}
+                    transition={{
+                        duration: 40,
+                        repeat: Infinity,
+                        ease: "linear"
+                    }}
+                    className="absolute bottom-[30%] right-[15%] w-24 h-24 border-2 border-blue-200/30 rounded-lg transform rotate-45"
+                />
+
+                {/* Subtle dot pattern with softer colors */}
+                <div className="absolute inset-0" style={{
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230CAA41' fill-opacity='0.05'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='21' cy='7' r='1'/%3E%3Ccircle cx='35' cy='7' r='1'/%3E%3Ccircle cx='49' cy='7' r='1'/%3E%3Ccircle cx='7' cy='21' r='1'/%3E%3Ccircle cx='21' cy='21' r='1'/%3E%3Ccircle cx='35' cy='21' r='1'/%3E%3Ccircle cx='49' cy='21' r='1'/%3E%3Ccircle cx='7' cy='35' r='1'/%3E%3Ccircle cx='21' cy='35' r='1'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3Ccircle cx='49' cy='35' r='1'/%3E%3Ccircle cx='7' cy='49' r='1'/%3E%3Ccircle cx='21' cy='49' r='1'/%3E%3Ccircle cx='35' cy='49' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+                }} />
             </div>
 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-                {/* Dashboard Header with enhanced warm styling */}
-                <motion.div 
+                {/* Enhanced Dashboard Header with warm gradient and improved animations */}
+                <motion.div
                     ref={headerRef}
                     initial="hidden"
                     animate={headerInView ? "visible" : "hidden"}
                     variants={staggerContainer}
                     className="mb-8"
                 >
-                    <div className="bg-gradient-to-r from-secondary/90 via-secondary/85 to-primary/90 rounded-2xl shadow-lg overflow-hidden">
-                        <div className="relative p-6 md:p-8">
-                            {/* Background Pattern */}
-                            <div className="absolute inset-0 opacity-10">
-                                <div className="absolute inset-0" style={{
-                                    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='7' cy='7' r='1'/%3E%3Ccircle cx='21' cy='7' r='1'/%3E%3Ccircle cx='35' cy='7' r='1'/%3E%3Ccircle cx='49' cy='7' r='1'/%3E%3Ccircle cx='7' cy='21' r='1'/%3E%3Ccircle cx='21' cy='21' r='1'/%3E%3Ccircle cx='35' cy='21' r='1'/%3E%3Ccircle cx='49' cy='21' r='1'/%3E%3Ccircle cx='7' cy='35' r='1'/%3E%3Ccircle cx='21' cy='35' r='1'/%3E%3Ccircle cx='35' cy='35' r='1'/%3E%3Ccircle cx='49' cy='35' r='1'/%3E%3Ccircle cx='7' cy='49' r='1'/%3E%3Ccircle cx='21' cy='49' r='1'/%3E%3Ccircle cx='35' cy='49' r='1'/%3E%3Ccircle cx='49' cy='49' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                                }} />
-                            </div>
+                    <motion.div
+                        className="relative rounded-3xl shadow-2xl overflow-hidden"
+                        variants={glowEffect}
+                        initial="initial"
+                        animate="animate"
+                    >
+                        {/* Lighter green with blue accent gradient background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-400 via-emerald-400 to-blue-500" />
 
-                            {/* Enhanced Floating elements with warmer effects */}
+                        {/* Overlay with subtle texture */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-green-500/85 via-emerald-500/80 to-blue-600/85" />
+
+                        {/* Animated mesh gradient overlay */}
+                        <motion.div
+                            className="absolute inset-0 opacity-30"
+                            animate={{
+                                background: [
+                                    "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.3) 0%, transparent 50%)",
+                                    "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.3) 0%, transparent 50%)",
+                                    "radial-gradient(circle at 40% 40%, rgba(255,255,255,0.3) 0%, transparent 50%)"
+                                ]
+                            }}
+                            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                        />
+
+                        <div className="relative p-8 md:p-12">
+                            {/* Enhanced floating elements with warmer colors and better animations */}
                             <motion.div
                                 animate={{
-                                    y: [0, -10, 0],
-                                    rotate: [0, 5, -5, 0],
-                                    opacity: [0.7, 0.9, 0.7]
-                                }}
-                                transition={{
-                                    duration: 8,
-                                    repeat: Infinity,
-                                    ease: "easeInOut"
-                                }}
-                                className="absolute top-8 right-8 w-12 h-12 bg-accent/30 rounded-full backdrop-blur-sm hidden lg:block"
-                            />
-                            
-                            <motion.div
-                                animate={{
-                                    x: [0, 10, 0],
-                                    y: [0, -5, 0],
+                                    y: [0, -15, 0],
+                                    rotate: [0, 10, -10, 0],
+                                    scale: [1, 1.1, 1],
                                     opacity: [0.5, 0.8, 0.5]
                                 }}
                                 transition={{
-                                    duration: 6,
+                                    duration: 12,
                                     repeat: Infinity,
                                     ease: "easeInOut"
                                 }}
-                                className="absolute bottom-6 left-12 w-8 h-8 bg-primary/30 rounded-full backdrop-blur-sm hidden lg:block"
+                                className="absolute top-8 right-8 w-16 h-16 bg-gradient-to-br from-blue-200/30 to-green-200/30 rounded-2xl backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
                             />
-                            
+
+                            <motion.div
+                                animate={{
+                                    x: [0, 15, 0],
+                                    y: [0, -8, 0],
+                                    scale: [1, 1.15, 1],
+                                    opacity: [0.4, 0.7, 0.4]
+                                }}
+                                transition={{
+                                    duration: 10,
+                                    repeat: Infinity,
+                                    ease: "easeInOut"
+                                }}
+                                className="absolute bottom-8 left-12 w-12 h-12 bg-gradient-to-br from-emerald-200/30 to-blue-200/30 rounded-full backdrop-blur-sm hidden lg:block border border-white/20 shadow-lg"
+                            />
+
+                            {/* Additional floating shapes */}
+                            <motion.div
+                                animate={{
+                                    rotate: [0, 360],
+                                    scale: [1, 1.2, 1],
+                                    opacity: [0.3, 0.6, 0.3]
+                                }}
+                                transition={{
+                                    duration: 20,
+                                    repeat: Infinity,
+                                    ease: "linear"
+                                }}
+                                className="absolute top-1/2 right-1/4 w-8 h-8 border-2 border-white/30 rounded-lg backdrop-blur-sm hidden xl:block"
+                            />
+
                             <div className="flex flex-col md:flex-row md:items-center md:justify-between relative z-10">
                                 <motion.div variants={slideInLeft}>
                                     <motion.div
                                         variants={fadeInUp}
-                                        className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 text-sm text-white/90 mb-3"
+                                        className="inline-flex items-center gap-3 bg-white/15 backdrop-blur-md rounded-full px-6 py-3 text-sm text-white/95 mb-4 border border-white/20 shadow-lg"
                                     >
-                                        <span className="w-2 h-2 bg-accent rounded-full animate-pulse"></span>
-                                        Dashboard Overview
+                                        <motion.span
+                                            className="w-3 h-3 bg-blue-200 rounded-full"
+                                            animate={{
+                                                scale: [1, 1.2, 1],
+                                                opacity: [0.7, 1, 0.7]
+                                            }}
+                                            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                        />
+                                        <span className="font-medium">Dashboard Overview</span>
                                     </motion.div>
-                                    
-                                    <motion.h1 variants={fadeInUp} className="text-3xl md:text-4xl font-bold text-white">
+
+                                    <motion.h1
+                                        variants={fadeInUp}
+                                        className="text-4xl md:text-5xl font-bold text-white mb-3 drop-shadow-lg"
+                                        style={{ textShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
+                                    >
                                         Vendor Dashboard
                                     </motion.h1>
-                                    
-                                    <motion.p variants={fadeInUp} className="text-white/80 mt-2">
-                                        Welcome back, {user?.first_name || user?.business_name || 'Vendor'}
+
+                                    <motion.p
+                                        variants={fadeInUp}
+                                        className="text-white/90 text-lg font-medium"
+                                        style={{ textShadow: "0 2px 10px rgba(0,0,0,0.2)" }}
+                                    >
+                                        Welcome back, <span className="text-blue-200 font-semibold">{user?.first_name || user?.business_name || 'Vendor'}</span>
                                     </motion.p>
                                 </motion.div>
 
-                                {/* Only show the button if not already on create delivery page */}
+                                {/* Enhanced CTA button with better animations */}
                                 {!isCreateDeliveryPage && (
-                                    <motion.div variants={slideInRight} className="mt-4 md:mt-0">
-                                        <motion.div 
-                                            whileHover={{ scale: 1.05, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1)" }} 
+                                    <motion.div variants={slideInRight} className="mt-6 md:mt-0">
+                                        <motion.div
+                                            whileHover={{
+                                                scale: 1.05,
+                                                boxShadow: "0 15px 35px rgba(0,0,0,0.2)",
+                                                y: -2
+                                            }}
                                             whileTap={{ scale: 0.95 }}
+                                            className="relative group"
                                         >
                                             <Button
                                                 onClick={() => handleTabChange('create')}
-                                                className="bg-white hover:bg-white/90 text-secondary font-medium px-6 py-6 shadow-lg"
+                                                className="bg-white hover:bg-blue-50 text-green-600 font-semibold px-6 py-4 md:px-8 md:py-6 text-base md:text-lg shadow-xl border-0 rounded-xl transition-all duration-300 relative overflow-hidden group"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                                </svg>
-                                                Create New Delivery
+                                                {/* Button background animation */}
+                                                <motion.div
+                                                    className="absolute inset-0 bg-gradient-to-r from-blue-50 to-green-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                                                    initial={false}
+                                                />
+
+                                                <span className="relative z-10 flex items-center gap-3">
+                                                    <motion.svg
+                                                        xmlns="http://www.w3.org/2000/svg"
+                                                        className="h-6 w-6"
+                                                        viewBox="0 0 20 20"
+                                                        fill="currentColor"
+                                                        whileHover={{ rotate: 90 }}
+                                                        transition={{ duration: 0.3 }}
+                                                    >
+                                                        <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                                    </motion.svg>
+                                                    Create New Delivery
+                                                </span>
                                             </Button>
                                         </motion.div>
                                     </motion.div>
                                 )}
                             </div>
                         </div>
+                    </motion.div>
+                </motion.div>
+
+                {/* Enhanced Navigation with warmer colors and better animations */}
+                <motion.div
+                    className="mb-8"
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8, delay: 0.3 }}
+                >
+                    <div className="relative">
+                        <motion.div
+                            className="flex flex-wrap bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl p-2 border border-green-100/60"
+                            whileHover={{ boxShadow: "0 20px 40px rgba(59, 130, 246, 0.08)" }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            {/* Active tab indicator */}
+                            <motion.div
+                                className="absolute inset-y-2 bg-gradient-to-r from-green-500 to-blue-500 rounded-xl shadow-lg"
+                                layout
+                                initial={false}
+                                animate={{
+                                    x: activeTab === 'overview' ? 8 : activeTab === 'deliveries' ? '33.333%' : '66.666%',
+                                    width: '30%'
+                                }}
+                                transition={{ type: "spring", stiffness: 400, damping: 40 }}
+                            />
+
+                            {(['overview', 'deliveries', 'create'] as const).map((tab, index) => {
+                                const icons = {
+                                    overview: (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                                            <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                                        </svg>
+                                    ),
+                                    deliveries: (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                            <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
+                                        </svg>
+                                    ),
+                                    create: (
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                        </svg>
+                                    )
+                                };
+
+                                const labels = {
+                                    overview: 'Overview',
+                                    deliveries: 'All Deliveries',
+                                    create: 'Create Delivery'
+                                };
+
+                                return (
+                                    <motion.div
+                                        key={tab}
+                                        className="flex-1 relative z-10"
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <Button
+                                            variant="ghost"
+                                            className={`w-full py-4 px-4 ${
+                                                activeTab === tab
+                                                    ? 'text-white font-semibold'
+                                                    : 'text-gray-600 hover:text-blue-600 font-medium'
+                                            } rounded-xl transition-all duration-300 border-0 bg-transparent`}
+                                            onClick={() => handleTabChange(tab)}
+                                        >
+                                            <motion.span
+                                                className="flex items-center gap-2"
+                                                animate={activeTab === tab ? { scale: 1.05 } : { scale: 1 }}
+                                                transition={{ duration: 0.2 }}
+                                            >
+                                                <motion.span
+                                                    animate={activeTab === tab ? { rotate: [0, 10, 0] } : {}}
+                                                    transition={{ duration: 0.5 }}
+                                                >
+                                                    {icons[tab]}
+                                                </motion.span>
+                                                <span className="hidden sm:inline">{labels[tab]}</span>
+                                            </motion.span>
+                                        </Button>
+                                    </motion.div>
+                                );
+                            })}
+                        </motion.div>
                     </div>
                 </motion.div>
 
-                {/* Dashboard Navigation - Enhanced with warm color animations */}
-                <div className="mb-8">
-                    <motion.div 
-                        className="flex flex-wrap bg-white rounded-xl shadow-md p-1 border border-gray-100"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                    >
-                        <motion.div 
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="flex-1"
-                        >
-                            <Button
-                                variant={activeTab === 'overview' ? "default" : "ghost"}
-                                className={`w-full py-3 ${
-                                    activeTab === 'overview'
-                                        ? 'bg-gradient-to-r from-secondary/90 to-primary/90 text-white shadow-md'
-                                        : 'text-gray-600 hover:text-secondary'
-                                } rounded-lg transition-all duration-300`}
-                                onClick={() => handleTabChange('overview')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                                    <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                                </svg>
-                                Overview
-                            </Button>
-                        </motion.div>
-                        
-                        <motion.div 
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="flex-1"
-                        >
-                            <Button
-                                variant={activeTab === 'deliveries' ? "default" : "ghost"}
-                                className={`w-full py-3 ${
-                                    activeTab === 'deliveries'
-                                        ? 'bg-gradient-to-r from-secondary/90 to-primary/90 text-white shadow-md'
-                                        : 'text-gray-600 hover:text-secondary'
-                                } rounded-lg transition-all duration-300`}
-                                onClick={() => handleTabChange('deliveries')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                                    <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
-                                </svg>
-                                All Deliveries
-                            </Button>
-                        </motion.div>
-                        
-                        <motion.div 
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                            className="flex-1"
-                        >
-                            <Button
-                                variant={activeTab === 'create' ? "default" : "ghost"}
-                                className={`w-full py-3 ${
-                                    activeTab === 'create'
-                                        ? 'bg-gradient-to-r from-secondary/90 to-primary/90 text-white shadow-md'
-                                        : 'text-gray-600 hover:text-secondary'
-                                } rounded-lg transition-all duration-300`}
-                                onClick={() => handleTabChange('create')}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                </svg>
-                                Create Delivery
-                            </Button>
-                        </motion.div>
-                    </motion.div>
-                </div>
-
-                {/* Dashboard Content with improved animations */}
+                {/* Enhanced Dashboard Content */}
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={activeTab}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        transition={{ duration: 0.4 }}
+                        initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                        transition={{ duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] }}
                         className="mt-6"
                     >
                         {activeTab === 'overview' && (
-                            <motion.div 
+                            <motion.div
                                 variants={staggerContainer}
                                 initial="hidden"
                                 animate="visible"
                                 className="space-y-8"
                             >
-                                {/* Statistics Cards with improved warm animations */}
-                                <motion.div 
+                                {/* Enhanced Statistics Cards */}
+                                <motion.div
                                     ref={statsRef}
                                     variants={fadeInUp}
                                     className="overflow-visible"
@@ -327,160 +502,124 @@ const VendorDashboard: React.FC = () => {
                                     <DashboardStats period="all" />
                                 </motion.div>
 
-                                {/* Delivery Analytics Chart with enhanced styling */}
-                                <motion.div 
+                                {/* Enhanced Analytics Chart */}
+                                <motion.div
                                     ref={analyticsRef}
                                     variants={fadeInUp}
                                     className="overflow-visible"
-                                    whileHover={{ y: -5 }}
-                                    transition={{ duration: 0.3 }}
                                 >
-                                    <Card className="shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/40 via-primary/40 to-accent/40 rounded-t-lg"></div>
-                                        <CardContent className="p-6">
-                                            <h3 className="text-xl font-semibold text-secondary mb-6 flex items-center">
-                                                <span className="bg-secondary/10 p-2 rounded-lg mr-3">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                                                    </svg>
-                                                </span>
-                                                Delivery Analytics
-                                            </h3>
-                                            <DashboardAnalytics />
-                                        </CardContent>
-                                    </Card>
+                                    <DashboardAnalytics />
                                 </motion.div>
 
-                                {/* Delivery Metrics with enhanced styling */}
-                                <motion.div 
+                                {/* Enhanced Delivery Metrics */}
+                                <motion.div
                                     variants={fadeInUp}
-                                    whileHover={{ y: -5 }}
-                                    transition={{ duration: 0.3 }}
                                 >
-                                    <Card className="shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300">
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/40 via-primary/40 to-secondary/40 rounded-t-lg"></div>
-                                        <CardContent className="p-6">
-                                            <h3 className="text-xl font-semibold text-secondary mb-6 flex items-center">
-                                                <span className="bg-accent/10 p-2 rounded-lg mr-3">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                                    </svg>
-                                                </span>
-                                                Weekly Performance Metrics
-                                            </h3>
-                                            <DeliveryMetrics period="week" />
-                                        </CardContent>
-                                    </Card>
+                                    <DeliveryMetrics period="week" />
                                 </motion.div>
 
-                                {/* Top Riders and Recent Deliveries */}
+                                {/* Enhanced Two-Column Layout */}
                                 <motion.div variants={fadeInUp} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    {/* Top Riders */}
-                                    <motion.div
-                                        whileHover={{ y: -5 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <Card className="shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 h-full">
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary/40 to-secondary/40 rounded-t-lg"></div>
-                                            <CardContent className="p-6">
-                                                <h3 className="text-xl font-semibold text-secondary mb-6 flex items-center">
-                                                    <span className="bg-primary/10 p-2 rounded-lg mr-3">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                        </svg>
-                                                    </span>
-                                                    Top Performing Riders
-                                                </h3>
-                                                <TopRiders />
-                                            </CardContent>
-                                        </Card>
+                                    {/* Enhanced Top Riders */}
+                                    <motion.div className="h-full">
+                                        <TopRiders />
                                     </motion.div>
 
-                                    {/* Recent Deliveries */}
-                                    <motion.div
-                                        whileHover={{ y: -5 }}
-                                        transition={{ duration: 0.3 }}
-                                    >
-                                        <Card className="shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 h-full">
-                                            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/40 to-accent/40 rounded-t-lg"></div>
-                                            <CardContent className="p-6">
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <h3 className="text-xl font-semibold text-secondary flex items-center">
-                                                        <span className="bg-secondary/10 p-2 rounded-lg mr-3">
-                                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                            </svg>
-                                                        </span>
-                                                        Recent Deliveries
-                                                    </h3>
-                                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() => handleTabChange('deliveries')}
-                                                            size="sm"
-                                                            className="border-secondary/20 text-secondary hover:bg-secondary/10"
-                                                        >
-                                                            View All
-                                                        </Button>
-                                                    </motion.div>
-                                                </div>
-
-                                                <RecentDeliveries
-                                                    deliveries={recentDeliveries}
-                                                    isLoading={deliveriesLoading}
-                                                />
-                                            </CardContent>
-                                        </Card>
+                                    {/* Enhanced Recent Deliveries */}
+                                    <motion.div className="h-full">
+                                        <RecentDeliveries
+                                            deliveries={recentDeliveries}
+                                            isLoading={deliveriesLoading}
+                                            onViewAll={() => handleTabChange('deliveries')}
+                                        />
                                     </motion.div>
                                 </motion.div>
                             </motion.div>
                         )}
 
                         {activeTab === 'deliveries' && (
-                            <Card className="shadow-lg border border-gray-100">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-secondary/40 via-primary/40 to-accent/40 rounded-t-lg"></div>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center mb-6">
-                                        <Badge className="bg-secondary/90 text-white border-0 mr-2">All</Badge>
-                                        <h3 className="text-xl font-semibold text-secondary">Deliveries</h3>
-                                    </div>
-                                    <ActiveDeliveries />
-                                </CardContent>
-                            </Card>
+                            <ActiveDeliveries />
                         )}
 
                         {activeTab === 'create' && (
-                            <Card className="shadow-lg border border-gray-100">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent/40 via-secondary/40 to-primary/40 rounded-t-lg"></div>
-                                <CardContent className="p-6">
-                                    <div className="flex items-center mb-6">
-                                        <Badge className="bg-accent/90 text-white border-0 mr-2">New</Badge>
-                                        <h3 className="text-xl font-semibold text-secondary">Create Delivery</h3>
-                                    </div>
-                                    <CreateDeliveryForm onSuccess={() => handleTabChange('overview')} />
-                                </CardContent>
-                            </Card>
+                            <CreateDeliveryForm onSuccess={() => handleTabChange('overview')} />
                         )}
                     </motion.div>
                 </AnimatePresence>
 
-                {/* Enhanced Floating Action Button with warmer colors */}
+                {/* Enhanced Floating Action Button with warmer colors and better animations */}
                 <motion.div
-                    initial={{ opacity: 0, scale: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 1, duration: 0.3 }}
-                    className="fixed bottom-6 right-6 z-50 md:hidden"
+                    initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                    transition={{ delay: 1.2, duration: 0.6, ease: "easeOut" }}
+                    className="fixed bottom-8 right-8 z-50 md:hidden"
                 >
                     <motion.button
-                        whileHover={{ scale: 1.1, boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.2)" }}
+                        whileHover={{
+                            scale: 1.1,
+                            boxShadow: "0 15px 30px rgba(59, 130, 246, 0.2)",
+                            y: -3
+                        }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => handleTabChange('create')}
-                        className="bg-gradient-to-r from-secondary/90 to-primary/90 text-white p-4 rounded-full shadow-lg"
+                        className="relative bg-gradient-to-br from-green-500 to-blue-500 text-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-2xl border-2 border-white/20 backdrop-blur-sm overflow-hidden"
+                        style={{
+                            filter: "drop-shadow(0 8px 16px rgba(59, 130, 246, 0.2))"
+                        }}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                        </svg>
+                        {/* Button glow effect */}
+                        <motion.div
+                            className="absolute inset-0 bg-gradient-to-br from-blue-400 to-green-400 opacity-0"
+                            whileHover={{ opacity: 0.3 }}
+                            transition={{ duration: 0.3 }}
+                        />
+
+                        {/* Floating particles inside button */}
+                        {[...Array(3)].map((_, i) => (
+                            <motion.div
+                                key={i}
+                                className="absolute w-1 h-1 bg-white/40 rounded-full"
+                                style={{
+                                    left: `${20 + i * 20}%`,
+                                    top: `${15 + i * 15}%`,
+                                }}
+                                animate={{
+                                    y: [0, -10, 0],
+                                    opacity: [0.4, 0.8, 0.4],
+                                    scale: [1, 1.5, 1]
+                                }}
+                                transition={{
+                                    duration: 2 + i * 0.5,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                    delay: i * 0.3
+                                }}
+                            />
+                        ))}
+
+                        <motion.svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 md:h-6 md:w-6 relative z-10"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            whileHover={{ rotate: 90 }}
+                            transition={{ duration: 0.3 }}
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                        </motion.svg>
                     </motion.button>
+
+                    {/* Floating action button label */}
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1.5, duration: 0.4 }}
+                        className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap shadow-lg pointer-events-none"
+                    >
+                        Create Delivery
+                        <div className="absolute left-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-gray-800 border-t-4 border-b-4 border-t-transparent border-b-transparent" />
+                    </motion.div>
                 </motion.div>
             </div>
         </Layout>
