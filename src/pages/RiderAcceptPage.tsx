@@ -67,7 +67,6 @@ const RiderAcceptPage: React.FC = () => {
         setLoadingDelivery(true);
         try {
             const deliveryData = await getPublicDeliveryByTrackingId(tracking_id);
-            console.log('Fetched delivery data:', deliveryData);
 
             if (deliveryData) {
                 setDelivery(deliveryData);
