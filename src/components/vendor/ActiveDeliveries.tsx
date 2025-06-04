@@ -136,16 +136,21 @@ const ActiveDeliveries: React.FC = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // Memoize the effect to prevent dependency array size changes
+    const stableSearchTerm = searchTerm; // Always include even if empty
+    const stableStatusFilter = statusFilter; // Always include
+    const stableCurrentPage = currentPageState; // Always include
+
     useEffect(() => {
         const filters: DeliveryFilters = {
-            page: currentPageState,
+            page: stableCurrentPage,
             limit: 10,
-            delivery_status: statusFilter === 'all' ? undefined : statusFilter,
-            search: searchTerm.trim() || undefined,
+            delivery_status: stableStatusFilter === 'all' ? undefined : stableStatusFilter,
+            search: stableSearchTerm.trim() || undefined,
         };
 
         fetchDeliveries(filters);
-    }, [statusFilter, searchTerm, currentPageState]); // Removed fetchDeliveries to prevent infinite loops
+    }, [stableStatusFilter, stableSearchTerm, stableCurrentPage]);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
@@ -230,44 +235,93 @@ const ActiveDeliveries: React.FC = () => {
         }
     };
 
-    // Enhanced status styling
+    // Enhanced status styling consistent with RecentDeliveries
     const getEnhancedStatusStyling = (status: string) => {
         const statusMap = {
             'created': {
                 gradient: 'from-blue-500 to-indigo-600',
                 bgColor: 'bg-blue-50',
                 textColor: 'text-blue-700',
+                borderColor: 'border-blue-200',
+                glowColor: 'shadow-blue-500/20'
             },
             'assigned': {
                 gradient: 'from-purple-500 to-violet-600',
                 bgColor: 'bg-purple-50',
                 textColor: 'text-purple-700',
+                borderColor: 'border-purple-200',
+                glowColor: 'shadow-purple-500/20'
             },
             'accepted': {
                 gradient: 'from-cyan-500 to-blue-600',
                 bgColor: 'bg-cyan-50',
                 textColor: 'text-cyan-700',
+                borderColor: 'border-cyan-200',
+                glowColor: 'shadow-cyan-500/20'
             },
             'in_progress': {
                 gradient: 'from-orange-500 to-amber-600',
                 bgColor: 'bg-orange-50',
                 textColor: 'text-orange-700',
+                borderColor: 'border-orange-200',
+                glowColor: 'shadow-orange-500/20'
             },
             'completed': {
                 gradient: 'from-emerald-500 to-green-600',
                 bgColor: 'bg-emerald-50',
                 textColor: 'text-emerald-700',
+                borderColor: 'border-emerald-200',
+                glowColor: 'shadow-emerald-500/20'
             },
             'cancelled': {
                 gradient: 'from-red-500 to-rose-600',
                 bgColor: 'bg-red-50',
                 textColor: 'text-red-700',
+                borderColor: 'border-red-200',
+                glowColor: 'shadow-red-500/20'
             }
         };
         return statusMap[status as keyof typeof statusMap] || statusMap.created;
     };
 
-    // Render Table View with enhanced styling
+    // Status icons consistent with RecentDeliveries
+    const getStatusIcon = (status: string) => {
+        const iconMap = {
+            'created': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+            ),
+            'assigned': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+            ),
+            'accepted': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            ),
+            'in_progress': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            ),
+            'completed': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            ),
+            'cancelled': (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            )
+        };
+        return iconMap[status as keyof typeof iconMap] || null;
+    };
+
+    // Render Table View with enhanced glowing borders and consistent styling
     const renderTableView = () => {
         return (
             <motion.div
@@ -277,6 +331,7 @@ const ActiveDeliveries: React.FC = () => {
                 <Table>
                     <TableHeader>
                         <TableRow className="bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 border-emerald-200/30">
+                            <TableHead className="w-8 font-semibold text-emerald-700"></TableHead>
                             <TableHead className="w-8 font-semibold text-emerald-700"></TableHead>
                             <TableHead className="font-semibold text-emerald-700">Tracking ID</TableHead>
                             <TableHead className="font-semibold text-emerald-700">Status</TableHead>
@@ -288,7 +343,7 @@ const ActiveDeliveries: React.FC = () => {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        <AnimatePresence mode="sync">
+                        <AnimatePresence mode="wait">
                             {deliveries.map((delivery, index) => {
                                 const statusStyle = getEnhancedStatusStyling(delivery.status);
 
@@ -298,20 +353,24 @@ const ActiveDeliveries: React.FC = () => {
                                             variants={rowVariants}
                                             initial="hidden"
                                             animate="visible"
-                                            transition={{ delay: index * 0.05 }}
-                                            className="group cursor-pointer hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-green-50/30 transition-all duration-300"
+                                            transition={{ delay: index * 0.03 }}
+                                            className="group cursor-pointer border-l-4 border-transparent hover:border-emerald-400 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-green-50/30 hover:shadow-lg transition-all duration-300 relative before:absolute before:bottom-0 before:left-4 before:right-4 before:h-0.5 before:bg-gradient-to-r before:from-emerald-500 before:to-green-500 before:transform before:origin-left before:scale-x-0 hover:before:scale-x-100 before:transition-transform before:duration-500"
                                             onClick={() => toggleRowExpansion(delivery.id)}
-                                            whileHover={{ scale: 1.01 }}
+                                            whileHover={{
+                                                scale: 1.01,
+                                                x: 4,
+                                                boxShadow: "0 4px 20px rgba(16, 185, 129, 0.1)"
+                                            }}
                                         >
                                             <TableCell>
                                                 <motion.div
-                                                    whileHover={{ scale: 1.1, rotate: 180 }}
-                                                    transition={{ duration: 0.3 }}
+                                                    whileHover={{ scale: 1.1, rotate: 10 }}
+                                                    transition={{ duration: 0.2 }}
                                                 >
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="p-0 h-6 w-6 hover:bg-emerald-100"
+                                                        className="p-0 h-6 w-6 hover:bg-emerald-100 group-hover:scale-110 transition-transform duration-300"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             toggleRowExpansion(delivery.id);
@@ -321,7 +380,7 @@ const ActiveDeliveries: React.FC = () => {
                                                     </Button>
                                                 </motion.div>
                                             </TableCell>
-                                            <TableCell className="font-mono font-semibold text-gray-800">
+                                            <TableCell className="font-mono text-gray-800 group-hover:text-emerald-700 transition-colors duration-300">
                                                 {delivery.tracking_id}
                                             </TableCell>
                                             <TableCell>
@@ -329,23 +388,29 @@ const ActiveDeliveries: React.FC = () => {
                                                     whileHover={{ scale: 1.05 }}
                                                     transition={{ duration: 0.2 }}
                                                 >
-                                                    <Badge className={`${getStatusColor(delivery.status)} shadow-sm`}>
-                                                        <span className="flex items-center gap-1">
+                                                    <Badge className={`${getStatusColor(delivery.status)} relative overflow-hidden group-hover:shadow-md transition-shadow duration-300`}>
+                                                        <span className="flex items-center gap-1.5">
+                                                            {getStatusIcon(delivery.status)}
                                                             {getStatusText(delivery.status)}
                                                         </span>
+                                                        {/* Badge glow effect */}
+                                                        <motion.div
+                                                            className={`absolute inset-0 bg-gradient-to-r ${statusStyle.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`}
+                                                            initial={false}
+                                                        />
                                                     </Badge>
                                                 </motion.div>
                                             </TableCell>
-                                            <TableCell className="font-medium">{delivery.customer.name}</TableCell>
-                                            <TableCell className="font-medium">
+                                            <TableCell className="group-hover:text-emerald-700 transition-colors duration-300">{delivery.customer.name}</TableCell>
+                                            <TableCell className="group-hover:text-emerald-700 transition-colors duration-300">
                                                 {delivery.rider?.name || (
                                                     <span className="text-gray-400 italic">Not assigned</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="max-w-[150px] truncate" title={delivery.package.description}>
+                                            <TableCell className="max-w-[150px] truncate group-hover:text-emerald-700 transition-colors duration-300" title={delivery.package.description}>
                                                 {delivery.package.description}
                                             </TableCell>
-                                            <TableCell className="text-gray-600">
+                                            <TableCell className="text-gray-600 group-hover:text-emerald-600 transition-colors duration-300">
                                                 {formatDateTime(delivery.created_at)}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -358,7 +423,7 @@ const ActiveDeliveries: React.FC = () => {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
-                                                                className="h-8 w-8 p-0 hover:bg-emerald-100"
+                                                                className="h-8 w-8 p-0 hover:bg-emerald-100 group-hover:border group-hover:border-emerald-200 transition-all duration-300"
                                                                 disabled={isResending === delivery.tracking_id}
                                                             >
                                                                 {isResending === delivery.tracking_id ? (
@@ -416,8 +481,7 @@ const ActiveDeliveries: React.FC = () => {
                                                     animate={{ opacity: 1, height: "auto" }}
                                                     exit={{ opacity: 0, height: 0 }}
                                                     transition={{ duration: 0.3 }}
-                                                    className={`${statusStyle.bgColor} border-l-4`}
-                                                    style={{ borderLeftColor: statusStyle.gradient }}
+                                                    className={`${statusStyle.bgColor} border-l-4 ${statusStyle.borderColor}`}
                                                 >
                                                     <TableCell colSpan={8} className="p-0">
                                                         <motion.div
@@ -429,7 +493,7 @@ const ActiveDeliveries: React.FC = () => {
                                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                                                 {/* Enhanced Customer Details */}
                                                                 <motion.div
-                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50"
+                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-blue-200 transition-all duration-300"
                                                                     whileHover={{ scale: 1.02, y: -2 }}
                                                                     transition={{ duration: 0.2 }}
                                                                 >
@@ -443,15 +507,15 @@ const ActiveDeliveries: React.FC = () => {
                                                                     </h4>
                                                                     <div className="space-y-2">
                                                                         <div className="flex items-start gap-2">
-                                                                            <span className="text-gray-500 text-sm font-medium min-w-[60px]">Name:</span>
-                                                                            <span className="text-gray-800 font-medium">{delivery.customer.name}</span>
+                                                                            <span className="text-gray-500 text-sm min-w-[60px]">Name:</span>
+                                                                            <span className="text-gray-800">{delivery.customer.name}</span>
                                                                         </div>
                                                                         <div className="flex items-start gap-2">
-                                                                            <span className="text-gray-500 text-sm font-medium min-w-[60px]">Phone:</span>
+                                                                            <span className="text-gray-500 text-sm min-w-[60px]">Phone:</span>
                                                                             <span className="text-gray-800">{delivery.customer.phone_number}</span>
                                                                         </div>
                                                                         <div className="flex items-start gap-2">
-                                                                            <span className="text-gray-500 text-sm font-medium min-w-[60px]">Address:</span>
+                                                                            <span className="text-gray-500 text-sm min-w-[60px]">Address:</span>
                                                                             <span className="text-gray-800 text-sm leading-relaxed">{delivery.customer.address}</span>
                                                                         </div>
                                                                     </div>
@@ -459,7 +523,7 @@ const ActiveDeliveries: React.FC = () => {
 
                                                                 {/* Enhanced Rider Details */}
                                                                 <motion.div
-                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50"
+                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-green-200 transition-all duration-300"
                                                                     whileHover={{ scale: 1.02, y: -2 }}
                                                                     transition={{ duration: 0.2 }}
                                                                 >
@@ -472,11 +536,11 @@ const ActiveDeliveries: React.FC = () => {
                                                                     {delivery.rider ? (
                                                                         <div className="space-y-2">
                                                                             <div className="flex items-start gap-2">
-                                                                                <span className="text-gray-500 text-sm font-medium min-w-[60px]">Name:</span>
-                                                                                <span className="text-gray-800 font-medium">{delivery.rider.name}</span>
+                                                                                <span className="text-gray-500 text-sm min-w-[60px]">Name:</span>
+                                                                                <span className="text-gray-800">{delivery.rider.name}</span>
                                                                             </div>
                                                                             <div className="flex items-start gap-2">
-                                                                                <span className="text-gray-500 text-sm font-medium min-w-[60px]">Phone:</span>
+                                                                                <span className="text-gray-500 text-sm min-w-[60px]">Phone:</span>
                                                                                 <span className="text-gray-800">{delivery.rider.phone_number}</span>
                                                                             </div>
                                                                         </div>
@@ -489,7 +553,7 @@ const ActiveDeliveries: React.FC = () => {
 
                                                                 {/* Enhanced Package Details */}
                                                                 <motion.div
-                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50"
+                                                                    className="bg-white/80 backdrop-blur-sm p-4 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-orange-200 transition-all duration-300"
                                                                     whileHover={{ scale: 1.02, y: -2 }}
                                                                     transition={{ duration: 0.2 }}
                                                                 >
@@ -503,18 +567,18 @@ const ActiveDeliveries: React.FC = () => {
                                                                     </h4>
                                                                     <div className="space-y-2">
                                                                         <div className="flex items-start gap-2">
-                                                                            <span className="text-gray-500 text-sm font-medium min-w-[80px]">Description:</span>
-                                                                            <span className="text-gray-800 font-medium">{delivery.package.description}</span>
+                                                                            <span className="text-gray-500 text-sm min-w-[80px]">Description:</span>
+                                                                            <span className="text-gray-800">{delivery.package.description}</span>
                                                                         </div>
                                                                         {delivery.package.size && (
                                                                             <div className="flex items-start gap-2">
-                                                                                <span className="text-gray-500 text-sm font-medium min-w-[80px]">Size:</span>
+                                                                                <span className="text-gray-500 text-sm min-w-[80px]">Size:</span>
                                                                                 <span className="text-gray-800 capitalize">{delivery.package.size}</span>
                                                                             </div>
                                                                         )}
                                                                         {delivery.package.special_instructions && (
                                                                             <div className="flex items-start gap-2">
-                                                                                <span className="text-gray-500 text-sm font-medium min-w-[80px]">Notes:</span>
+                                                                                <span className="text-gray-500 text-sm min-w-[80px]">Notes:</span>
                                                                                 <span className="text-gray-800 text-sm leading-relaxed">{delivery.package.special_instructions}</span>
                                                                             </div>
                                                                         )}
@@ -536,14 +600,14 @@ const ActiveDeliveries: React.FC = () => {
         );
     };
 
-    // Render Card View with enhanced styling (keeping original functionality)
+    // Render Card View with enhanced glowing borders and consistent styling
     const renderCardView = () => {
         return (
             <motion.div
                 variants={tableVariants}
                 className="space-y-4"
             >
-                <AnimatePresence mode="sync">
+                <AnimatePresence mode="wait">
                     {deliveries.map((delivery, index) => {
                         const statusStyle = getEnhancedStatusStyling(delivery.status);
 
@@ -553,9 +617,13 @@ const ActiveDeliveries: React.FC = () => {
                                 variants={rowVariants}
                                 initial="hidden"
                                 animate="visible"
-                                transition={{ delay: index * 0.05 }}
-                                className="border border-gray-200/50 rounded-xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                                whileHover={{ scale: 1.02, y: -4 }}
+                                transition={{ delay: index * 0.03 }}
+                                className="border border-gray-200/50 rounded-xl overflow-hidden bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl hover:border-emerald-400 transition-all duration-300 relative group"
+                                whileHover={{
+                                    scale: 1.02,
+                                    y: -4,
+                                    boxShadow: "0 4px 20px rgba(16, 185, 129, 0.1)"
+                                }}
                             >
                                 <div
                                     className="p-4 flex items-center justify-between cursor-pointer hover:bg-gradient-to-r hover:from-emerald-50/50 hover:to-green-50/30 transition-all duration-300"
@@ -563,14 +631,14 @@ const ActiveDeliveries: React.FC = () => {
                                 >
                                     <div className="flex items-center gap-3">
                                         <motion.div
-                                            whileHover={{ rotate: 180 }}
-                                            transition={{ duration: 0.3 }}
+                                            whileHover={{ rotate: 10, scale: 1.1 }}
+                                            transition={{ duration: 0.2 }}
                                         >
                                             <ChevronDown className={`h-4 w-4 transition-transform duration-300 ${expandedRows.has(delivery.id) ? 'rotate-180' : ''}`} />
                                         </motion.div>
                                         <div>
-                                            <span className="font-mono font-semibold text-gray-800">{delivery.tracking_id}</span>
-                                            <span className="text-xs text-gray-500 block md:inline md:ml-2">{formatDateTime(delivery.created_at)}</span>
+                                            <span className="font-mono text-gray-800 group-hover:text-emerald-700 transition-colors duration-300">{delivery.tracking_id}</span>
+                                            <span className="text-xs text-gray-500 block md:inline md:ml-2 group-hover:text-emerald-600 transition-colors duration-300">{formatDateTime(delivery.created_at)}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -578,10 +646,16 @@ const ActiveDeliveries: React.FC = () => {
                                             whileHover={{ scale: 1.05 }}
                                             transition={{ duration: 0.2 }}
                                         >
-                                            <Badge className={`${getStatusColor(delivery.status)} shadow-sm`}>
-                                                <span className="flex items-center gap-1">
+                                            <Badge className={`${getStatusColor(delivery.status)} relative overflow-hidden group-hover:shadow-md transition-shadow duration-300`}>
+                                                <span className="flex items-center gap-1.5">
+                                                    {getStatusIcon(delivery.status)}
                                                     {getStatusText(delivery.status)}
                                                 </span>
+                                                {/* Badge glow effect */}
+                                                <motion.div
+                                                    className={`absolute inset-0 bg-gradient-to-r ${statusStyle.gradient} opacity-0 group-hover:opacity-20 transition-opacity duration-300`}
+                                                    initial={false}
+                                                />
                                             </Badge>
                                         </motion.div>
                                         <DropdownMenu>
@@ -593,7 +667,7 @@ const ActiveDeliveries: React.FC = () => {
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        className="h-8 w-8 p-0 hover:bg-emerald-100"
+                                                        className="h-8 w-8 p-0 hover:bg-emerald-100 hover:border hover:border-emerald-200 transition-all duration-300"
                                                         disabled={isResending === delivery.tracking_id}
                                                     >
                                                         {isResending === delivery.tracking_id ? (
@@ -662,7 +736,7 @@ const ActiveDeliveries: React.FC = () => {
                                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                     {/* Customer Section */}
                                                     <motion.div
-                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50"
+                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-blue-200 transition-all duration-300"
                                                         whileHover={{ scale: 1.02 }}
                                                         transition={{ duration: 0.2 }}
                                                     >
@@ -675,7 +749,7 @@ const ActiveDeliveries: React.FC = () => {
                                                             Customer
                                                         </h4>
                                                         <div className="space-y-1 text-sm">
-                                                            <div><span className="text-gray-500">Name:</span> <span className="font-medium">{delivery.customer.name}</span></div>
+                                                            <div><span className="text-gray-500">Name:</span> <span>{delivery.customer.name}</span></div>
                                                             <div><span className="text-gray-500">Phone:</span> <span>{delivery.customer.phone_number}</span></div>
                                                             <div><span className="text-gray-500">Address:</span> <span className="text-xs">{delivery.customer.address}</span></div>
                                                         </div>
@@ -683,7 +757,7 @@ const ActiveDeliveries: React.FC = () => {
 
                                                     {/* Rider Section */}
                                                     <motion.div
-                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50"
+                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-green-200 transition-all duration-300"
                                                         whileHover={{ scale: 1.02 }}
                                                         transition={{ duration: 0.2 }}
                                                     >
@@ -695,7 +769,7 @@ const ActiveDeliveries: React.FC = () => {
                                                         </h4>
                                                         {delivery.rider ? (
                                                             <div className="space-y-1 text-sm">
-                                                                <div><span className="text-gray-500">Name:</span> <span className="font-medium">{delivery.rider.name}</span></div>
+                                                                <div><span className="text-gray-500">Name:</span> <span>{delivery.rider.name}</span></div>
                                                                 <div><span className="text-gray-500">Phone:</span> <span>{delivery.rider.phone_number}</span></div>
                                                             </div>
                                                         ) : (
@@ -705,7 +779,7 @@ const ActiveDeliveries: React.FC = () => {
 
                                                     {/* Package Section */}
                                                     <motion.div
-                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50"
+                                                        className="bg-white/80 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-lg hover:border-orange-200 transition-all duration-300"
                                                         whileHover={{ scale: 1.02 }}
                                                         transition={{ duration: 0.2 }}
                                                     >
@@ -718,7 +792,7 @@ const ActiveDeliveries: React.FC = () => {
                                                             Package
                                                         </h4>
                                                         <div className="space-y-1 text-sm">
-                                                            <div><span className="text-gray-500">Item:</span> <span className="font-medium">{delivery.package.description}</span></div>
+                                                            <div><span className="text-gray-500">Item:</span> <span>{delivery.package.description}</span></div>
                                                             {delivery.package.size && (
                                                                 <div><span className="text-gray-500">Size:</span> <span className="capitalize">{delivery.package.size}</span></div>
                                                             )}
@@ -732,6 +806,12 @@ const ActiveDeliveries: React.FC = () => {
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
+
+                                {/* Enhanced hover effect line */}
+                                <motion.div
+                                    className="absolute bottom-0 left-4 right-4 h-0.5 bg-gradient-to-r from-emerald-500 to-green-500 transform origin-left scale-x-0 group-hover:scale-x-100 transition-transform duration-500"
+                                    initial={false}
+                                />
                             </motion.div>
                         );
                     })}
@@ -899,8 +979,8 @@ const ActiveDeliveries: React.FC = () => {
                         </motion.div>
 
                         {/* Enhanced Content */}
-                        <AnimatePresence mode="sync">
-                            {isLoading ? (
+                        <AnimatePresence mode="wait">
+                            {isLoading && deliveries.length === 0 ? (
                                 <motion.div
                                     key="loading"
                                     variants={loadingVariants}
@@ -962,13 +1042,32 @@ const ActiveDeliveries: React.FC = () => {
                                     <p className="text-gray-400 text-sm">Your deliveries will appear here once you create them</p>
                                 </motion.div>
                             ) : (
-                                <motion.div key="content">
+                                <motion.div key="content" className="relative">
+                                    {/* Loading overlay for pagination */}
+                                    {isLoading && deliveries.length > 0 && (
+                                        <motion.div
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center rounded-2xl"
+                                        >
+                                            <div className="flex items-center gap-3 bg-white/90 backdrop-blur-xl rounded-xl px-6 py-3 shadow-lg border border-gray-200/50">
+                                                <motion.div
+                                                    className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full"
+                                                    animate={{ rotate: 360 }}
+                                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                                />
+                                                <span className="text-emerald-600 font-medium text-sm">Loading...</span>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
                                     {viewMode === 'table' ? renderTableView() : renderCardView()}
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
-                        {/* Enhanced Pagination */}
+                        {/* Enhanced Pagination - Improved styling */}
                         {totalPages > 1 && (
                             <motion.div
                                 className="flex justify-center mt-8"
@@ -976,7 +1075,7 @@ const ActiveDeliveries: React.FC = () => {
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.5, duration: 0.5 }}
                             >
-                                <div className="flex items-center space-x-3 bg-white/80 backdrop-blur-sm rounded-xl p-2 shadow-lg border border-gray-200/50">
+                                <div className="flex items-center space-x-2 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-xl rounded-xl p-3 shadow-lg border border-gray-200/50">
                                     <motion.div
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
@@ -986,14 +1085,38 @@ const ActiveDeliveries: React.FC = () => {
                                             size="sm"
                                             onClick={() => handlePageChange(currentPageState - 1)}
                                             disabled={currentPageState === 1 || isLoading}
-                                            className="bg-white/80 hover:bg-emerald-50 border-gray-200/50"
+                                            className="bg-white/80 hover:bg-emerald-50 border-gray-200/50 hover:border-emerald-300 text-gray-700 hover:text-emerald-700 transition-all duration-300"
                                         >
+                                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                            </svg>
                                             Previous
                                         </Button>
                                     </motion.div>
-                                    <span className="text-sm font-medium text-gray-700 px-3">
-                                        Page {currentPageState} of {totalPages}
-                                    </span>
+
+                                    <div className="flex items-center space-x-1">
+                                        {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                                            const pageNumber = Math.max(1, Math.min(totalPages - 4, currentPageState - 2)) + i;
+                                            if (pageNumber > totalPages) return null;
+
+                                            return (
+                                                <motion.button
+                                                    key={pageNumber}
+                                                    onClick={() => handlePageChange(pageNumber)}
+                                                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-all duration-300 ${
+                                                        currentPageState === pageNumber
+                                                            ? 'bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow-lg'
+                                                            : 'bg-white/80 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 border border-gray-200/50'
+                                                    }`}
+                                                    whileHover={{ scale: 1.1 }}
+                                                    whileTap={{ scale: 0.9 }}
+                                                >
+                                                    {pageNumber}
+                                                </motion.button>
+                                            );
+                                        })}
+                                    </div>
+
                                     <motion.div
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
@@ -1003,9 +1126,12 @@ const ActiveDeliveries: React.FC = () => {
                                             size="sm"
                                             onClick={() => handlePageChange(currentPageState + 1)}
                                             disabled={currentPageState === totalPages || isLoading}
-                                            className="bg-white/80 hover:bg-emerald-50 border-gray-200/50"
+                                            className="bg-white/80 hover:bg-emerald-50 border-gray-200/50 hover:border-emerald-300 text-gray-700 hover:text-emerald-700 transition-all duration-300"
                                         >
                                             Next
+                                            <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                            </svg>
                                         </Button>
                                     </motion.div>
                                 </div>
@@ -1014,6 +1140,33 @@ const ActiveDeliveries: React.FC = () => {
                     </CardContent>
                 </Card>
             </motion.div>
+
+            {/* Enhanced Decorative Corner Elements */}
+            <motion.div
+                className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-br from-emerald-400/20 to-green-400/20 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                animate={{
+                    scale: [1, 1.2, 1],
+                    rotate: [0, 180, 360]
+                }}
+                transition={{
+                    duration: 8,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+            />
+
+            <motion.div
+                className="absolute -bottom-2 -left-2 w-4 h-4 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                animate={{
+                    scale: [1, 1.3, 1],
+                    rotate: [360, 180, 0]
+                }}
+                transition={{
+                    duration: 10,
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                }}
+            />
         </motion.div>
     );
 };
