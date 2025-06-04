@@ -284,43 +284,6 @@ const ActiveDeliveries: React.FC = () => {
         return statusMap[status as keyof typeof statusMap] || statusMap.created;
     };
 
-    // Status icons consistent with RecentDeliveries
-    const getStatusIcon = (status: string) => {
-        const iconMap = {
-            'created': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-            ),
-            'assigned': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-            ),
-            'accepted': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-            ),
-            'in_progress': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-            ),
-            'completed': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-            ),
-            'cancelled': (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            )
-        };
-        return iconMap[status as keyof typeof iconMap] || null;
-    };
-
     // Render Table View with enhanced glowing borders and consistent styling
     const renderTableView = () => {
         return (
@@ -390,7 +353,6 @@ const ActiveDeliveries: React.FC = () => {
                                                 >
                                                     <Badge className={`${getStatusColor(delivery.status)} relative overflow-hidden group-hover:shadow-md transition-shadow duration-300`}>
                                                         <span className="flex items-center gap-1.5">
-                                                            {getStatusIcon(delivery.status)}
                                                             {getStatusText(delivery.status)}
                                                         </span>
                                                         {/* Badge glow effect */}
@@ -648,7 +610,6 @@ const ActiveDeliveries: React.FC = () => {
                                         >
                                             <Badge className={`${getStatusColor(delivery.status)} relative overflow-hidden group-hover:shadow-md transition-shadow duration-300`}>
                                                 <span className="flex items-center gap-1.5">
-                                                    {getStatusIcon(delivery.status)}
                                                     {getStatusText(delivery.status)}
                                                 </span>
                                                 {/* Badge glow effect */}
