@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Location } from '@/types';
 
 // Fix for Leaflet marker icon issue
@@ -17,7 +18,80 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Custom rider icon with directional arrow
+// Enhanced animation variants matching the dashboard components
+const containerVariants = {
+    hidden: { opacity: 0, y: 60, scale: 0.95 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: {
+            duration: 0.8,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            staggerChildren: 0.1,
+            delayChildren: 0.2
+        }
+    }
+};
+
+const fadeInUp = {
+    hidden: { opacity: 0, y: 40, scale: 0.95 },
+    visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: {
+            duration: 0.7,
+            ease: [0.25, 0.46, 0.45, 0.94],
+            type: "spring",
+            stiffness: 100
+        }
+    }
+};
+
+const buttonVariants = {
+    hidden: { opacity: 0, scale: 0.8, rotate: -45 },
+    visible: {
+        opacity: 1,
+        scale: 1,
+        rotate: 0,
+        transition: {
+            duration: 0.6,
+            ease: "easeOut",
+            type: "spring",
+            stiffness: 120
+        }
+    }
+};
+
+const legendVariants = {
+    hidden: { opacity: 0, x: -50, scale: 0.9 },
+    visible: {
+        opacity: 1,
+        x: 0,
+        scale: 1,
+        transition: {
+            duration: 0.6,
+            ease: "easeOut",
+            type: "spring",
+            stiffness: 100
+        }
+    }
+};
+
+const glowEffect = {
+    initial: { boxShadow: "0 0 0 rgba(16, 185, 129, 0)" },
+    animate: {
+        boxShadow: [
+            "0 0 20px rgba(16, 185, 129, 0.3)",
+            "0 0 40px rgba(16, 185, 129, 0.1)",
+            "0 0 20px rgba(16, 185, 129, 0.3)"
+        ],
+        transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+    }
+};
+
+// Enhanced custom rider icon with better animations and styling
 const createRiderIcon = (heading: number = 0) => {
     return L.divIcon({
         className: 'custom-rider-marker',
@@ -25,96 +99,153 @@ const createRiderIcon = (heading: number = 0) => {
             <div class="rider-marker-container">
                 <div class="rider-marker-pulse"></div>
                 <div class="rider-marker-dot">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#10B981"/>
                     </svg>
                 </div>
                 <div class="direction-arrow" style="transform: rotate(${heading}deg)">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L22 12L12 22V16H2V8H12V2Z" fill="#0CAA41"/>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L22 12L12 22V16H2V8H12V2Z" fill="#10B981"/>
                     </svg>
+                </div>
+                <div class="rider-marker-sparkles">
+                    <div class="sparkle sparkle-1"></div>
+                    <div class="sparkle sparkle-2"></div>
+                    <div class="sparkle sparkle-3"></div>
                 </div>
             </div>
             <style>
                 .rider-marker-container {
                     position: relative;
-                    width: 40px;
-                    height: 40px;
+                    width: 48px;
+                    height: 48px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                 }
                 .rider-marker-pulse {
                     position: absolute;
-                    width: 40px;
-                    height: 40px;
+                    width: 48px;
+                    height: 48px;
                     border-radius: 50%;
-                    background-color: rgba(12, 170, 65, 0.3);
-                    animation: pulse-rider 2s infinite;
+                    background: linear-gradient(135deg, rgba(16, 185, 129, 0.4), rgba(5, 150, 105, 0.4));
+                    animation: pulse-rider 2.5s infinite ease-in-out;
+                    backdrop-filter: blur(8px);
                 }
                 .rider-marker-dot {
                     position: relative;
-                    width: 24px;
-                    height: 24px;
+                    width: 28px;
+                    height: 28px;
                     border-radius: 50%;
-                    background-color: white;
+                    background: linear-gradient(135deg, #ffffff, #f8fafc);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+                    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4), 0 2px 8px rgba(0, 0, 0, 0.1);
                     z-index: 10;
+                    border: 2px solid rgba(16, 185, 129, 0.3);
+                    backdrop-filter: blur(12px);
                 }
                 .direction-arrow {
                     position: absolute;
-                    top: -8px;
+                    top: -6px;
                     right: -2px;
-                    background-color: white;
+                    background: linear-gradient(135deg, #ffffff, #f8fafc);
                     border-radius: 50%;
-                    width: 16px;
-                    height: 16px;
+                    width: 20px;
+                    height: 20px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-                    transition: transform 0.3s ease;
+                    box-shadow: 0 2px 12px rgba(16, 185, 129, 0.3), 0 1px 4px rgba(0, 0, 0, 0.1);
+                    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
                     z-index: 11;
+                    border: 1px solid rgba(16, 185, 129, 0.2);
+                    backdrop-filter: blur(8px);
+                }
+                .rider-marker-sparkles {
+                    position: absolute;
+                    inset: 0;
+                    pointer-events: none;
+                }
+                .sparkle {
+                    position: absolute;
+                    width: 3px;
+                    height: 3px;
+                    background: linear-gradient(45deg, #10B981, #34D399);
+                    border-radius: 50%;
+                    opacity: 0;
+                    animation: sparkle 3s infinite ease-in-out;
+                }
+                .sparkle-1 {
+                    top: 8px;
+                    left: 8px;
+                    animation-delay: 0s;
+                }
+                .sparkle-2 {
+                    top: 8px;
+                    right: 8px;
+                    animation-delay: 1s;
+                }
+                .sparkle-3 {
+                    bottom: 8px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    animation-delay: 2s;
                 }
                 @keyframes pulse-rider {
                     0% {
-                        transform: scale(0.8);
-                        opacity: 0.8;
+                        transform: scale(0.85);
+                        opacity: 0.9;
                     }
                     50% {
-                        transform: scale(1.2);
-                        opacity: 0.4;
+                        transform: scale(1.15);
+                        opacity: 0.5;
                     }
                     100% {
-                        transform: scale(0.8);
-                        opacity: 0.8;
+                        transform: scale(0.85);
+                        opacity: 0.9;
+                    }
+                }
+                @keyframes sparkle {
+                    0%, 100% {
+                        opacity: 0;
+                        transform: scale(0);
+                    }
+                    50% {
+                        opacity: 1;
+                        transform: scale(1);
                     }
                 }
             </style>
         `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
+        iconSize: [48, 48],
+        iconAnchor: [24, 24],
     });
 };
 
-// Custom destination icon
+// Enhanced destination icon with better styling
 const createDestinationIcon = () => {
     return L.divIcon({
         className: 'custom-destination-marker',
         html: `
             <div class="destination-marker-container">
                 <div class="destination-marker-pin">
-                    <svg width="32" height="40" viewBox="0 0 24 29" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 0C18.627 0 24 5.373 24 12C24 18.627 12 29 12 29S0 18.627 0 12C0 5.373 5.373 0 12 0Z" fill="#FF9500"/>
-                        <circle cx="12" cy="12" r="6" fill="white"/>
-                        <svg x="8" y="8" width="8" height="8" viewBox="0 0 24 24" fill="#FF9500">
+                    <svg width="36" height="44" viewBox="0 0 24 29" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="destGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#FF6B35"/>
+                                <stop offset="100%" style="stop-color:#F7931E"/>
+                            </linearGradient>
+                        </defs>
+                        <path d="M12 0C18.627 0 24 5.373 24 12C24 18.627 12 29 12 29S0 18.627 0 12C0 5.373 5.373 0 12 0Z" fill="url(#destGradient)"/>
+                        <circle cx="12" cy="12" r="7" fill="white" opacity="0.95"/>
+                        <svg x="7" y="7" width="10" height="10" viewBox="0 0 24 24" fill="url(#destGradient)">
                             <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
                         </svg>
                     </svg>
                 </div>
+                <div class="destination-glow"></div>
             </div>
             <style>
                 .destination-marker-container {
@@ -124,28 +255,51 @@ const createDestinationIcon = () => {
                     align-items: center;
                 }
                 .destination-marker-pin {
-                    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-                    animation: bounce-destination 2s infinite;
+                    filter: drop-shadow(0 4px 12px rgba(255, 107, 53, 0.4));
+                    animation: bounce-destination 2.5s infinite ease-in-out;
+                    z-index: 10;
+                }
+                .destination-glow {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 60px;
+                    height: 60px;
+                    background: radial-gradient(circle, rgba(255, 107, 53, 0.3) 0%, transparent 70%);
+                    border-radius: 50%;
+                    animation: glow-pulse 2s infinite ease-in-out;
+                    z-index: 1;
                 }
                 @keyframes bounce-destination {
                     0%, 20%, 50%, 80%, 100% {
-                        transform: translateY(0);
+                        transform: translateY(0) scale(1);
                     }
                     40% {
-                        transform: translateY(-5px);
+                        transform: translateY(-8px) scale(1.05);
                     }
                     60% {
-                        transform: translateY(-3px);
+                        transform: translateY(-4px) scale(1.02);
+                    }
+                }
+                @keyframes glow-pulse {
+                    0%, 100% {
+                        opacity: 0.3;
+                        transform: translate(-50%, -50%) scale(1);
+                    }
+                    50% {
+                        opacity: 0.6;
+                        transform: translate(-50%, -50%) scale(1.2);
                     }
                 }
             </style>
         `,
-        iconSize: [60, 40],
-        iconAnchor: [30, 40],
+        iconSize: [72, 44],
+        iconAnchor: [36, 44],
     });
 };
 
-// Custom starting point icon
+// Enhanced starting point icon
 const createStartingPointIcon = () => {
     return L.divIcon({
         className: 'custom-start-marker',
@@ -153,50 +307,77 @@ const createStartingPointIcon = () => {
             <div class="start-marker-container">
                 <div class="start-marker-pulse"></div>
                 <div class="start-marker-dot"></div>
+                <div class="start-marker-ring"></div>
             </div>
             <style>
                 .start-marker-container {
                     position: relative;
-                    width: 18px;
-                    height: 18px;
+                    width: 24px;
+                    height: 24px;
                 }
                 .start-marker-dot {
                     position: absolute;
-                    top: 4px;
-                    left: 4px;
-                    width: 10px;
-                    height: 10px;
-                    background-color: #FF3B30;
+                    top: 6px;
+                    left: 6px;
+                    width: 12px;
+                    height: 12px;
+                    background: linear-gradient(135deg, #1A2C56, #3B4C74);
                     border-radius: 50%;
-                    z-index: 2;
+                    z-index: 3;
+                    box-shadow: 0 2px 8px rgba(26, 44, 86, 0.4);
                 }
                 .start-marker-pulse {
                     position: absolute;
+                    width: 24px;
+                    height: 24px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(26, 44, 86, 0.6) 0%, transparent 70%);
+                    animation: pulse-start 2s infinite ease-in-out;
+                    z-index: 1;
+                }
+                .start-marker-ring {
+                    position: absolute;
+                    top: 3px;
+                    left: 3px;
                     width: 18px;
                     height: 18px;
+                    border: 2px solid rgba(26, 44, 86, 0.4);
                     border-radius: 50%;
-                    background-color: rgba(255, 59, 48, 0.6);
-                    animation: pulse-start 1.5s infinite;
-                    z-index: 1;
+                    animation: ring-expand 3s infinite ease-in-out;
+                    z-index: 2;
                 }
                 @keyframes pulse-start {
                     0% {
-                        transform: scale(0.5);
-                        opacity: 0.8;
+                        transform: scale(0.7);
+                        opacity: 0.9;
                     }
                     50% {
-                        transform: scale(1);
+                        transform: scale(1.2);
                         opacity: 0.4;
                     }
                     100% {
-                        transform: scale(0.5);
+                        transform: scale(0.7);
+                        opacity: 0.9;
+                    }
+                }
+                @keyframes ring-expand {
+                    0% {
+                        transform: scale(1);
+                        opacity: 0.8;
+                    }
+                    50% {
+                        transform: scale(1.3);
+                        opacity: 0.3;
+                    }
+                    100% {
+                        transform: scale(1);
                         opacity: 0.8;
                     }
                 }
             </style>
         `,
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
     });
 };
 
@@ -381,38 +562,58 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 position={[riderLocation.latitude, riderLocation.longitude]}
                 icon={createRiderIcon(riderHeading)}
             >
-                <Popup closeButton={false} className="custom-popup">
-                    <div className="p-3 min-w-[180px]">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="#0CAA41"/>
+                <Popup closeButton={false} className="custom-popup enhanced-popup">
+                    <div className="p-4 min-w-[200px] bg-gradient-to-br from-emerald-50 to-green-50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <motion.div
+                                className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg"
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 5.5C14.8 4.1 13.6 3 12.1 3C10.6 3 9.4 4.1 9.2 5.5L3 7V9L9.2 7.5C9.2 7.7 9.2 7.8 9.2 8C9.2 8.3 9.3 8.6 9.4 8.9L12 22L14.6 8.9C14.7 8.6 14.8 8.3 14.8 8C14.8 7.8 14.8 7.7 14.8 7.5L21 9Z" fill="white"/>
                                 </svg>
-                            </div>
-                            <h3 className="font-semibold text-green-700">🚴 Your Location</h3>
+                            </motion.div>
+                            <h3 className="font-bold text-emerald-800 text-lg">🚴 Rider Location</h3>
                         </div>
 
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2">
-                                <span>📍</span>
-                                <span className="text-gray-600 font-mono text-xs">
+                        <div className="space-y-3 text-sm">
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 }}
+                            >
+                                <span className="text-lg">📍</span>
+                                <span className="text-gray-700 font-mono text-xs">
                                     {riderLocation.latitude.toFixed(6)}, {riderLocation.longitude.toFixed(6)}
                                 </span>
-                            </div>
+                            </motion.div>
 
                             {riderLocation.accuracy && (
-                                <div className="flex items-center gap-2">
-                                    <span>🎯</span>
-                                    <span className="text-gray-600">±{Math.round(riderLocation.accuracy)}m</span>
-                                </div>
+                                <motion.div
+                                    className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.2 }}
+                                >
+                                    <span className="text-lg">🎯</span>
+                                    <span className="text-gray-700 font-semibold">±{Math.round(riderLocation.accuracy)}m accuracy</span>
+                                </motion.div>
                             )}
 
-                            <div className="flex items-center gap-2">
-                                <span>🕒</span>
-                                <span className="text-gray-600">
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.3 }}
+                            >
+                                <span className="text-lg">🕒</span>
+                                <span className="text-gray-700 font-medium">
                                     {new Date(riderLocation.timestamp).toLocaleTimeString()}
                                 </span>
-                            </div>
+                            </motion.div>
                         </div>
                     </div>
                 </Popup>
@@ -428,10 +629,11 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 center={[riderLocation.latitude, riderLocation.longitude]}
                 radius={riderLocation.accuracy}
                 pathOptions={{
-                    color: '#0CAA41',
-                    fillColor: '#0CAA41',
-                    fillOpacity: 0.1,
+                    color: '#10B981',
+                    fillColor: '#10B981',
+                    fillOpacity: 0.15,
                     weight: 2,
+                    dashArray: '5, 5'
                 }}
             />
         );
@@ -445,34 +647,54 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 position={[destinationLocation.latitude, destinationLocation.longitude]}
                 icon={createDestinationIcon()}
             >
-                <Popup closeButton={false} className="custom-popup">
-                    <div className="p-3 min-w-[200px]">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="#FF9500"/>
+                <Popup closeButton={false} className="custom-popup enhanced-popup">
+                    <div className="p-4 min-w-[220px] bg-gradient-to-br from-orange-50 to-amber-50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <motion.div
+                                className="w-8 h-8 bg-gradient-to-br from-orange-500 to-amber-500 rounded-xl flex items-center justify-center shadow-lg"
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="white"/>
                                 </svg>
-                            </div>
-                            <h3 className="font-semibold text-orange-700">🏠 Destination</h3>
+                            </motion.div>
+                            <h3 className="font-bold text-orange-800 text-lg">🏠 Destination</h3>
                         </div>
 
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2">
-                                <span>👤</span>
-                                <span className="text-gray-700">{delivery.customer.name}</span>
-                            </div>
+                        <div className="space-y-3 text-sm">
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 }}
+                            >
+                                <span className="text-lg">👤</span>
+                                <span className="text-gray-800 font-semibold">{delivery.customer.name}</span>
+                            </motion.div>
 
-                            <div className="flex items-center gap-2">
-                                <span>📞</span>
-                                <span className="text-gray-600 font-mono text-xs">{delivery.customer.phone_number}</span>
-                            </div>
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.2 }}
+                            >
+                                <span className="text-lg">📞</span>
+                                <span className="text-gray-700 font-mono text-xs">{delivery.customer.phone_number}</span>
+                            </motion.div>
 
-                            <div className="flex items-start gap-2">
-                                <span>📍</span>
-                                <span className="text-gray-600 text-xs leading-relaxed">
+                            <motion.div
+                                className="flex items-start gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.3 }}
+                            >
+                                <span className="text-lg">📍</span>
+                                <span className="text-gray-700 text-xs leading-relaxed font-medium">
                                     {delivery.customer.address}
                                 </span>
-                            </div>
+                            </motion.div>
                         </div>
                     </div>
                 </Popup>
@@ -488,33 +710,48 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 position={[startingPoint.latitude, startingPoint.longitude]}
                 icon={createStartingPointIcon()}
             >
-                <Popup closeButton={false} className="custom-popup">
-                    <div className="p-3 min-w-[180px]">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="#1A2C56"/>
-                                    <path d="M2 17L12 22L22 17" fill="#1A2C56"/>
-                                    <path d="M2 12L12 17L22 12" fill="#1A2C56"/>
+                <Popup closeButton={false} className="custom-popup enhanced-popup">
+                    <div className="p-4 min-w-[200px] bg-gradient-to-br from-blue-50 to-indigo-50">
+                        <div className="flex items-center gap-3 mb-4">
+                            <motion.div
+                                className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-lg"
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ duration: 0.5, ease: "easeOut" }}
+                            >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="white"/>
+                                    <path d="M2 17L12 22L22 17" fill="white"/>
+                                    <path d="M2 12L12 17L22 12" fill="white"/>
                                 </svg>
-                            </div>
-                            <h3 className="font-semibold text-blue-700">🏁 Starting Point</h3>
+                            </motion.div>
+                            <h3 className="font-bold text-blue-800 text-lg">🏁 Starting Point</h3>
                         </div>
 
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center gap-2">
-                                <span>📍</span>
-                                <span className="text-gray-600 font-mono text-xs">
+                        <div className="space-y-3 text-sm">
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.1 }}
+                            >
+                                <span className="text-lg">📍</span>
+                                <span className="text-gray-700 font-mono text-xs">
                                     {startingPoint.latitude.toFixed(6)}, {startingPoint.longitude.toFixed(6)}
                                 </span>
-                            </div>
+                            </motion.div>
 
-                            <div className="flex items-center gap-2">
-                                <span>🕒</span>
-                                <span className="text-gray-600">
-                                    {new Date(startingPoint.timestamp).toLocaleTimeString()}
+                            <motion.div
+                                className="flex items-center gap-3 p-2 bg-white/70 rounded-lg backdrop-blur-sm"
+                                initial={{ opacity: 0, x: -20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: 0.2 }}
+                            >
+                                <span className="text-lg">🕒</span>
+                                <span className="text-gray-700 font-medium">
+                                    Started at {new Date(startingPoint.timestamp).toLocaleTimeString()}
                                 </span>
-                            </div>
+                            </motion.div>
                         </div>
                     </div>
                 </Popup>
@@ -529,23 +766,37 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
             <Polyline
                 positions={pathCoordinates}
                 pathOptions={{
-                    color: '#0CAA41',
-                    weight: 4,
-                    opacity: 0.8,
-                    dashArray: '5, 10',
+                    color: '#10B981',
+                    weight: 5,
+                    opacity: 0.9,
+                    dashArray: '10, 15',
                     lineCap: 'round',
-                    lineJoin: 'round'
+                    lineJoin: 'round',
+                    className: 'animated-path'
                 }}
             >
-                <Popup closeButton={false} className="custom-popup">
-                    <div className="p-2">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                            <span className="font-medium text-green-700">🚴 Rider's Trail</span>
+                <Popup closeButton={false} className="custom-popup enhanced-popup">
+                    <div className="p-3 bg-gradient-to-br from-emerald-50 to-green-50">
+                        <div className="flex items-center gap-3 mb-3">
+                            <motion.div
+                                className="w-6 h-6 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg flex items-center justify-center"
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <div className="w-2 h-2 bg-white rounded-full"></div>
+                            </motion.div>
+                            <span className="font-bold text-emerald-800">🚴 Rider's Trail</span>
                         </div>
-                        <div className="text-sm text-gray-600">
-                            <div>📍 {pathCoordinates.length} tracking points</div>
-                            <div>📏 Path shows rider's journey</div>
+                        <div className="text-sm text-gray-700 space-y-1">
+                            <div className="flex items-center gap-2">
+                                <span>📍</span>
+                                <span className="font-semibold">{pathCoordinates.length} tracking points</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span>📏</span>
+                                <span>Live journey path</span>
+                            </div>
                         </div>
                     </div>
                 </Popup>
@@ -554,141 +805,339 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
     }, [isTracking, pathCoordinates]);
 
     return (
-        <div style={{ height, width: '100%' }} className="relative">
-            <MapContainer
-                center={center}
-                zoom={13}
-                style={{ height: '100%', width: '100%', borderRadius: '0.5rem' }}
-                whenCreated={(map) => {
-                    mapRef.current = map;
-                }}
-            >
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-
-                {/* Path History Trail */}
-                {PathTrail}
-
-                {/* Rider location */}
-                {RiderMarker}
-                {AccuracyCircle}
-
-                {/* Destination location */}
-                {DestinationMarker}
-
-                {/* Starting point marker */}
-                {StartingPointMarker}
-
-                {/* Map controller for handling recentering */}
-                <MapController
-                    riderLocation={riderLocation}
-                    destinationLocation={destinationLocation}
-                    pathHistory={pathHistory}
-                    shouldRecenter={shouldRecenter}
-                    onRecenterComplete={handleRecenterComplete}
-                />
-            </MapContainer>
-
-            {/* Enhanced Map Controls - Bottom Right */}
-            <div className="absolute bottom-4 right-4 z-[1000] flex flex-col gap-2">
-                {/* Recenter Button */}
-                <button
-                    onClick={handleRecenter}
-                    className={`bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 border border-gray-200 hover:bg-white transition-all duration-200 ${
-                        shouldRecenter ? 'bg-blue-50 border-blue-300' : ''
-                    }`}
-                    title="Recenter map to show rider and destination"
-                    disabled={shouldRecenter}
-                >
-                    <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        className={`${shouldRecenter ? 'animate-spin text-blue-600' : 'text-gray-700'} transition-colors`}
-                    >
-                        <path
-                            d="M12 2L12 6M12 18L12 22M22 12L18 12M6 12L2 12M20.485 20.485L17.657 17.657M6.343 6.343L3.515 3.515M20.485 3.515L17.657 6.343M6.343 17.657L3.515 20.485"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                        />
-                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-                    </svg>
-                </button>
+        <motion.div
+            style={{ height, width: '100%' }}
+            className="relative overflow-hidden"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+        >
+            {/* Enhanced background with floating particles */}
+            <div className="absolute inset-0 -z-10">
+                {/* Floating particles around the map */}
+                {[...Array(8)].map((_, i) => (
+                    <motion.div
+                        key={i}
+                        className="absolute w-1 h-1 bg-gradient-to-r from-emerald-400 to-green-400 rounded-full opacity-20"
+                        style={{
+                            left: `${10 + i * 12}%`,
+                            top: `${8 + (i % 3) * 25}%`,
+                        }}
+                        animate={{
+                            y: [0, -25, 0],
+                            x: [0, 12, 0],
+                            opacity: [0.2, 0.6, 0.2],
+                            scale: [1, 1.5, 1]
+                        }}
+                        transition={{
+                            duration: 5 + i * 0.3,
+                            repeat: Infinity,
+                            ease: "easeInOut",
+                            delay: i * 0.6
+                        }}
+                    />
+                ))}
             </div>
 
-            {/* Collapsible Map Legend - Keep original */}
-            {(riderLocation || destinationLocation || pathHistory.length > 0) && (
-                <div className="absolute bottom-4 left-4 z-[1000]">
-                    {/* Toggle Button */}
-                    <button
-                        onClick={() => setIsLegendOpen(!isLegendOpen)}
-                        className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-2 mb-2 flex items-center gap-2 border border-gray-200 hover:bg-white transition-colors"
+            {/* Enhanced map container with glow effect */}
+            <motion.div
+                className="h-full w-full relative"
+                variants={glowEffect}
+                initial="initial"
+                animate="animate"
+                whileHover={{
+                    scale: 1.001,
+                    transition: { duration: 0.3, ease: "easeOut" }
+                }}
+            >
+                {/* Gradient border effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 rounded-2xl p-0.5 z-0">
+                    <div className="bg-white rounded-2xl h-full w-full" />
+                </div>
+
+                <div className="relative z-10 h-full w-full rounded-2xl overflow-hidden backdrop-blur-sm">
+                    <MapContainer
+                        center={center}
+                        zoom={13}
+                        style={{ height: '100%', width: '100%' }}
+                        whenCreated={(map) => {
+                            mapRef.current = map;
+                        }}
+                        className="rounded-2xl"
                     >
-                        <svg
+                        <TileLayer
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        />
+
+                        {/* Path History Trail */}
+                        {PathTrail}
+
+                        {/* Rider location */}
+                        {RiderMarker}
+                        {AccuracyCircle}
+
+                        {/* Destination location */}
+                        {DestinationMarker}
+
+                        {/* Starting point marker */}
+                        {StartingPointMarker}
+
+                        {/* Map controller for handling recentering */}
+                        <MapController
+                            riderLocation={riderLocation}
+                            destinationLocation={destinationLocation}
+                            pathHistory={pathHistory}
+                            shouldRecenter={shouldRecenter}
+                            onRecenterComplete={handleRecenterComplete}
+                        />
+                    </MapContainer>
+                </div>
+            </motion.div>
+
+            {/* Enhanced Map Controls - Bottom Right */}
+            <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-3">
+                {/* Recenter Button */}
+                <motion.div
+                    variants={buttonVariants}
+                    initial="hidden"
+                    animate="visible"
+                    transition={{ delay: 0.5 }}
+                >
+                    <motion.button
+                        onClick={handleRecenter}
+                        className={`bg-white/95 backdrop-blur-xl rounded-xl shadow-2xl p-4 border border-gray-200/50 hover:bg-white transition-all duration-300 group ${
+                            shouldRecenter ? 'bg-emerald-50 border-emerald-300 shadow-emerald-500/20' : 'hover:shadow-xl'
+                        }`}
+                        title="Recenter map to show rider and destination"
+                        disabled={shouldRecenter}
+                        whileHover={{
+                            scale: 1.05,
+                            y: -2,
+                            boxShadow: "0 20px 40px rgba(16, 185, 129, 0.15)"
+                        }}
+                        whileTap={{ scale: 0.95 }}
+                    >
+                        {/* Button glow effect */}
+                        <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            initial={false}
+                        />
+
+                        <motion.svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            xmlns="http://www.w3.org/2000/svg"
+                            className={`${shouldRecenter ? 'text-emerald-600' : 'text-gray-700 group-hover:text-emerald-600'} transition-colors duration-300 relative z-10`}
+                            animate={shouldRecenter ? { rotate: 360 } : {}}
+                            transition={{
+                                duration: shouldRecenter ? 1 : 0,
+                                repeat: shouldRecenter ? Infinity : 0,
+                                ease: "linear"
+                            }}
+                        >
+                            <path
+                                d="M12 2L12 6M12 18L12 22M22 12L18 12M6 12L2 12M20.485 20.485L17.657 17.657M6.343 6.343L3.515 3.515M20.485 3.515L17.657 6.343M6.343 17.657L3.515 20.485"
+                                stroke="currentColor"
+                                strokeWidth="2.5"
+                                strokeLinecap="round"
+                            />
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2.5" />
+                        </motion.svg>
+
+                        {/* Floating particles inside button */}
+                        {!shouldRecenter && [...Array(3)].map((_, i) => (
+                            <motion.div
+                                key={i}
+                                className="absolute w-1 h-1 bg-emerald-400/40 rounded-full opacity-0 group-hover:opacity-100"
+                                style={{
+                                    left: `${20 + i * 15}%`,
+                                    top: `${15 + i * 20}%`,
+                                }}
+                                animate={{
+                                    y: [0, -8, 0],
+                                    opacity: [0.4, 0.8, 0.4],
+                                    scale: [1, 1.3, 1]
+                                }}
+                                transition={{
+                                    duration: 1.5 + i * 0.3,
+                                    repeat: Infinity,
+                                    ease: "easeInOut",
+                                    delay: i * 0.2
+                                }}
+                            />
+                        ))}
+                    </motion.button>
+                </motion.div>
+            </div>
+
+            {/* Enhanced Collapsible Map Legend - Mobile Optimized */}
+            {(riderLocation || destinationLocation || pathHistory.length > 0) && (
+                <div className="absolute bottom-4 left-4 z-[1000] md:bottom-6 md:left-6">
+                    {/* Toggle Button */}
+                    <motion.button
+                        onClick={() => setIsLegendOpen(!isLegendOpen)}
+                        className="bg-white/95 backdrop-blur-xl rounded-lg shadow-2xl p-2 mb-2 flex items-center gap-2 border border-gray-200/50 hover:bg-white transition-all duration-300 group md:p-3 md:mb-3 md:gap-3 md:rounded-xl"
+                        variants={buttonVariants}
+                        initial="hidden"
+                        animate="visible"
+                        transition={{ delay: 0.7 }}
+                        whileHover={{
+                            scale: 1.02,
+                            y: -1,
+                            boxShadow: "0 15px 30px rgba(16, 185, 129, 0.1)"
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                    >
+                        {/* Button glow effect */}
+                        <motion.div
+                            className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-green-500/10 rounded-lg md:rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                            initial={false}
+                        />
+
+                        <motion.svg
                             width="16"
                             height="16"
                             viewBox="0 0 24 24"
                             fill="none"
                             xmlns="http://www.w3.org/2000/svg"
-                            className={`transition-transform ${isLegendOpen ? 'rotate-180' : ''}`}
+                            className={`transition-all duration-300 text-gray-700 group-hover:text-emerald-600 relative z-10 md:w-5 md:h-5 ${isLegendOpen ? 'rotate-180' : ''}`}
+                            animate={{ rotate: isLegendOpen ? 180 : 0 }}
+                            transition={{ duration: 0.3 }}
                         >
-                            <path d="M7 14L12 9L17 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        <span className="text-xs font-medium text-gray-700">Legend</span>
-                    </button>
+                            <path d="M7 14L12 9L17 14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </motion.svg>
+                        <span className="text-xs font-semibold text-gray-700 group-hover:text-emerald-700 transition-colors duration-300 relative z-10 md:text-sm">
+                            Legend
+                        </span>
+                    </motion.button>
 
-                    {/* Legend Content */}
-                    {isLegendOpen && (
-                        <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-lg p-3 text-xs space-y-2 border border-gray-200">
-                            <div className="font-medium text-gray-700 mb-2">Map Legend</div>
-                            {riderLocation && (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                                    </div>
-                                    <span className="text-gray-700">Rider (You)</span>
+                    {/* Legend Content - Mobile Optimized */}
+                    <AnimatePresence>
+                        {isLegendOpen && (
+                            <motion.div
+                                variants={legendVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="hidden"
+                                className="bg-white/95 backdrop-blur-xl rounded-lg shadow-2xl p-3 text-xs space-y-2 border border-gray-200/50 w-44 md:w-52 md:p-4 md:text-sm md:space-y-3 md:rounded-xl"
+                            >
+                                <div className="font-bold text-gray-800 mb-2 pb-1 border-b border-gray-200/50 flex items-center gap-1.5 md:mb-3 md:pb-2 md:gap-2">
+                                    <motion.div
+                                        className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-green-600 rounded md:w-4 md:h-4"
+                                        animate={{ rotate: [0, 360] }}
+                                        transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                    />
+                                    <span className="text-xs md:text-sm">Map Legend</span>
                                 </div>
-                            )}
-                            {destinationLocation && (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 bg-orange-500 rounded-sm flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                                    </div>
-                                    <span className="text-gray-700">Customer</span>
-                                </div>
-                            )}
-                            {startingPoint && pathHistory.length > 3 && (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                                    </div>
-                                    <span className="text-gray-700">Start Point</span>
-                                </div>
-                            )}
-                            {pathHistory.length > 0 && (
-                                <div className="flex items-center gap-2">
-                                    <div className="w-4 h-1 bg-green-500 border border-green-600" style={{borderStyle: 'dashed'}}></div>
-                                    <span className="text-gray-700">Trail ({pathHistory.length} points)</span>
-                                </div>
-                            )}
-                            <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                                💡 Tap markers for details
-                            </div>
-                        </div>
-                    )}
+
+                                {riderLocation && (
+                                    <motion.div
+                                        className="flex items-center gap-2 p-1.5 bg-emerald-50/50 rounded hover:bg-emerald-50 transition-colors duration-200 md:gap-3 md:p-2 md:rounded-lg"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.1 }}
+                                    >
+                                        <div className="w-3 h-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-full flex items-center justify-center relative md:w-4 md:h-4">
+                                            <div className="w-1 h-1 bg-white rounded-full md:w-1.5 md:h-1.5"></div>
+                                            <motion.div
+                                                className="absolute inset-0 border border-emerald-400 rounded-full md:border-2"
+                                                animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
+                                                transition={{ duration: 2, repeat: Infinity }}
+                                            />
+                                        </div>
+                                        <span className="text-gray-700 font-medium text-xs md:text-sm">Rider</span>
+                                    </motion.div>
+                                )}
+
+                                {destinationLocation && (
+                                    <motion.div
+                                        className="flex items-center gap-2 p-1.5 bg-orange-50/50 rounded hover:bg-orange-50 transition-colors duration-200 md:gap-3 md:p-2 md:rounded-lg"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.2 }}
+                                    >
+                                        <div className="w-3 h-3 bg-gradient-to-br from-orange-500 to-amber-500 rounded-sm flex items-center justify-center relative md:w-4 md:h-4">
+                                            <div className="w-1 h-1 bg-white rounded-full md:w-1.5 md:h-1.5"></div>
+                                            <motion.div
+                                                animate={{ y: [-1, 0, -1] }}
+                                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                                className="absolute -top-0.5 left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-orange-500 rounded-full md:-top-1 md:w-1 md:h-1.5"
+                                            />
+                                        </div>
+                                        <span className="text-gray-700 font-medium text-xs md:text-sm">Customer</span>
+                                    </motion.div>
+                                )}
+
+                                {startingPoint && pathHistory.length > 3 && (
+                                    <motion.div
+                                        className="flex items-center gap-2 p-1.5 bg-blue-50/50 rounded hover:bg-blue-50 transition-colors duration-200 md:gap-3 md:p-2 md:rounded-lg"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.3 }}
+                                    >
+                                        <div className="w-3 h-3 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-sm flex items-center justify-center relative md:w-4 md:h-4">
+                                            <div className="w-1 h-1 bg-white rounded-full md:w-1.5 md:h-1.5"></div>
+                                            <motion.div
+                                                className="absolute inset-0 border border-blue-400 rounded-sm"
+                                                animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0.8, 0.4] }}
+                                                transition={{ duration: 3, repeat: Infinity }}
+                                            />
+                                        </div>
+                                        <span className="text-gray-700 font-medium text-xs md:text-sm">Start</span>
+                                    </motion.div>
+                                )}
+
+                                {pathHistory.length > 0 && (
+                                    <motion.div
+                                        className="flex items-center gap-2 p-1.5 bg-emerald-50/50 rounded hover:bg-emerald-50 transition-colors duration-200 md:gap-3 md:p-2 md:rounded-lg"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ delay: 0.4 }}
+                                    >
+                                        <div className="relative">
+                                            <div className="w-3 h-0.5 bg-gradient-to-r from-emerald-500 to-green-600 rounded-full md:w-4 md:h-1" style={{borderStyle: 'dashed'}}></div>
+                                            <motion.div
+                                                className="absolute top-0 left-0 w-1 h-0.5 bg-emerald-300 rounded-full md:w-1.5 md:h-1"
+                                                animate={{ x: [0, 8, 0] }}
+                                                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                                            />
+                                        </div>
+                                        <span className="text-gray-700 font-medium text-xs md:text-sm">Trail ({pathHistory.length})</span>
+                                    </motion.div>
+                                )}
+
+                                <motion.div
+                                    className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200/50 flex items-center gap-1.5 md:mt-3 md:pt-3 md:gap-2"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.5 }}
+                                >
+                                    <motion.span
+                                        animate={{ scale: [1, 1.2, 1] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                        className="text-xs"
+                                    >
+                                        💡
+                                    </motion.span>
+                                    <span className="text-xs">Tap markers for info</span>
+                                </motion.div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             )}
 
-            {/* Custom styles for enhanced popups */}
+            {/* Enhanced custom styles for popups and animations */}
             <style jsx global>{`
                 .custom-popup .leaflet-popup-content-wrapper {
-                    border-radius: 12px;
+                    border-radius: 16px;
                     padding: 0;
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
                 }
                 .custom-popup .leaflet-popup-content {
                     margin: 0;
@@ -696,12 +1145,38 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
                 }
                 .custom-popup .leaflet-popup-tip {
                     background: white;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                 }
                 .leaflet-popup-close-button {
                     display: none !important;
                 }
+                .enhanced-popup .leaflet-popup-content-wrapper {
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(20px);
+                    border: 1px solid rgba(16, 185, 129, 0.2);
+                }
+                .animated-path {
+                    filter: drop-shadow(0 2px 4px rgba(16, 185, 129, 0.3));
+                }
+
+                /* Enhanced map container animations */
+                .leaflet-container {
+                    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+                }
+
+                /* Floating animation for map controls */
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-4px); }
+                }
+
+                /* Subtle pulse animation */
+                @keyframes subtle-pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.8; }
+                }
             `}</style>
-        </div>
+        </motion.div>
     );
 };
 
