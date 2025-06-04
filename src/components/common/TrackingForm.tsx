@@ -46,7 +46,7 @@ const TrackingForm: React.FC = () => {
     };
 
     // Sample tracking IDs for demonstration
-    const sampleTrackingIds = ['TRK123', 'PKG456', 'DEL789'];
+    const sampleTrackingIds = ['AMXHJK', 'LCAA30', 'TR0B749AO0'];
 
     const handleSampleClick = (sampleId: string) => {
         setTrackingId(sampleId);
