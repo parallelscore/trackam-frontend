@@ -17,7 +17,6 @@ import {
 import { useDelivery } from '../context/DeliveryContext';
 import { useRider } from '../context/RiderContext';
 
-
 const RiderAcceptPage: React.FC = () => {
     const { tracking_id } = useParams<{ tracking_id: string }>();
     const navigate = useNavigate();
@@ -39,7 +38,12 @@ const RiderAcceptPage: React.FC = () => {
     const [showLocationSettings, setShowLocationSettings] = useState(false);
     const [showImportantInfo, setShowImportantInfo] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    
+
+    // Status check flags
+    const [isCheckingStatus, setIsCheckingStatus] = useState(true);
+    const [shouldRedirect, setShouldRedirect] = useState(false);
+    const [redirectMessage, setRedirectMessage] = useState('');
+
     // Only detect platform once
     useEffect(() => {
         const detectPlatform = () => {
@@ -56,38 +60,93 @@ const RiderAcceptPage: React.FC = () => {
                 return 'your device';
             }
         };
-        
+
         setPlatformName(detectPlatform());
     }, []);
 
     // Memoize fetch delivery function to prevent unnecessary re-renders
     const fetchDelivery = useCallback(async () => {
         if (!tracking_id) return;
-        
+
         setLoadingDelivery(true);
+        setIsCheckingStatus(true);
+
         try {
             const deliveryData = await getPublicDeliveryByTrackingId(tracking_id);
 
             if (deliveryData) {
                 setDelivery(deliveryData);
-                // Check if already accepted
-                if (deliveryData.status === 'accepted' ||
-                    deliveryData.status === 'in_progress' ||
-                    deliveryData.status === 'completed') {
-                    setIsAccepted(true);
-                } else if (deliveryData.status === 'cancelled') {
-                    setIsDeclined(true);
+
+                // Check delivery status and handle routing
+                const status = deliveryData.status.toLowerCase();
+
+                switch (status) {
+                    case 'created':
+                        // This is the correct status for this page
+                        setIsCheckingStatus(false);
+                        break;
+
+                    case 'assigned':
+                        // Delivery is assigned - redirect to OTP verification in rider page
+                        setRedirectMessage('This delivery has been assigned. Redirecting to OTP verification...');
+                        setShouldRedirect(true);
+                        setTimeout(() => {
+                            navigate(`/rider/${tracking_id}`, {
+                                replace: true,
+                                state: {
+                                    from: 'accept-page',
+                                    reason: 'status-assigned'
+                                }
+                            });
+                        }, 2000);
+                        break;
+
+                    case 'accepted':
+                    case 'in_progress':
+                        // Delivery is already in progress - redirect to rider tracking page
+                        setRedirectMessage('This delivery is already in progress. Redirecting to tracking page...');
+                        setShouldRedirect(true);
+                        setTimeout(() => {
+                            navigate(`/rider/${tracking_id}`, {
+                                replace: true,
+                                state: {
+                                    from: 'accept-page',
+                                    reason: 'status-in-progress'
+                                }
+                            });
+                        }, 2000);
+                        break;
+
+                    case 'completed':
+                        // Delivery is completed
+                        setError('This delivery has already been completed.');
+                        setIsCheckingStatus(false);
+                        break;
+
+                    case 'cancelled':
+                        // Delivery is cancelled
+                        setError('This delivery has been cancelled.');
+                        setIsCheckingStatus(false);
+                        break;
+
+                    default:
+                        // Unknown status
+                        setError(`Delivery has an unknown status: ${status}`);
+                        setIsCheckingStatus(false);
+                        break;
                 }
             } else {
                 setError('Delivery not found');
+                setIsCheckingStatus(false);
             }
         } catch (err) {
             console.error('Error fetching delivery:', err);
             setError('Failed to load delivery information');
+            setIsCheckingStatus(false);
         } finally {
             setLoadingDelivery(false);
         }
-    }, [tracking_id]);
+    }, [tracking_id, navigate]);
 
     // Fetch data only once on mount
     useEffect(() => {
@@ -214,7 +273,7 @@ const RiderAcceptPage: React.FC = () => {
         setShowImportantInfo(prev => !prev);
     }, []);
 
-    // Memoize the modal to prevent re-renders
+    // Important Info Modal component (same as before)
     const ImportantInfoModal = useMemo(() => () => (
         <AnimatePresence>
             {showImportantInfo && (
@@ -297,23 +356,30 @@ const RiderAcceptPage: React.FC = () => {
     ), [showImportantInfo]);
 
     // Combined loading state from both sources
-    const isPageLoading = loadingDelivery || contextIsLoading;
+    const isPageLoading = loadingDelivery || contextIsLoading || isCheckingStatus;
 
-    if (isPageLoading) {
+    // Show loading while checking status or redirecting
+    if (isPageLoading || shouldRedirect) {
         return (
             <Layout>
                 <div className="min-h-screen bg-gradient-to-br from-white via-gray-50/50 to-slate-50/30">
                     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                         <div className="text-center mb-8">
-                            <h1 className="text-3xl font-bold text-gray-900 mb-3">Delivery Assignment</h1>
-                            <p className="text-gray-600 text-lg">Loading delivery information...</p>
+                            <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                                {shouldRedirect ? 'Redirecting...' : 'Delivery Assignment'}
+                            </h1>
+                            <p className="text-gray-600 text-lg">
+                                {shouldRedirect ? redirectMessage : 'Loading delivery information...'}
+                            </p>
                         </div>
 
                         <Card className="bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl">
                             <CardContent className="p-8">
                                 <div className="flex flex-col items-center justify-center h-32">
-                                    <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                                    <p className="text-gray-600 mt-4 font-medium">Please wait...</p>
+                                    <div className={`w-12 h-12 border-4 ${shouldRedirect ? 'border-blue-500' : 'border-blue-500'} border-t-transparent rounded-full animate-spin`}></div>
+                                    <p className="text-gray-600 mt-4 font-medium">
+                                        {shouldRedirect ? 'Please wait...' : 'Please wait...'}
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -343,7 +409,12 @@ const RiderAcceptPage: React.FC = () => {
                                     {error || 'Delivery not found'}
                                 </h2>
                                 <p className="text-gray-600 mb-6">
-                                    We couldn't load the delivery information. Please try again.
+                                    {error === 'This delivery has already been completed.' ?
+                                        'This delivery has been marked as completed.' :
+                                        error === 'This delivery has been cancelled.' ?
+                                            'This delivery has been cancelled and is no longer available.' :
+                                            'We couldn\'t load the delivery information. Please try again.'
+                                    }
                                 </p>
                                 <Button
                                     onClick={() => window.history.back()}
@@ -395,7 +466,47 @@ const RiderAcceptPage: React.FC = () => {
         );
     }
 
-    // Main content - simplified to ensure rendering
+    // Only show the acceptance page if delivery status is 'created'
+    if (delivery.status.toLowerCase() !== 'created') {
+        return (
+            <Layout>
+                <div className="min-h-screen bg-gradient-to-br from-white via-gray-50/50 to-amber-50/30">
+                    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-gray-900">Delivery Status Notice</h1>
+                        </div>
+
+                        <Card className="bg-white/90 backdrop-blur-xl border border-amber-200/60 shadow-xl">
+                            <CardContent className="p-8 text-center">
+                                <div className="text-amber-500 mb-6">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <h2 className="text-xl font-semibold text-gray-900 mb-3">
+                                    Delivery Cannot Be Accepted
+                                </h2>
+                                <p className="text-gray-600 mb-4">
+                                    This delivery has a status of <Badge className={getStatusColor(delivery.status)}>{getStatusText(delivery.status)}</Badge> and cannot be accepted at this time.
+                                </p>
+                                <p className="text-gray-600 mb-6">
+                                    Only deliveries with "Created" status can be accepted through this page.
+                                </p>
+                                <Button
+                                    onClick={() => navigate('/')}
+                                    className="bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white font-medium px-6 py-3 rounded-lg shadow-lg transition-all duration-300"
+                                >
+                                    Return Home
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                </div>
+            </Layout>
+        );
+    }
+
+    // Main content - only render for 'created' status deliveries
     return (
         <Layout>
             <ImportantInfoModal />
@@ -484,7 +595,7 @@ const RiderAcceptPage: React.FC = () => {
                     </div>
                 )}
 
-                {/* Package and Customer Information Grid - No animations */}
+                {/* Package and Customer Information Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                     {/* Package Information */}
                     <Card className="bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl overflow-hidden">
