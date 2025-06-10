@@ -97,9 +97,6 @@ const VendorDashboard: React.FC = () => {
     // InView hooks for animations
     const headerInView = useInView(headerRef, { once: true, margin: "-100px" });
 
-    // Get current path to determine if we're already on create delivery page
-    const isCreateDeliveryPage = location.pathname.includes('/vendor') && activeTab === 'create';
-
     // Check authentication
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
@@ -121,6 +118,43 @@ const VendorDashboard: React.FC = () => {
     // Handle tab change with animation
     const handleTabChange = (tab: 'overview' | 'deliveries' | 'create') => {
         setActiveTab(tab);
+    };
+
+    // Calculate the position and width for the active tab indicator
+    const getTabIndicatorStyle = () => {
+        const baseStyle = {
+            position: 'absolute' as const,
+            insetY: '0.5rem',
+            height: 'calc(100% - 1rem)',
+            background: 'linear-gradient(to right, rgb(34, 197, 94), rgb(16, 185, 129))',
+            borderRadius: '0.75rem',
+            boxShadow: '0 10px 15px -3px rgba(34, 197, 94, 0.2)',
+            transition: 'all 300ms cubic-bezier(0.4, 0, 0.2, 1)',
+            zIndex: 1
+        };
+
+        switch (activeTab) {
+            case 'overview':
+                return {
+                    ...baseStyle,
+                    left: '0.5rem',
+                    width: 'calc(33.333% - 1rem)'
+                };
+            case 'deliveries':
+                return {
+                    ...baseStyle,
+                    left: 'calc(33.333% + 0.5rem)',
+                    width: 'calc(33.333% - 1rem)'
+                };
+            case 'create':
+                return {
+                    ...baseStyle,
+                    left: 'calc(66.666% + 0.5rem)',
+                    width: 'calc(33.333% - 1rem)'
+                };
+            default:
+                return baseStyle;
+        }
     };
 
     return (
@@ -374,8 +408,8 @@ const VendorDashboard: React.FC = () => {
                                     </motion.p>
                                 </motion.div>
 
-                                {/* Enhanced CTA button with better animations */}
-                                {!isCreateDeliveryPage && (
+                                {/* Enhanced CTA button with better animations - only show if not on create tab */}
+                                {activeTab !== 'create' && (
                                     <motion.div variants={slideInRight} className="mt-6 md:mt-0">
                                         <motion.div
                                             whileHover={{
@@ -418,7 +452,7 @@ const VendorDashboard: React.FC = () => {
                     </motion.div>
                 </motion.div>
 
-                {/* Enhanced Navigation with warmer colors and better animations */}
+                {/* Fixed Navigation with proper tab indicators */}
                 <motion.div
                     className="mb-8"
                     initial={{ opacity: 0, y: 30 }}
@@ -427,84 +461,115 @@ const VendorDashboard: React.FC = () => {
                 >
                     <div className="relative">
                         <motion.div
-                            className="flex flex-wrap bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl p-2 border border-emerald-100/60"
+                            className="relative flex bg-white/85 backdrop-blur-xl rounded-2xl shadow-xl p-2 border border-emerald-100/60"
                             whileHover={{ boxShadow: "0 20px 40px rgba(16, 185, 129, 0.1)" }}
                             transition={{ duration: 0.3 }}
                         >
-                            {/* Active tab indicator - fixed positioning */}
+                            {/* Fixed active tab indicator */}
                             <motion.div
-                                className="absolute inset-y-2 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl shadow-lg"
+                                style={getTabIndicatorStyle()}
                                 layout
                                 initial={false}
-                                animate={{
-                                    x: activeTab === 'overview' ? '0.5rem' :
-                                        activeTab === 'deliveries' ? 'calc(33.333% + 0.5rem)' :
-                                            'calc(66.666% + 0.5rem)',
-                                    width: 'calc(33.333% - 1rem)'
-                                }}
-                                transition={{ type: "spring", stiffness: 400, damping: 40 }}
                             />
 
-                            {(['overview', 'deliveries', 'create'] as const).map((tab) => {
-                                const icons = {
-                                    overview: (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
-                                            <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
-                                        </svg>
-                                    ),
-                                    deliveries: (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
-                                            <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
-                                        </svg>
-                                    ),
-                                    create: (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                                        </svg>
-                                    )
-                                };
-
-                                const labels = {
-                                    overview: 'Overview',
-                                    deliveries: 'All Deliveries',
-                                    create: 'Create Delivery'
-                                };
-
-                                return (
-                                    <motion.div
-                                        key={tab}
-                                        className="flex-1 relative z-10"
-                                        whileHover={{ scale: 1.02 }}
-                                        whileTap={{ scale: 0.98 }}
+                            {/* Tab buttons with proper structure */}
+                            <motion.div
+                                className="flex-1 relative z-10"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    className={`w-full py-4 px-4 ${
+                                        activeTab === 'overview'
+                                            ? 'text-white font-semibold'
+                                            : 'text-gray-600 hover:text-emerald-600 font-medium'
+                                    } rounded-xl transition-all duration-300 border-0 bg-transparent`}
+                                    onClick={() => handleTabChange('overview')}
+                                >
+                                    <motion.span
+                                        className="flex items-center gap-2"
+                                        animate={activeTab === 'overview' ? { scale: 1.05 } : { scale: 1 }}
+                                        transition={{ duration: 0.2 }}
                                     >
-                                        <Button
-                                            variant="ghost"
-                                            className={`w-full py-4 px-4 ${
-                                                activeTab === tab
-                                                    ? 'text-white font-semibold'
-                                                    : 'text-gray-600 hover:text-emerald-600 font-medium'
-                                            } rounded-xl transition-all duration-300 border-0 bg-transparent`}
-                                            onClick={() => handleTabChange(tab)}
+                                        <motion.span
+                                            animate={activeTab === 'overview' ? { rotate: [0, 10, 0] } : {}}
+                                            transition={{ duration: 0.5 }}
                                         >
-                                            <motion.span
-                                                className="flex items-center gap-2"
-                                                animate={activeTab === tab ? { scale: 1.05 } : { scale: 1 }}
-                                                transition={{ duration: 0.2 }}
-                                            >
-                                                <motion.span
-                                                    animate={activeTab === tab ? { rotate: [0, 10, 0] } : {}}
-                                                    transition={{ duration: 0.5 }}
-                                                >
-                                                    {icons[tab]}
-                                                </motion.span>
-                                                <span className="hidden sm:inline">{labels[tab]}</span>
-                                            </motion.span>
-                                        </Button>
-                                    </motion.div>
-                                );
-                            })}
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                                                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                                            </svg>
+                                        </motion.span>
+                                        <span className="hidden sm:inline">Overview</span>
+                                    </motion.span>
+                                </Button>
+                            </motion.div>
+
+                            <motion.div
+                                className="flex-1 relative z-10"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    className={`w-full py-4 px-4 ${
+                                        activeTab === 'deliveries'
+                                            ? 'text-white font-semibold'
+                                            : 'text-gray-600 hover:text-emerald-600 font-medium'
+                                    } rounded-xl transition-all duration-300 border-0 bg-transparent`}
+                                    onClick={() => handleTabChange('deliveries')}
+                                >
+                                    <motion.span
+                                        className="flex items-center gap-2"
+                                        animate={activeTab === 'deliveries' ? { scale: 1.05 } : { scale: 1 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <motion.span
+                                            animate={activeTab === 'deliveries' ? { rotate: [0, 10, 0] } : {}}
+                                            transition={{ duration: 0.5 }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M8 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zM15 16.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+                                                <path d="M3 4a1 1 0 00-1 1v10a1 1 0 001 1h1.05a2.5 2.5 0 014.9 0H10a1 1 0 001-1V5a1 1 0 00-1-1H3zM14 7a1 1 0 00-1 1v6.05A2.5 2.5 0 0115.95 16H17a1 1 0 001-1v-5a1 1 0 00-.293-.707l-2-2A1 1 0 0015 7h-1z" />
+                                            </svg>
+                                        </motion.span>
+                                        <span className="hidden sm:inline">All Deliveries</span>
+                                    </motion.span>
+                                </Button>
+                            </motion.div>
+
+                            <motion.div
+                                className="flex-1 relative z-10"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <Button
+                                    variant="ghost"
+                                    className={`w-full py-4 px-4 ${
+                                        activeTab === 'create'
+                                            ? 'text-white font-semibold'
+                                            : 'text-gray-600 hover:text-emerald-600 font-medium'
+                                    } rounded-xl transition-all duration-300 border-0 bg-transparent`}
+                                    onClick={() => handleTabChange('create')}
+                                >
+                                    <motion.span
+                                        className="flex items-center gap-2"
+                                        animate={activeTab === 'create' ? { scale: 1.05 } : { scale: 1 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <motion.span
+                                            animate={activeTab === 'create' ? { rotate: [0, 10, 0] } : {}}
+                                            transition={{ duration: 0.5 }}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                            </svg>
+                                        </motion.span>
+                                        <span className="hidden sm:inline">Create Delivery</span>
+                                    </motion.span>
+                                </Button>
+                            </motion.div>
                         </motion.div>
                     </div>
                 </motion.div>
@@ -569,7 +634,7 @@ const VendorDashboard: React.FC = () => {
                                 </motion.div>
 
                             </motion.div>
-                            )}
+                        )}
 
                         {activeTab === 'deliveries' && (
                             <ActiveDeliveries />
@@ -581,80 +646,83 @@ const VendorDashboard: React.FC = () => {
                     </motion.div>
                 </AnimatePresence>
 
-                {/* Enhanced Floating Action Button with warmer colors and better animations */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0, rotate: -180 }}
-                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                    transition={{ delay: 1.2, duration: 0.6, ease: "easeOut" }}
-                    className="fixed bottom-8 right-8 z-50 md:hidden"
-                >
-                    <motion.button
-                        whileHover={{
-                            scale: 1.1,
-                            boxShadow: "0 15px 30px rgba(16, 185, 129, 0.25)",
-                            y: -3
-                        }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => handleTabChange('create')}
-                        className="relative bg-gradient-to-br from-green-500 to-emerald-500 text-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-2xl border-2 border-white/20 backdrop-blur-sm overflow-hidden"
-                        style={{
-                            filter: "drop-shadow(0 8px 16px rgba(16, 185, 129, 0.2))"
-                        }}
-                    >
-                        {/* Button glow effect */}
-                        <motion.div
-                            className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-400 opacity-0"
-                            whileHover={{ opacity: 0.3 }}
-                            transition={{ duration: 0.3 }}
-                        />
-
-                        {/* Floating particles inside button */}
-                        {[...Array(3)].map((_, i) => (
-                            <motion.div
-                                key={i}
-                                className="absolute w-1 h-1 bg-white/40 rounded-full"
-                                style={{
-                                    left: `${20 + i * 20}%`,
-                                    top: `${15 + i * 15}%`,
-                                }}
-                                animate={{
-                                    y: [0, -10, 0],
-                                    opacity: [0.4, 0.8, 0.4],
-                                    scale: [1, 1.5, 1]
-                                }}
-                                transition={{
-                                    duration: 2 + i * 0.5,
-                                    repeat: Infinity,
-                                    ease: "easeInOut",
-                                    delay: i * 0.3
-                                }}
-                            />
-                        ))}
-
-                        <motion.svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-5 w-5 md:h-6 md:w-6 relative z-10"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            whileHover={{ rotate: 90 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                        </motion.svg>
-                    </motion.button>
-
-                    {/* Floating action button label */}
+                {/* Enhanced Floating Action Button - Fixed to only show when NOT on create tab and on mobile */}
+                {activeTab !== 'create' && (
                     <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 1.5, duration: 0.4 }}
-                        className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap shadow-lg pointer-events-none"
+                        initial={{ opacity: 0, scale: 0, rotate: -180 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0, rotate: 180 }}
+                        transition={{ delay: 1.2, duration: 0.6, ease: "easeOut" }}
+                        className="fixed bottom-8 right-8 z-50 md:hidden"
                     >
-                        Create Delivery
-                        <div className="absolute left-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-gray-800 border-t-4 border-b-4 border-t-transparent border-b-transparent" />
+                        <motion.button
+                            whileHover={{
+                                scale: 1.1,
+                                boxShadow: "0 15px 30px rgba(16, 185, 129, 0.25)",
+                                y: -3
+                            }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => handleTabChange('create')}
+                            className="relative bg-gradient-to-br from-green-500 to-emerald-500 text-white p-3 md:p-4 rounded-xl md:rounded-2xl shadow-2xl border-2 border-white/20 backdrop-blur-sm overflow-hidden"
+                            style={{
+                                filter: "drop-shadow(0 8px 16px rgba(16, 185, 129, 0.2))"
+                            }}
+                        >
+                            {/* Button glow effect */}
+                            <motion.div
+                                className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-400 opacity-0"
+                                whileHover={{ opacity: 0.3 }}
+                                transition={{ duration: 0.3 }}
+                            />
+
+                            {/* Floating particles inside button */}
+                            {[...Array(3)].map((_, i) => (
+                                <motion.div
+                                    key={i}
+                                    className="absolute w-1 h-1 bg-white/40 rounded-full"
+                                    style={{
+                                        left: `${20 + i * 20}%`,
+                                        top: `${15 + i * 15}%`,
+                                    }}
+                                    animate={{
+                                        y: [0, -10, 0],
+                                        opacity: [0.4, 0.8, 0.4],
+                                        scale: [1, 1.5, 1]
+                                    }}
+                                    transition={{
+                                        duration: 2 + i * 0.5,
+                                        repeat: Infinity,
+                                        ease: "easeInOut",
+                                        delay: i * 0.3
+                                    }}
+                                />
+                            ))}
+
+                            <motion.svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5 md:h-6 md:w-6 relative z-10"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                whileHover={{ rotate: 90 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                            </motion.svg>
+                        </motion.button>
+
+                        {/* Floating action button label */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 1.5, duration: 0.4 }}
+                            className="absolute right-full top-1/2 transform -translate-y-1/2 mr-4 bg-gray-800 text-white px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap shadow-lg pointer-events-none"
+                        >
+                            Create Delivery
+                            <div className="absolute left-full top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-gray-800 border-t-4 border-b-4 border-t-transparent border-b-transparent" />
+                        </motion.div>
                     </motion.div>
-                </motion.div>
+                )}
             </div>
         </Layout>
     );
