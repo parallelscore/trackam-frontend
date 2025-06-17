@@ -112,6 +112,7 @@ const RiderCompletePage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [completeError, setCompleteError] = useState<string | null>(null);
+    const [hasFetched, setHasFetched] = useState(false);
 
     // Animation refs
     const headerRef = useRef(null);
@@ -135,6 +136,7 @@ const RiderCompletePage: React.FC = () => {
             } catch (err) {
                 console.error('Error fetching delivery:', err);
             }
+            setHasFetched(true);
         };
 
         fetchDelivery();
@@ -182,7 +184,8 @@ const RiderCompletePage: React.FC = () => {
         setShowConfirmation(false);
     };
 
-    if (isLoading && !delivery) {
+    if (!hasFetched) {
+        // Loading state until fetch is completed
         return (
             <Layout>
                 <div className="absolute inset-0 -z-10 overflow-hidden">
@@ -322,7 +325,8 @@ const RiderCompletePage: React.FC = () => {
         );
     }
 
-    if (error || !delivery) {
+    if (!delivery) {
+        // Render error UI only after fetch attempt completed and delivery is missing
         return (
             <Layout>
                 <div className="absolute inset-0 -z-10 overflow-hidden">
