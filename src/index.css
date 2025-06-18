@@ -376,3 +376,66 @@ footer {
 .non-home-page .content-wrapper {
   padding-bottom: 3rem;
 }
+
+/* Ensure all pages fill minimum height */
+.page-container {
+  min-height: calc(100vh - 8rem); /* 100vh minus navbar and minimal footer */
+}
+
+.page-container.with-full-footer {
+  min-height: calc(100vh - 20rem); /* Account for full footer */
+}
+
+/* Error pages and short content pages */
+.error-page-container {
+  min-height: calc(100vh - 8rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Center content vertically for short pages */
+.center-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100vh - 10rem);
+}
+
+/* Specific fix for mobile devices */
+@media (max-width: 768px) {
+  .page-container {
+    min-height: calc(100vh - 6rem);
+  }
+
+  .error-page-container {
+    min-height: calc(100vh - 6rem);
+  }
+
+  .center-content {
+    min-height: calc(100vh - 8rem);
+  }
+}
+
+/* Fix for iOS Safari viewport issues */
+@supports (-webkit-touch-callout: none) {
+  .page-container {
+    min-height: calc(100vh - 8rem);
+    min-height: calc(var(--vh, 1vh) * 100 - 8rem);
+  }
+}
+
+/* Ensure footer sticks to bottom */
+.layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+}
+
+.footer-wrapper {
+  margin-top: auto;
+}
