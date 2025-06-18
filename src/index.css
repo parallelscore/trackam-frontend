@@ -300,3 +300,79 @@ button:focus-visible,
     padding: 0.75rem;
   }
 }
+
+/* Ensure proper flexbox behavior for the layout */
+html, body {
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure main content takes available space */
+main {
+  flex: 1 0 auto;
+}
+
+/* Footer positioning */
+footer {
+  flex-shrink: 0;
+  margin-top: auto;
+}
+
+/* Prevent content from being too close to footer on minimal variant */
+.minimal-footer-spacing {
+  margin-bottom: 2rem;
+}
+
+/* Full footer spacing */
+.full-footer-spacing {
+  margin-bottom: 0;
+}
+
+/* Page content minimum height adjustments */
+.page-content {
+  min-height: calc(100vh - 4rem); /* Account for navbar height */
+}
+
+.page-content.with-minimal-footer {
+  min-height: calc(100vh - 10rem); /* Account for navbar + minimal footer */
+}
+
+.page-content.with-full-footer {
+  min-height: calc(100vh - 20rem); /* Account for navbar + full footer */
+}
+
+/* Responsive footer adjustments */
+@media (max-width: 768px) {
+  .page-content.with-minimal-footer {
+    min-height: calc(100vh - 8rem);
+  }
+
+  .page-content.with-full-footer {
+    min-height: calc(100vh - 15rem);
+  }
+}
+
+/* Smooth transition for footer changes */
+footer {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Ensure proper spacing between content and footer */
+.content-wrapper {
+  padding-bottom: 2rem;
+}
+
+/* Home page specific adjustments */
+.home-page .content-wrapper {
+  padding-bottom: 0;
+}
+
+/* Non-home page adjustments */
+.non-home-page .content-wrapper {
+  padding-bottom: 3rem;
+}
