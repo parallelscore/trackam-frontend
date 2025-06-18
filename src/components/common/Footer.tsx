@@ -1,10 +1,111 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
-const Footer: React.FC = () => {
+interface FooterProps {
+    variant?: 'full' | 'minimal';
+}
+
+const Footer: React.FC<FooterProps> = ({ variant = 'auto' }) => {
+    const location = useLocation();
     const currentYear = new Date().getFullYear();
 
+    // Auto-detect variant based on route if not explicitly set
+    const isHomePage = location.pathname === '/';
+    const footerVariant = variant === 'auto' ? (isHomePage ? 'full' : 'minimal') : variant;
+
+    // Minimal footer for non-home pages
+    if (footerVariant === 'minimal') {
+        return (
+            <footer className="relative bg-gradient-to-r from-secondary/95 to-primary/95 text-white overflow-hidden">
+                {/* Subtle background pattern */}
+                <div className="absolute inset-0 opacity-5">
+                    <div className="absolute inset-0" style={{
+                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20v20h40V20H20z'/%3E%3C/g%3E%3C/svg%3E")`
+                    }} />
+                </div>
+
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 relative">
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 0.6 }}
+                        className="flex flex-col md:flex-row justify-between items-center gap-4"
+                    >
+                        {/* Logo and Brand */}
+                        <div className="flex items-center gap-3">
+                            <motion.div
+                                className="w-8 h-8 bg-gradient-to-r from-accent to-orange-300 rounded-lg flex items-center justify-center shadow-lg"
+                                whileHover={{ rotate: 10, scale: 1.1 }}
+                                transition={{ duration: 0.2 }}
+                            >
+                                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                </svg>
+                            </motion.div>
+                            <span className="text-lg font-bold">TrackAm</span>
+                        </div>
+
+                        {/* Essential Links */}
+                        <div className="flex items-center gap-6 text-sm">
+                            <Link
+                                to="/help"
+                                className="text-white/80 hover:text-white transition-colors duration-300 hover:underline"
+                            >
+                                Help
+                            </Link>
+                            <Link
+                                to="/privacy"
+                                className="text-white/80 hover:text-white transition-colors duration-300 hover:underline"
+                            >
+                                Privacy
+                            </Link>
+                            <Link
+                                to="/terms"
+                                className="text-white/80 hover:text-white transition-colors duration-300 hover:underline"
+                            >
+                                Terms
+                            </Link>
+                        </div>
+
+                        {/* Copyright and Social */}
+                        <div className="flex items-center gap-4">
+                            <p className="text-white/60 text-sm">
+                                &copy; {currentYear} TrackAm
+                            </p>
+
+                            {/* Compact Social Links */}
+                            <div className="flex gap-2">
+                                {[
+                                    { name: "WhatsApp", icon: "💬", href: "https://wa.me/2348001234567" },
+                                    { name: "Twitter", icon: "𝕏", href: "https://twitter.com/trackam" }
+                                ].map((social) => (
+                                    <motion.a
+                                        key={social.name}
+                                        href={social.href}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-7 h-7 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center text-white/70 hover:text-white backdrop-blur-sm transition-all duration-300"
+                                        whileHover={{ scale: 1.1, y: -1 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title={social.name}
+                                    >
+                                        <span className="text-xs">{social.icon}</span>
+                                    </motion.a>
+                                ))}
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* Bottom gradient line */}
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-orange-300"></div>
+                </div>
+            </footer>
+        );
+    }
+
+    // Full footer for home page (existing implementation)
     const footerLinks = {
         services: [
             { to: "/rider", label: "For Riders", description: "Join our network" },
