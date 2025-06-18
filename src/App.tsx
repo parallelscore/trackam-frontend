@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AnimatePresence } from 'framer-motion';
@@ -8,22 +8,23 @@ import { RiderProvider, useRider } from './context/RiderContext';
 import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { checkLocationPermission, isGeolocationSupported, platforms } from './utils/riderUtils';
+import LoadingFallback from './components/common/LoadingFallback';
 
-// Pages
-import HomePage from './pages/HomePage';
-import VendorDashboard from './pages/VendorDashboard';
-import RiderAcceptPage from './pages/RiderAcceptPage';
-import RiderPage from './pages/RiderPage';
-import RiderCompletePage from './pages/RiderCompletePage';
-import TrackingPage from './pages/TrackingPage';
-import DeliveryConfirmedPage from './pages/DeliveryConfirmedPage';
-import TrackSearchPage from './pages/TrackSearchPage';
-import PhoneLoginPage from './pages/PhoneLoginPage';
-import LoginOtpPage from './pages/LoginOtpPage';
-import PhoneRegisterPage from './pages/PhoneRegisterPage';
-import OtpVerificationPage from './pages/OtpVerificationPage';
-import CompleteProfilePage from './pages/CompleteProfilePage';
-import ProfilePage from './pages/ProfilePage';
+// Lazy-loaded Pages
+const HomePage = lazy(() => import('./pages/HomePage'));
+const VendorDashboard = lazy(() => import('./pages/VendorDashboard'));
+const RiderAcceptPage = lazy(() => import('./pages/RiderAcceptPage'));
+const RiderPage = lazy(() => import('./pages/RiderPage'));
+const RiderCompletePage = lazy(() => import('./pages/RiderCompletePage'));
+const TrackingPage = lazy(() => import('./pages/TrackingPage'));
+const DeliveryConfirmedPage = lazy(() => import('./pages/DeliveryConfirmedPage'));
+const TrackSearchPage = lazy(() => import('./pages/TrackSearchPage'));
+const PhoneLoginPage = lazy(() => import('./pages/PhoneLoginPage'));
+const LoginOtpPage = lazy(() => import('./pages/LoginOtpPage'));
+const PhoneRegisterPage = lazy(() => import('./pages/PhoneRegisterPage'));
+const OtpVerificationPage = lazy(() => import('./pages/OtpVerificationPage'));
+const CompleteProfilePage = lazy(() => import('./pages/CompleteProfilePage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 // Permission synchronizer component
 const PermissionSynchronizer = () => {
@@ -166,34 +167,36 @@ function App() {
                             />
 
                             <AnimatePresence mode="wait">
-                                <Routes>
-                                    {/* Home page */}
-                                    <Route path="/" element={<HomePage />} />
+                                <Suspense fallback={<LoadingFallback />}>
+                                    <Routes>
+                                        {/* Home page */}
+                                        <Route path="/" element={<HomePage />} />
 
-                                    {/* Authentication routes */}
-                                    <Route path="/login" element={<PhoneLoginPage />} />
-                                    <Route path="/verify-login-otp" element={<LoginOtpPage />} />
-                                    <Route path="/register" element={<PhoneRegisterPage />} />
-                                    <Route path="/verify-otp" element={<OtpVerificationPage />} />
-                                    <Route path="/complete-profile" element={<CompleteProfilePage />} />
-                                    <Route path="/profile" element={<ProfilePage />} />
+                                        {/* Authentication routes */}
+                                        <Route path="/login" element={<PhoneLoginPage />} />
+                                        <Route path="/verify-login-otp" element={<LoginOtpPage />} />
+                                        <Route path="/register" element={<PhoneRegisterPage />} />
+                                        <Route path="/verify-otp" element={<OtpVerificationPage />} />
+                                        <Route path="/complete-profile" element={<CompleteProfilePage />} />
+                                        <Route path="/profile" element={<ProfilePage />} />
 
-                                    {/* Vendor routes */}
-                                    <Route path="/vendor" element={<VendorDashboard />} />
+                                        {/* Vendor routes */}
+                                        <Route path="/vendor" element={<VendorDashboard />} />
 
-                                    {/* Rider routes - more specific routes must come before general ones */}
-                                    <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
-                                    <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
-                                    <Route path="/rider/:trackingId" element={<RiderPage />} />
+                                        {/* Rider routes - more specific routes must come before general ones */}
+                                        <Route path="/rider/accept/:tracking_id" element={<RiderAcceptPage />} />
+                                        <Route path="/rider/complete/:trackingId" element={<RiderCompletePage />} />
+                                        <Route path="/rider/:trackingId" element={<RiderPage />} />
 
-                                    {/* Customer tracking routes */}
-                                    <Route path="/track" element={<TrackSearchPage />} />
-                                    <Route path="/track/:trackingId" element={<TrackingPage />} />
-                                    <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
+                                        {/* Customer tracking routes */}
+                                        <Route path="/track" element={<TrackSearchPage />} />
+                                        <Route path="/track/:trackingId" element={<TrackingPage />} />
+                                        <Route path="/delivery-confirmed/:trackingId" element={<DeliveryConfirmedPage />} />
 
-                                    {/* Fallback route */}
-                                    <Route path="*" element={<HomePage />} />
-                                </Routes>
+                                        {/* Fallback route */}
+                                        <Route path="*" element={<HomePage />} />
+                                    </Routes>
+                                </Suspense>
                             </AnimatePresence>
                         </Router>
                     </RiderProvider>
