@@ -1,7 +1,7 @@
-import { determineApiUrl } from './authService';
+import { apiClient } from './apiClient';
 
 // Define base API URL from environment or determine dynamically
-const API_URL = import.meta.env.VITE_API_URL || determineApiUrl();
+const API_URL = import.meta.env.VITE_API_URL || apiClient.getBaseURL();
 
 // Convert API_URL to WebSocket URL format
 const getWebSocketBaseUrl = () => {
