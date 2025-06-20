@@ -671,7 +671,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         currentPage,
         totalPages,
         isLoading,
-        error,
+        error
     ]);
 
     return <DeliveryContext.Provider value={value}>{children}</DeliveryContext.Provider>;

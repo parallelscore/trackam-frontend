@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import authService from '../services/authService';
 
@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         checkAuth();
     }, []);
 
-    const requestLoginOTP = async (phoneNumber: string): Promise<boolean> => {
+    const requestLoginOTP = useCallback(async (phoneNumber: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
@@ -101,9 +101,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const verifyLoginOTP = async (phoneNumber: string, otp: string): Promise<boolean> => {
+    const verifyLoginOTP = useCallback(async (phoneNumber: string, otp: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
@@ -130,9 +130,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const requestRegistrationOTP = async (phoneNumber: string): Promise<boolean> => {
+    const requestRegistrationOTP = useCallback(async (phoneNumber: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
@@ -157,9 +157,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const verifyRegistrationOTP = async (phoneNumber: string, otp: string): Promise<boolean> => {
+    const verifyRegistrationOTP = useCallback(async (phoneNumber: string, otp: string): Promise<boolean> => {
         setIsLoading(true);
 
         try {
@@ -181,9 +181,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const completeProfile = async (profileData: any): Promise<boolean> => {
+    const completeProfile = useCallback(async (profileData: any): Promise<boolean> => {
         setIsLoading(true);
 
         try {
@@ -204,16 +204,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const logout = () => {
+    const logout = useCallback(() => {
         authService.logout();
         setUser(null);
         setIsAuthenticated(false);
         toast.success('Logged out successfully');
-    };
+    }, []);
 
-    const value = {
+    const value = useMemo(() => ({
         user,
         isAuthenticated,
         isLoading,
@@ -223,7 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         verifyRegistrationOTP,
         completeProfile,
         logout,
-    };
+    }), [user, isAuthenticated, isLoading, requestLoginOTP, verifyLoginOTP, requestRegistrationOTP, verifyRegistrationOTP, completeProfile, logout]);
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

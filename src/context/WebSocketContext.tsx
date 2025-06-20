@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import websocketService from '../services/websocketService';
 
 interface WebSocketContextType {
@@ -70,13 +70,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     };
   }, [trackingId]);
 
-  const connectToDelivery = (tracking_id: string) => {
+  const connectToDelivery = useCallback((tracking_id: string) => {
     if (tracking_id) {
       setTrackingId(tracking_id);
     }
-  };
+  }, []);
 
-  const disconnectFromDelivery = () => {
+  const disconnectFromDelivery = useCallback(() => {
     if (ws) {
       ws.close();
     }
@@ -84,17 +84,17 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     setWs(null);
     setIsConnected(false);
     setLastMessage(null);
-  };
+  }, [ws]);
+
+  const value = useMemo(() => ({
+    connectToDelivery,
+    disconnectFromDelivery,
+    isConnected,
+    lastMessage,
+  }), [connectToDelivery, disconnectFromDelivery, isConnected, lastMessage]);
 
   return (
-    <WebSocketContext.Provider
-      value={{
-        connectToDelivery,
-        disconnectFromDelivery,
-        isConnected,
-        lastMessage,
-      }}
-    >
+    <WebSocketContext.Provider value={value}>
       {children}
     </WebSocketContext.Provider>
   );

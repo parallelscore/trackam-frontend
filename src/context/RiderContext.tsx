@@ -437,6 +437,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         currentDelivery,
         isLoading,
         error,
+        locationPermissionGranted,
         verifyOTP,
         notifyCustomer,
         acceptDelivery,
@@ -450,8 +451,7 @@ export const RiderProvider: React.FC<RiderProviderProps> = ({ children }) => {
         currentDelivery,
         isLoading,
         error,
-        locationPermissionGranted,
-        // Functions don't need to be in dependencies as they don't change between renders
+        locationPermissionGranted
     ]);
 
     return <RiderContext.Provider value={value}>{children}</RiderContext.Provider>;
