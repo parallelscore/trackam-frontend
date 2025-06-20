@@ -1,50 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useAnimation, useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import Layout from '../components/common/Layout';
 import TrackingForm from '../components/common/TrackingForm';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-
-// Animation variants
-const fadeInUp = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
-    }
-};
-
-const staggerContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.2
-        }
-    }
-};
-
-const slideInLeft = {
-    hidden: { opacity: 0, x: -50 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
-    }
-};
-
-const slideInRight = {
-    hidden: { opacity: 0, x: 50 },
-    visible: {
-        opacity: 1,
-        x: 0,
-        transition: { duration: 0.6, ease: "easeOut" }
-    }
-};
+import { 
+    fadeInUp, 
+    staggerContainer, 
+    slideInLeft, 
+    slideInRight,
+    hoverScale,
+    cardHover
+} from '../components/ui/animations';
 
 // Counter component for animated numbers
 const AnimatedCounter = ({ end, duration = 2, suffix = "" }) => {
