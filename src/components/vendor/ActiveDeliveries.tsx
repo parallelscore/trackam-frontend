@@ -9,8 +9,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Delivery, DeliveryFilters, DeliveryStatus } from '@/types';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import { determineApiUrl } from '@/services/authService';
+import { apiClient } from '@/services/apiClient';
 import {
     Table,
     TableBody,
@@ -204,32 +203,16 @@ const ActiveDeliveries: React.FC = () => {
         setIsResending(trackingId);
 
         try {
-            const apiUrl = determineApiUrl();
-            const token = localStorage.getItem('token');
+            const result = await apiClient.post(`/deliveries/${trackingId}/resend-notifications`);
 
-            const response = await axios.post(
-                `${apiUrl}/deliveries/${trackingId}/resend-notifications`,
-                {},
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                }
-            );
-
-            if (response.data.success) {
+            if (result.success) {
                 toast.success('Notifications resent successfully');
             } else {
-                toast.error(response.data.message || 'Failed to resend notifications');
+                toast.error(result.error || 'Failed to resend notifications');
             }
         } catch (error: any) {
             console.error('Error resending notifications:', error);
-            toast.error(
-                error.response?.data?.detail ||
-                error.response?.data?.message ||
-                'Failed to resend notifications'
-            );
+            toast.error('Failed to resend notifications');
         } finally {
             setIsResending(null);
         }
