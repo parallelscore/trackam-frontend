@@ -1,9 +1,16 @@
 import { apiClient, ApiResponse } from './apiClient';
+import { SecureStorage } from '@/utils/secureStorage';
 
 // Authentication service
 const authService = {
     // Request OTP for registration
     requestRegistrationOTP: async (phoneNumber: string): Promise<ApiResponse> => {
+        console.log('📱 Requesting registration OTP for:', {
+            phone_number: phoneNumber,
+            length: phoneNumber.length,
+            format: phoneNumber
+        });
+        
         return apiClient.post('/register/request-otp', {
             phone_number: phoneNumber,
         });
@@ -19,7 +26,9 @@ const authService = {
         // Save auth token if registration is successful
         if (result.success && result.data?.access_token) {
             apiClient.setAuthToken(result.data.access_token);
-            localStorage.setItem('user_id', result.data.user_id);
+            if (result.data.user_id) {
+                localStorage.setItem('user_id', result.data.user_id);
+            }
         }
 
         return result;
@@ -42,7 +51,9 @@ const authService = {
         // Save auth token if login is successful
         if (result.success && result.data?.access_token) {
             apiClient.setAuthToken(result.data.access_token);
-            localStorage.setItem('user_id', result.data.user_id);
+            if (result.data.user_id) {
+                localStorage.setItem('user_id', result.data.user_id);
+            }
         }
 
         return result;
@@ -71,7 +82,8 @@ const authService = {
 
     // Check if the user is authenticated
     isAuthenticated: () => {
-        return !!localStorage.getItem('token');
+        // Check both SecureStorage and legacy localStorage for compatibility
+        return SecureStorage.isAuthenticated() || !!localStorage.getItem('token');
     },
 };
 
