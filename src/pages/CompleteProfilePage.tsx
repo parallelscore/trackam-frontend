@@ -23,8 +23,12 @@ import {
 } from '../components/ui/form';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
+import { Badge } from '../components/ui/badge';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { NameValidator, BusinessNameValidator, EmailValidator, VALIDATION_MESSAGES } from '../utils/validation';
+import { NameSanitizer, BusinessNameSanitizer, EmailSanitizer } from '../utils/sanitization';
+import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 interface CompleteProfileFormData {
     firstName: string;
@@ -88,7 +92,8 @@ const CompleteProfilePage: React.FC = () => {
         handleSubmit,
         formState: { errors, isValid, dirtyFields },
         trigger,
-        setValue
+        setValue,
+        watch
     } = useForm<CompleteProfileFormData>({
         mode: 'onChange',
         defaultValues: {
@@ -98,6 +103,18 @@ const CompleteProfilePage: React.FC = () => {
             email: ''
         }
     });
+
+    // Watch form values for real-time validation
+    const firstName = watch('firstName');
+    const lastName = watch('lastName');
+    const businessName = watch('businessName');
+    const email = watch('email');
+
+    // Real-time validation results
+    const firstNameValidation = firstName ? NameValidator.validate(firstName, 'First name') : { isValid: false };
+    const lastNameValidation = lastName ? NameValidator.validate(lastName, 'Last name') : { isValid: false };
+    const businessNameValidation = businessName ? BusinessNameValidator.validate(businessName) : { isValid: false };
+    const emailValidation = email ? EmailValidator.validate(email) : { isValid: false };
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -146,6 +163,40 @@ const CompleteProfilePage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
+            // Sanitize and validate all inputs
+            const sanitizedFirstName = NameSanitizer.sanitize(data.firstName);
+            const sanitizedLastName = NameSanitizer.sanitize(data.lastName);
+            const sanitizedBusinessName = BusinessNameSanitizer.sanitize(data.businessName);
+            const sanitizedEmail = EmailSanitizer.sanitize(data.email);
+
+            // Validate all fields
+            const firstNameValidation = NameValidator.validate(sanitizedFirstName, 'First name');
+            const lastNameValidation = NameValidator.validate(sanitizedLastName, 'Last name');
+            const businessNameValidation = BusinessNameValidator.validate(sanitizedBusinessName);
+            const emailValidation = EmailValidator.validate(sanitizedEmail);
+
+            // Check if all validations pass
+            if (!firstNameValidation.isValid) {
+                toast.error(firstNameValidation.error || 'Invalid first name');
+                setIsSubmitting(false);
+                return;
+            }
+            if (!lastNameValidation.isValid) {
+                toast.error(lastNameValidation.error || 'Invalid last name');
+                setIsSubmitting(false);
+                return;
+            }
+            if (!businessNameValidation.isValid) {
+                toast.error(businessNameValidation.error || 'Invalid business name');
+                setIsSubmitting(false);
+                return;
+            }
+            if (!emailValidation.isValid) {
+                toast.error(emailValidation.error || 'Invalid email address');
+                setIsSubmitting(false);
+                return;
+            }
+
             // In a real app, you would first upload the image to a server
             // and then use the returned URL in profile data
             let imageUrl = null;
@@ -156,12 +207,12 @@ const CompleteProfilePage: React.FC = () => {
                 imageUrl = profileImageUrl;
             }
 
-            // Complete profile
+            // Complete profile with sanitized data
             const success = await completeProfile({
-                first_name: data.firstName,
-                last_name: data.lastName,
-                business_name: data.businessName,
-                email: data.email,
+                first_name: firstNameValidation.sanitizedValue || sanitizedFirstName,
+                last_name: lastNameValidation.sanitizedValue || sanitizedLastName,
+                business_name: businessNameValidation.sanitizedValue || sanitizedBusinessName,
+                email: emailValidation.sanitizedValue || sanitizedEmail,
                 profile_image_url: imageUrl,
             });
 
@@ -216,6 +267,31 @@ const CompleteProfilePage: React.FC = () => {
 
     const prevStep = () => {
         setStep(step - 1);
+    };
+
+    // Handle input changes with real-time sanitization
+    const handleFirstNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = NameSanitizer.sanitize(e.target.value);
+        setValue('firstName', sanitized);
+        trigger('firstName');
+    };
+
+    const handleLastNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = NameSanitizer.sanitize(e.target.value);
+        setValue('lastName', sanitized);
+        trigger('lastName');
+    };
+
+    const handleBusinessNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = BusinessNameSanitizer.sanitize(e.target.value);
+        setValue('businessName', sanitized);
+        trigger('businessName');
+    };
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = EmailSanitizer.sanitize(e.target.value);
+        setValue('email', sanitized);
+        trigger('email');
     };
 
     const getFieldsForStep = (stepNumber: number): (keyof CompleteProfileFormData)[] => {
@@ -406,21 +482,44 @@ const CompleteProfilePage: React.FC = () => {
                                                                     aria-required="true"
                                                                     aria-invalid={errors.firstName ? "true" : "false"}
                                                                     {...register('firstName', {
-                                                                        required: 'First name is required',
-                                                                        minLength: { value: 2, message: 'First name must be at least 2 characters' }
+                                                                        required: VALIDATION_MESSAGES.REQUIRED,
+                                                                        validate: (value: string) => {
+                                                                            const result = NameValidator.validate(value, 'First name');
+                                                                            return result.isValid || result.error;
+                                                                        }
                                                                     })}
+                                                                    onChange={handleFirstNameChange}
                                                                 />
                                                             </FormControl>
-                                                            {errors.firstName && (
-                                                                <FormErrorMessage role="alert">{errors.firstName.message}</FormErrorMessage>
+
+                                                            {/* Real-time validation feedback */}
+                                                            {firstName && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                                    animate={{ opacity: 1, scale: 1 }}
+                                                                    className="flex items-center justify-start mt-2 gap-2"
+                                                                >
+                                                                    {firstNameValidation.isValid ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-lg">
+                                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                                            <span className="text-sm text-green-700 font-medium">Valid name</span>
+                                                                        </div>
+                                                                    ) : firstNameValidation.error ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                                                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                                            <span className="text-sm text-amber-700">{firstNameValidation.error}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                                                                            <Info className="w-4 h-4 text-blue-600" />
+                                                                            <span className="text-sm text-blue-700">Enter your first name</span>
+                                                                        </div>
+                                                                    )}
+                                                                </motion.div>
                                                             )}
-                                                            {dirtyFields.firstName && !errors.firstName && (
-                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
-                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                                    </svg>
-                                                                    Looks good!
-                                                                </p>
+
+                                                            {errors.firstName && (
+                                                                <FormErrorMessage role="alert" className="mt-2">{errors.firstName.message}</FormErrorMessage>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
@@ -438,21 +537,44 @@ const CompleteProfilePage: React.FC = () => {
                                                                     aria-required="true"
                                                                     aria-invalid={errors.lastName ? "true" : "false"}
                                                                     {...register('lastName', {
-                                                                        required: 'Last name is required',
-                                                                        minLength: { value: 2, message: 'Last name must be at least 2 characters' }
+                                                                        required: VALIDATION_MESSAGES.REQUIRED,
+                                                                        validate: (value: string) => {
+                                                                            const result = NameValidator.validate(value, 'Last name');
+                                                                            return result.isValid || result.error;
+                                                                        }
                                                                     })}
+                                                                    onChange={handleLastNameChange}
                                                                 />
                                                             </FormControl>
-                                                            {errors.lastName && (
-                                                                <FormErrorMessage role="alert">{errors.lastName.message}</FormErrorMessage>
+
+                                                            {/* Real-time validation feedback */}
+                                                            {lastName && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                                    animate={{ opacity: 1, scale: 1 }}
+                                                                    className="flex items-center justify-start mt-2 gap-2"
+                                                                >
+                                                                    {lastNameValidation.isValid ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-lg">
+                                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                                            <span className="text-sm text-green-700 font-medium">Valid name</span>
+                                                                        </div>
+                                                                    ) : lastNameValidation.error ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                                                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                                            <span className="text-sm text-amber-700">{lastNameValidation.error}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                                                                            <Info className="w-4 h-4 text-blue-600" />
+                                                                            <span className="text-sm text-blue-700">Enter your last name</span>
+                                                                        </div>
+                                                                    )}
+                                                                </motion.div>
                                                             )}
-                                                            {dirtyFields.lastName && !errors.lastName && (
-                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
-                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                                    </svg>
-                                                                    Looks good!
-                                                                </p>
+
+                                                            {errors.lastName && (
+                                                                <FormErrorMessage role="alert" className="mt-2">{errors.lastName.message}</FormErrorMessage>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
@@ -495,24 +617,47 @@ const CompleteProfilePage: React.FC = () => {
                                                                 aria-required="true"
                                                                 aria-invalid={errors.businessName ? "true" : "false"}
                                                                 {...register('businessName', {
-                                                                    required: 'Business name is required',
-                                                                    minLength: { value: 2, message: 'Business name must be at least 2 characters' }
+                                                                    required: VALIDATION_MESSAGES.REQUIRED,
+                                                                    validate: (value: string) => {
+                                                                        const result = BusinessNameValidator.validate(value);
+                                                                        return result.isValid || result.error;
+                                                                    }
                                                                 })}
+                                                                onChange={handleBusinessNameChange}
                                                             />
                                                         </FormControl>
                                                         <FormDescription>
                                                             This will be displayed on your delivery notifications
                                                         </FormDescription>
-                                                        {errors.businessName && (
-                                                            <FormErrorMessage role="alert">{errors.businessName.message}</FormErrorMessage>
+
+                                                        {/* Real-time validation feedback */}
+                                                        {businessName && (
+                                                            <motion.div 
+                                                                initial={{ opacity: 0, scale: 0.9 }}
+                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                className="flex items-center justify-start mt-2 gap-2"
+                                                            >
+                                                                {businessNameValidation.isValid ? (
+                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-lg">
+                                                                        <CheckCircle className="w-4 h-4 text-green-600" />
+                                                                        <span className="text-sm text-green-700 font-medium">Professional business name</span>
+                                                                    </div>
+                                                                ) : businessNameValidation.error ? (
+                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                                                                        <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                                        <span className="text-sm text-amber-700">{businessNameValidation.error}</span>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                                                                        <Info className="w-4 h-4 text-blue-600" />
+                                                                        <span className="text-sm text-blue-700">Enter your business name</span>
+                                                                    </div>
+                                                                )}
+                                                            </motion.div>
                                                         )}
-                                                        {dirtyFields.businessName && !errors.businessName && (
-                                                            <p className="text-sm text-green-600 mt-1 flex items-center">
-                                                                <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                                </svg>
-                                                                Perfect! Your business name looks professional.
-                                                            </p>
+
+                                                        {errors.businessName && (
+                                                            <FormErrorMessage role="alert" className="mt-2">{errors.businessName.message}</FormErrorMessage>
                                                         )}
                                                     </FormItem>
                                                 </motion.div>
@@ -604,27 +749,47 @@ const CompleteProfilePage: React.FC = () => {
                                                                     aria-invalid={errors.email ? "true" : "false"}
                                                                     autoComplete="email"
                                                                     {...register('email', {
-                                                                        required: 'Email is required',
-                                                                        pattern: {
-                                                                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                                                                            message: 'Please enter a valid email address'
+                                                                        required: VALIDATION_MESSAGES.REQUIRED,
+                                                                        validate: (value: string) => {
+                                                                            const result = EmailValidator.validate(value);
+                                                                            return result.isValid || result.error;
                                                                         }
                                                                     })}
+                                                                    onChange={handleEmailChange}
                                                                 />
                                                             </FormControl>
                                                             <FormDescription>
                                                                 We'll send a verification link to this email
                                                             </FormDescription>
-                                                            {errors.email && (
-                                                                <FormErrorMessage role="alert">{errors.email.message}</FormErrorMessage>
+
+                                                            {/* Real-time validation feedback */}
+                                                            {email && (
+                                                                <motion.div 
+                                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                                    animate={{ opacity: 1, scale: 1 }}
+                                                                    className="flex items-center justify-start mt-2 gap-2"
+                                                                >
+                                                                    {emailValidation.isValid ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-lg">
+                                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                                            <span className="text-sm text-green-700 font-medium">Valid email format</span>
+                                                                        </div>
+                                                                    ) : emailValidation.error ? (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-lg">
+                                                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                                            <span className="text-sm text-amber-700">{emailValidation.error}</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 border border-blue-200 rounded-lg">
+                                                                            <Info className="w-4 h-4 text-blue-600" />
+                                                                            <span className="text-sm text-blue-700">Enter a valid email address</span>
+                                                                        </div>
+                                                                    )}
+                                                                </motion.div>
                                                             )}
-                                                            {dirtyFields.email && !errors.email && (
-                                                                <p className="text-sm text-green-600 mt-1 flex items-center">
-                                                                    <svg className="w-4 h-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
-                                                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                                                    </svg>
-                                                                    Valid email format
-                                                                </p>
+
+                                                            {errors.email && (
+                                                                <FormErrorMessage role="alert" className="mt-2">{errors.email.message}</FormErrorMessage>
                                                             )}
                                                         </FormItem>
                                                     </motion.div>
