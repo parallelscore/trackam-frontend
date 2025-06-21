@@ -7,6 +7,7 @@ import TrackingForm from '../components/common/TrackingForm';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { ErrorTestingPanel } from '../components/common/ErrorTestingPanel';
 import { 
     fadeInUp, 
     staggerContainer, 
@@ -189,6 +190,7 @@ const HomePage: React.FC = () => {
 
     return (
         <Layout>
+            <ErrorTestingPanel />
             <FloatingActionButtons />
 
             {/* Enhanced Hero Section */}
