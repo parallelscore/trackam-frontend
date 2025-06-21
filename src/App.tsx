@@ -9,6 +9,9 @@ import { AuthProvider } from './context/AuthContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { checkLocationPermission, isGeolocationSupported, platforms } from './utils/riderUtils';
 import LoadingFallback from './components/common/LoadingFallback';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { AppError, ErrorType, logError } from './utils/errorHandling';
+import './utils/errorTestingUtils'; // Load testing utilities in development
 
 // Lazy-loaded Pages
 const HomePage = lazy(() => import('./pages/HomePage'));
@@ -102,16 +105,41 @@ const PermissionSynchronizer = () => {
     return null; // This component doesn't render anything
 };
 
+// Global error handler for unhandled promise rejections
+if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', (event) => {
+        const error = new AppError(
+            ErrorType.UNKNOWN_ERROR,
+            event.reason?.message || 'Unhandled promise rejection',
+            'Something went wrong. Please try refreshing the page.',
+            { retryable: true }
+        );
+        logError(error, 'UnhandledPromiseRejection');
+        event.preventDefault();
+    });
+
+    window.addEventListener('error', (event) => {
+        const error = new AppError(
+            ErrorType.UNKNOWN_ERROR,
+            event.error?.message || event.message || 'Unhandled error',
+            'Something went wrong. Please try refreshing the page.',
+            { retryable: true }
+        );
+        logError(error, 'UnhandledError');
+    });
+}
+
 function App() {
     return (
-        <AuthProvider>
-            <DeliveryProvider>
-                <WebSocketProvider>
-                    <RiderProvider>
-                        {/* Add our permission synchronizer component */}
-                        <PermissionSynchronizer />
+        <ErrorBoundary level="critical" showRetry={true}>
+            <AuthProvider>
+                <DeliveryProvider>
+                    <WebSocketProvider>
+                        <RiderProvider>
+                            {/* Add our permission synchronizer component */}
+                            <PermissionSynchronizer />
 
-                        <Router>
+                            <Router>
                             {/* Enhanced Toaster with modern styling */}
                             <Toaster
                                 position="bottom-right"
@@ -203,6 +231,7 @@ function App() {
                 </WebSocketProvider>
             </DeliveryProvider>
         </AuthProvider>
+        </ErrorBoundary>
     );
 }
 
