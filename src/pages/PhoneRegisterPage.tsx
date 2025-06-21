@@ -23,6 +23,9 @@ import {
 } from '../components/ui/form';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { PhoneValidator, VALIDATION_MESSAGES } from '../utils/validation';
+import { PhoneSanitizer } from '../utils/sanitization';
+import { AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 interface PhoneRegistrationFormData {
     phoneNumber: string;
@@ -39,7 +42,9 @@ const PhoneRegisterPage: React.FC = () => {
         register,
         handleSubmit,
         formState: { errors },
-        watch
+        watch,
+        setValue,
+        trigger
     } = useForm<PhoneRegistrationFormData>({
         defaultValues: {
             phoneNumber: '',
@@ -50,8 +55,9 @@ const PhoneRegisterPage: React.FC = () => {
     const phoneNumber = watch('phoneNumber');
     const agreeToTerms = watch('agreeToTerms');
 
-    // Check if phone number matches Nigerian format
-    const isValidPhone = phoneNumber ? /^(\+?234|0)[789]\d{9}$/.test(phoneNumber) : false;
+    // Real-time phone validation
+    const phoneValidation = phoneNumber ? PhoneValidator.validate(phoneNumber) : { isValid: false };
+    const isValidPhone = phoneValidation.isValid;
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -64,12 +70,23 @@ const PhoneRegisterPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // Request OTP
-            const success = await requestRegistrationOTP(data.phoneNumber);
+            // Sanitize and validate phone number
+            const sanitizedPhone = PhoneSanitizer.sanitize(data.phoneNumber);
+            const validation = PhoneValidator.validate(sanitizedPhone);
+            
+            if (!validation.isValid) {
+                console.error('Invalid phone number:', validation.error);
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Use the formatted phone number for API call
+            const formattedPhone = PhoneValidator.formatForAPI(sanitizedPhone);
+            const success = await requestRegistrationOTP(formattedPhone);
 
             if (success) {
-                // Store the phone number in session storage for the OTP verification page
-                sessionStorage.setItem('registrationPhone', data.phoneNumber);
+                // Store the formatted phone number in session storage for the OTP verification page
+                sessionStorage.setItem('registrationPhone', formattedPhone);
 
                 // Navigate to OTP verification page
                 navigate('/verify-otp');
@@ -79,6 +96,13 @@ const PhoneRegisterPage: React.FC = () => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Handle phone number input change with real-time sanitization
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = PhoneSanitizer.sanitize(e.target.value);
+        setValue('phoneNumber', sanitized);
+        trigger('phoneNumber');
     };
 
     // Animation variants
@@ -250,46 +274,53 @@ const PhoneRegisterPage: React.FC = () => {
                                                         placeholder="Enter your phone number"
                                                         className="h-16 text-center text-xl border-2 border-gray-200 focus:border-primary rounded-xl transition-all duration-300 bg-gray-50 focus:bg-white"
                                                         {...register('phoneNumber', {
-                                                            required: 'Phone number is required',
-                                                            pattern: {
-                                                                value: /^(\+?234|0)[789]\d{9}$/,
-                                                                message: 'Enter a valid Nigerian phone number'
+                                                            required: VALIDATION_MESSAGES.REQUIRED,
+                                                            validate: (value: string) => {
+                                                                const result = PhoneValidator.validate(value);
+                                                                return result.isValid || result.error;
                                                             }
                                                         })}
+                                                        onChange={handlePhoneChange}
                                                     />
                                                 </FormControl>
                                             </div>
 
-                                            {/* Phone validation progress indicators */}
+                                            {/* Phone validation status indicator */}
                                             {phoneNumber && (
-                                                <div className="flex justify-center mt-4 space-x-2">
-                                                    {[...Array(10)].map((_, i) => (
-                                                        <motion.div
-                                                            key={i}
-                                                            className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                                                                i < phoneNumber.replace(/[^0-9]/g, '').slice(-10).length
-                                                                    ? isValidPhone ? 'bg-primary shadow-lg' : 'bg-amber-500'
-                                                                    : 'bg-gray-200'
-                                                            }`}
-                                                            animate={i < phoneNumber.replace(/[^0-9]/g, '').slice(-10).length ? { scale: [1, 1.2, 1] } : {}}
-                                                            transition={{ duration: 0.2 }}
-                                                        />
-                                                    ))}
-                                                </div>
+                                                <motion.div 
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    className="flex items-center justify-center mt-4 gap-2"
+                                                >
+                                                    {isValidPhone ? (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                            <span className="text-sm text-green-700 font-medium">Valid Nigerian number</span>
+                                                        </div>
+                                                    ) : phoneValidation.error ? (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
+                                                            <AlertCircle className="w-4 h-4 text-amber-600" />
+                                                            <span className="text-sm text-amber-700">{phoneValidation.error}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                                            <Info className="w-4 h-4 text-blue-600" />
+                                                            <span className="text-sm text-blue-700">{VALIDATION_MESSAGES.PHONE_FORMAT_HINT}</span>
+                                                        </div>
+                                                    )}
+                                                </motion.div>
                                             )}
 
                                             <AnimatePresence>
                                                 {errors.phoneNumber && (
                                                     <motion.div
-                                                        initial={{ opacity: 0, y: -10 }}
-                                                        animate={{ opacity: 1, y: 0 }}
-                                                        exit={{ opacity: 0, y: -10 }}
+                                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
                                                         className="flex items-center justify-center gap-2 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
                                                     >
-                                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <FormErrorMessage>
+                                                        <AlertCircle className="w-4 h-4 text-red-500" />
+                                                        <FormErrorMessage className="text-red-600 font-medium">
                                                             {errors.phoneNumber.message}
                                                         </FormErrorMessage>
                                                     </motion.div>
@@ -305,7 +336,7 @@ const PhoneRegisterPage: React.FC = () => {
                                                 id="agreeToTerms"
                                                 className="h-5 w-5 mt-0.5 rounded border-2 border-gray-300 text-primary focus:ring-primary focus:ring-2 transition-all duration-200"
                                                 {...register('agreeToTerms', {
-                                                    required: 'You must agree to the terms and conditions'
+                                                    required: VALIDATION_MESSAGES.REQUIRED
                                                 })}
                                             />
                                             <div className="flex-1">
