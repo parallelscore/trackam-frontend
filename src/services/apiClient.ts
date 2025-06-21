@@ -7,6 +7,9 @@ import axios, {
     InternalAxiosRequestConfig 
 } from 'axios';
 import { createErrorFromApiError, logError } from '@/utils/errorHandling';
+import { SecureStorage } from '@/utils/secureStorage';
+import { TokenRefreshService } from './tokenRefreshService';
+import { SecurityEventMonitor } from './securityEventMonitor';
 
 // API Configuration
 interface ApiConfig {
@@ -150,11 +153,44 @@ export class ApiClient {
     private setupInterceptors(): void {
         // Request interceptors
         this.client.interceptors.request.use(
-            (config: InternalAxiosRequestConfig) => {
-                // Add authentication token
-                const token = localStorage.getItem('token');
-                if (token && config.headers) {
-                    config.headers.Authorization = `Bearer ${token}`;
+            async (config: InternalAxiosRequestConfig) => {
+                // Skip security enhancements for OTP and authentication endpoints
+                const isAuthEndpoint = config.url?.includes('/register/') || 
+                                      config.url?.includes('/login/') ||
+                                      config.url?.includes('/request-otp') ||
+                                      config.url?.includes('/verify-otp');
+
+                // Check and refresh token if needed (but skip for auth endpoints)
+                if (!isAuthEndpoint) {
+                    try {
+                        await TokenRefreshService.checkAndRefreshToken();
+                    } catch (error) {
+                        console.warn('ApiClient: Token refresh check failed', error);
+                    }
+                }
+
+                // Add authentication token using secure storage (but skip for auth endpoints)
+                if (!isAuthEndpoint) {
+                    const token = SecureStorage.getAccessToken();
+                    if (token && config.headers) {
+                        config.headers.Authorization = `Bearer ${token}`;
+                    }
+                }
+
+                // Add CSRF token for state-changing requests (but skip for auth endpoints)
+                if (!isAuthEndpoint) {
+                    const csrfToken = SecureStorage.getCsrfToken();
+                    if (csrfToken && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method?.toUpperCase() || '')) {
+                        config.headers['X-CSRF-Token'] = csrfToken;
+                    }
+                }
+
+                // Add session ID for tracking (but skip for auth endpoints)
+                if (!isAuthEndpoint) {
+                    const sessionId = SecureStorage.getSessionId();
+                    if (sessionId && config.headers) {
+                        config.headers['X-Session-ID'] = sessionId;
+                    }
                 }
 
                 // Add request ID for tracking
@@ -205,6 +241,9 @@ export class ApiClient {
                     ApiLogger.logError(error);
                 }
 
+                // Report security events based on response status
+                this.reportSecurityEvents(error);
+
                 // Handle token expiration
                 if (error.response?.status === 401) {
                     this.handleTokenExpiration();
@@ -220,15 +259,105 @@ export class ApiClient {
         return Math.random().toString(36).substring(2, 15);
     }
 
-    private handleTokenExpiration(): void {
-        // Clear stored authentication data
-        localStorage.removeItem('token');
-        localStorage.removeItem('user_id');
+    private reportSecurityEvents(error: AxiosError): void {
+        const securityMonitor = SecurityEventMonitor.getInstance();
+        const { config, response } = error;
 
-        // Redirect to login page or emit event for auth state change
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('auth:token-expired'));
+        // Report rate limiting events
+        if (response?.status === 429) {
+            securityMonitor.reportEvent(
+                'rate_limit_exceeded',
+                {
+                    url: config?.url,
+                    method: config?.method,
+                    status: response.status,
+                    headers: response.headers,
+                },
+                'ApiClient'
+            );
         }
+
+        // Report forbidden access (potential authorization issues)
+        if (response?.status === 403) {
+            securityMonitor.reportEvent(
+                'suspicious_activity',
+                {
+                    url: config?.url,
+                    method: config?.method,
+                    status: response.status,
+                    reason: 'forbidden_access',
+                },
+                'ApiClient'
+            );
+        }
+
+        // Report potential CSRF attacks
+        if (response?.status === 403 && response.data?.error?.includes('CSRF')) {
+            securityMonitor.reportEvent(
+                'csrf_attack',
+                {
+                    url: config?.url,
+                    method: config?.method,
+                    error: response.data?.error,
+                },
+                'ApiClient'
+            );
+        }
+
+        // Report potential token replay attacks (multiple 401s in short time)
+        if (response?.status === 401) {
+            const recentEvents = securityMonitor.getSecurityStats().recentEvents.filter(
+                event => event.type === 'token_replay' && Date.now() - event.timestamp < 60000
+            );
+            
+            if (recentEvents.length >= 2) {
+                securityMonitor.reportEvent(
+                    'token_replay',
+                    {
+                        url: config?.url,
+                        consecutiveAttempts: recentEvents.length + 1,
+                    },
+                    'ApiClient'
+                );
+            }
+        }
+    }
+
+    private handleTokenExpiration(): void {
+        console.log('ApiClient: Handling 401 - attempting token refresh before logout');
+        
+        // Try to refresh token first
+        TokenRefreshService.refreshToken().then(success => {
+            if (!success) {
+                // Token refresh failed, clear all authentication data
+                SecureStorage.clearTokenData();
+                
+                // Also clear legacy storage for backward compatibility
+                localStorage.removeItem('token');
+                localStorage.removeItem('user_id');
+
+                // Emit token expiration event
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('auth:token-expired', {
+                        detail: { reason: 'refresh_failed_401' }
+                    }));
+                }
+            }
+        }).catch(error => {
+            console.error('ApiClient: Token refresh failed on 401', error);
+            
+            // Clear all authentication data
+            SecureStorage.clearTokenData();
+            localStorage.removeItem('token');
+            localStorage.removeItem('user_id');
+
+            // Emit token expiration event
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:token-expired', {
+                    detail: { reason: 'refresh_error_401', error: error.message }
+                }));
+            }
+        });
     }
 
     private async handleRetry(error: AxiosError): Promise<unknown> {
@@ -378,10 +507,39 @@ export class ApiClient {
 
     // Utility methods
     setAuthToken(token: string): void {
-        localStorage.setItem('token', token);
+        try {
+            // Extract expiry and user info from JWT token
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const expiresAt = payload.exp ? payload.exp * 1000 : Date.now() + (24 * 60 * 60 * 1000);
+            const userId = payload.sub || payload.user_id || payload.id;
+
+            // Store token using SecureStorage for consistency with request interceptor
+            const tokenData = {
+                accessToken: token,
+                expiresAt,
+                issuedAt: payload.iat ? payload.iat * 1000 : Date.now(), // Use current time if iat not present
+                userId,
+            };
+            SecureStorage.setTokenData(tokenData);
+            
+            // Also keep legacy localStorage for backward compatibility during transition
+            localStorage.setItem('token', token);
+        } catch (error) {
+            console.warn('ApiClient: Failed to parse JWT token, using fallback storage', error);
+            // Fallback to simple storage if JWT parsing fails
+            const tokenData = {
+                accessToken: token,
+                expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours default
+                issuedAt: Date.now(),
+            };
+            SecureStorage.setTokenData(tokenData);
+            localStorage.setItem('token', token);
+        }
     }
 
     clearAuthToken(): void {
+        // Clear from both SecureStorage and legacy localStorage
+        SecureStorage.clearTokenData();
         localStorage.removeItem('token');
         localStorage.removeItem('user_id');
     }
