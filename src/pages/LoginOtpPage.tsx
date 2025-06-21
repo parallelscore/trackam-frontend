@@ -21,6 +21,9 @@ import {
 } from '../components/ui/form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { OTPValidator, VALIDATION_MESSAGES, PhoneValidator } from '../utils/validation';
+import { OTPSanitizer } from '../utils/sanitization';
+import { AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 interface LoginOtpFormData {
     otp: string;
@@ -38,7 +41,9 @@ const LoginOtpPage: React.FC = () => {
         register,
         handleSubmit,
         formState: { errors },
-        watch
+        watch,
+        setValue,
+        trigger
     } = useForm<LoginOtpFormData>({
         defaultValues: {
             otp: ''
@@ -46,6 +51,10 @@ const LoginOtpPage: React.FC = () => {
     });
 
     const otpValue = watch('otp');
+    
+    // Real-time OTP validation
+    const otpValidation = otpValue ? OTPValidator.validate(otpValue) : { isValid: false };
+    const isValidOtp = otpValidation.isValid;
 
     // Redirect if already authenticated
     useEffect(() => {
@@ -87,8 +96,18 @@ const LoginOtpPage: React.FC = () => {
         setIsSubmitting(true);
 
         try {
-            // Verify OTP
-            const success = await verifyLoginOTP(phoneNumber, data.otp);
+            // Sanitize and validate OTP
+            const sanitizedOtp = OTPSanitizer.sanitize(data.otp);
+            const validation = OTPValidator.validate(sanitizedOtp);
+            
+            if (!validation.isValid) {
+                toast.error(validation.error || 'Invalid OTP format');
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Verify OTP with sanitized value
+            const success = await verifyLoginOTP(phoneNumber, sanitizedOtp);
 
             if (success) {
                 // Clear login data from session storage
@@ -96,12 +115,21 @@ const LoginOtpPage: React.FC = () => {
 
                 // Navigate to vendor dashboard
                 navigate('/vendor');
+                toast.success('Login successful!');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
+            toast.error('Failed to verify OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    // Handle OTP input change with real-time sanitization
+    const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const sanitized = OTPSanitizer.sanitize(e.target.value);
+        setValue('otp', sanitized);
+        trigger('otp');
     };
 
     const handleResendOtp = async () => {
@@ -282,14 +310,37 @@ const LoginOtpPage: React.FC = () => {
                                                     className="text-center text-2xl tracking-widest h-16 rounded-xl border-2 border-gray-200 focus:border-primary transition-all duration-300 bg-gray-50 focus:bg-white font-mono"
                                                     maxLength={6}
                                                     {...register('otp', {
-                                                        required: 'Login code is required',
-                                                        pattern: {
-                                                            value: /^[0-9]{6}$/,
-                                                            message: 'Please enter a valid 6-digit code'
+                                                        required: VALIDATION_MESSAGES.OTP_REQUIRED,
+                                                        validate: (value: string) => {
+                                                            const result = OTPValidator.validate(value);
+                                                            return result.isValid || result.error;
                                                         }
                                                     })}
+                                                    onChange={handleOtpChange}
                                                 />
                                             </FormControl>
+
+                                            {/* OTP validation status */}
+                                            {otpValue && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, scale: 0.9 }}
+                                                    animate={{ opacity: 1, scale: 1 }}
+                                                    className="flex items-center justify-center mt-4 gap-2"
+                                                >
+                                                    {isValidOtp ? (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                                                            <CheckCircle className="w-4 h-4 text-green-600" />
+                                                            <span className="text-sm text-green-700 font-medium">Valid OTP</span>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+                                                            <span className="text-sm text-blue-700">
+                                                                {otpValue.length}/6 digits entered
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </motion.div>
+                                            )}
 
                                             {/* Progress indicators */}
                                             <div className="flex justify-center mt-4 space-x-2">
@@ -298,7 +349,7 @@ const LoginOtpPage: React.FC = () => {
                                                         key={i}
                                                         className={`w-3 h-3 rounded-full transition-all duration-300 ${
                                                             i < (otpValue?.length || 0)
-                                                                ? 'bg-primary shadow-lg'
+                                                                ? isValidOtp ? 'bg-green-500 shadow-lg' : 'bg-primary shadow-lg'
                                                                 : 'bg-gray-200'
                                                         }`}
                                                         animate={i < (otpValue?.length || 0) ? { scale: [1, 1.2, 1] } : {}}
@@ -315,10 +366,8 @@ const LoginOtpPage: React.FC = () => {
                                                         exit={{ opacity: 0, y: -10 }}
                                                         className="flex items-center justify-center gap-2 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg"
                                                     >
-                                                        <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        <FormErrorMessage className="text-center">
+                                                        <AlertCircle className="w-4 h-4 text-red-500" />
+                                                        <FormErrorMessage className="text-center text-red-600 font-medium">
                                                             {errors.otp.message}
                                                         </FormErrorMessage>
                                                     </motion.div>
