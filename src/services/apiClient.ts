@@ -6,6 +6,7 @@ import axios, {
     AxiosError,
     InternalAxiosRequestConfig 
 } from 'axios';
+import { createErrorFromApiError, logError } from '@/utils/errorHandling';
 
 // API Configuration
 interface ApiConfig {
@@ -363,24 +364,15 @@ export class ApiClient {
     }
 
     private handleError(error: AxiosError): ApiResponse {
-        const response = error.response;
-        const data = response?.data as Record<string, unknown>;
-
-        let errorMessage = 'An unexpected error occurred';
-        
-        if (data?.detail) {
-            errorMessage = data.detail;
-        } else if (data?.message) {
-            errorMessage = data.message;
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
+        const appError = createErrorFromApiError(error);
+        logError(appError, 'ApiClient');
 
         return {
             success: false,
-            error: errorMessage,
-            statusCode: response?.status,
-            data: data,
+            error: appError.userMessage,
+            message: appError.message,
+            statusCode: error.response?.status,
+            data: error.response?.data,
         };
     }
 
