@@ -17,6 +17,9 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import CustomerLocationInput from './CustomerLocationInput';
 import DeliverySuccessView from './DeliverySuccessView';
+import { OptimisticButton, OptimisticWrapper, OptimisticToast } from '../ui/optimistic';
+import { ProgressBar, StepProgress } from '../ui/progress';
+import toast from 'react-hot-toast';
 
 interface CreateDeliveryFormProps {
     onSuccess?: () => void;
@@ -125,6 +128,11 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
     const [loadingProgress, setLoadingProgress] = useState(0);
     const [loadingText, setLoadingText] = useState('');
     const [error, setError] = useState<string | null>(null);
+    
+    // Optimistic UI states
+    const [optimisticState, setOptimisticState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [toastMessage, setToastMessage] = useState('');
+    const [showToast, setShowToast] = useState(false);
 
     // Add state for customer location
     const [customerLocation, setCustomerLocation] = useState<CustomerLocation | null>(null);
@@ -172,6 +180,9 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
         try {
             setError(null);
             setIsSubmitting(true);
+            setOptimisticState('pending');
+            setToastMessage('Creating delivery...');
+            setShowToast(true);
 
             simulateProgressBar();
 
@@ -197,6 +208,9 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
 
             if (delivery) {
                 setLoadingProgress(100);
+                setOptimisticState('success');
+                setToastMessage('Delivery created successfully!');
+                // Note: DeliveryContext already shows success toast
                 setLoadingText('Completing setup...');
 
                 await new Promise(resolve => setTimeout(resolve, 400));
@@ -207,14 +221,25 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                 setCustomerLocation(null);
             } else {
                 setLoadingProgress(0);
+                setOptimisticState('error');
+                setToastMessage('Failed to create delivery');
                 setError('Failed to create delivery. Please try again.');
+                // Note: DeliveryContext already shows error toast
             }
         } catch (error) {
             console.error('Error creating delivery:', error);
             setLoadingProgress(0);
+            setOptimisticState('error');
+            setToastMessage('Failed to create delivery');
             setError('Failed to create delivery. Please try again.');
+            // Note: DeliveryContext already shows error toast
         } finally {
             setIsSubmitting(false);
+            // Reset optimistic state after a delay
+            setTimeout(() => {
+                setOptimisticState('idle');
+                setShowToast(false);
+            }, 3000);
         }
     };
 
@@ -753,90 +778,61 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                                 </FormSection>
                             </motion.div>
 
-                            {/* Enhanced Submit Button */}
+                            {/* Enhanced Submit Button with Optimistic UI */}
                             <motion.div
                                 variants={submitButtonVariants}
                                 className="flex justify-center pt-8"
                             >
-                                <motion.div
-                                    whileHover={{
-                                        scale: 1.05,
-                                        boxShadow: "0 12px 30px rgba(16, 185, 129, 0.3)"
-                                    }}
-                                    whileTap={{ scale: 0.95 }}
-                                    className="relative"
+                                <OptimisticButton
+                                    state={optimisticState}
+                                    onClick={handleSubmit(onSubmit)}
+                                    disabled={isSubmitting || isLoading}
+                                    className="px-12 py-6 text-lg font-semibold"
+                                    pendingMessage="Creating Delivery..."
+                                    successMessage="Delivery Created!"
+                                    errorMessage="Try Again"
                                 >
-                                    <Button
-                                        type="submit"
-                                        className="px-12 py-6 text-lg font-semibold bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white shadow-xl border-0 rounded-xl transition-all duration-300 relative overflow-hidden"
-                                        disabled={isSubmitting || isLoading}
-                                        style={{
-                                            filter: "drop-shadow(0 8px 20px rgba(16, 185, 129, 0.3))"
-                                        }}
-                                    >
-                                        {/* Button background animation */}
-                                        <motion.div
-                                            className="absolute inset-0 bg-gradient-to-r from-emerald-400 to-green-500 opacity-0 group-hover:opacity-20"
-                                            animate={isSubmitting ? {
-                                                opacity: [0, 0.3, 0]
-                                            } : {}}
-                                            transition={{ duration: 2, repeat: Infinity }}
-                                        />
-
-                                        <span className="relative z-10 flex items-center gap-3">
-                                            {isSubmitting ? (
-                                                <>
-                                                    <motion.svg
-                                                        className="w-6 h-6 text-white"
-                                                        animate={{ rotate: 360 }}
-                                                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                        xmlns="http://www.w3.org/2000/svg"
-                                                        fill="none"
-                                                        viewBox="0 0 24 24"
-                                                    >
-                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                    </motion.svg>
-                                                    <motion.span
-                                                        animate={{ opacity: [0.7, 1, 0.7] }}
-                                                        transition={{ duration: 1.5, repeat: Infinity }}
-                                                    >
-                                                        Creating Delivery...
-                                                    </motion.span>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <motion.svg
-                                                        className="w-6 h-6"
-                                                        fill="none"
-                                                        stroke="currentColor"
-                                                        viewBox="0 0 24 24"
-                                                        whileHover={{ rotate: 90 }}
-                                                        transition={{ duration: 0.3 }}
-                                                    >
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                                    </motion.svg>
-                                                    Create Delivery
-                                                </>
-                                            )}
-                                        </span>
-
-                                        {/* Button shine effect */}
-                                        <motion.div
-                                            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12"
-                                            animate={!isSubmitting ? {
-                                                x: ["-100%", "100%"]
-                                            } : {}}
-                                            transition={{
-                                                duration: 2,
-                                                repeat: Infinity,
-                                                repeatDelay: 3,
-                                                ease: "easeInOut"
-                                            }}
-                                        />
-                                    </Button>
-                                </motion.div>
+                                    <span className="flex items-center gap-3">
+                                        <motion.svg
+                                            className="w-6 h-6"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                            whileHover={{ rotate: 90 }}
+                                            transition={{ duration: 0.3 }}
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                        </motion.svg>
+                                        Create Delivery
+                                    </span>
+                                </OptimisticButton>
                             </motion.div>
+                            
+                            {/* Progress Bar */}
+                            <AnimatePresence>
+                                {isSubmitting && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -20 }}
+                                        className="mt-6 space-y-3"
+                                    >
+                                        <ProgressBar
+                                            value={loadingProgress}
+                                            showLabel
+                                            color="primary"
+                                            className="w-full"
+                                        />
+                                        <motion.p
+                                            className="text-center text-sm text-gray-600"
+                                            animate={{ opacity: [0.7, 1, 0.7] }}
+                                            transition={{ duration: 1.5, repeat: Infinity }}
+                                        >
+                                            {loadingText}
+                                        </motion.p>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </Form>
                     </CardContent>
                 </Card>
@@ -892,6 +888,26 @@ const CreateDeliveryForm: React.FC<CreateDeliveryFormProps> = ({ onSuccess }) =>
                     </div>
                 </div>
             </motion.div>
+            
+            {/* Optimistic Toast */}
+            <AnimatePresence>
+                {showToast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.9 }}
+                        className="fixed bottom-4 right-4 z-50"
+                    >
+                        <OptimisticToast
+                            message={toastMessage}
+                            state={optimisticState}
+                            onClose={() => setShowToast(false)}
+                            autoClose={true}
+                            duration={3000}
+                        />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </motion.div>
     );
 };
