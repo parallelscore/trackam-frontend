@@ -9,6 +9,8 @@ import { useDelivery } from '../context/DeliveryContext';
 import { Card, CardContent } from '../components/ui/card';
 import { calculateDistance } from '../utils/utils';
 import { Button } from '../components/ui/button';
+import { MapSkeleton, DeliveryItemSkeleton, CardSkeleton } from '../components/ui/skeleton';
+import { motion } from 'framer-motion';
 
 const TrackingPage: React.FC = () => {
     const { trackingId } = useParams<{ trackingId: string }>();
@@ -106,13 +108,38 @@ const TrackingPage: React.FC = () => {
     const renderContent = () => {
         if (isLoading && !currentDelivery) {
             return (
-                <Card>
-                    <CardContent className="p-6">
-                        <div className="flex justify-center items-center h-32">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-                        </div>
-                    </CardContent>
-                </Card>
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="space-y-6"
+                >
+                    {/* Delivery status skeleton */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                    >
+                        <CardSkeleton showImage={false} textLines={2} className="h-32" />
+                    </motion.div>
+                    
+                    {/* Map skeleton */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                    >
+                        <MapSkeleton className="h-[400px]" />
+                    </motion.div>
+                    
+                    {/* Package details skeleton */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                    >
+                        <DeliveryItemSkeleton />
+                    </motion.div>
+                </motion.div>
             );
         }
 
