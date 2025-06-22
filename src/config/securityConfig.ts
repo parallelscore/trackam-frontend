@@ -63,7 +63,7 @@ export const SECURITY_CONFIG: SecurityConfig = {
   monitoring: {
     enabled: true,
     devtoolsDetection: !isDev, // Disable in development
-    storageMonitoring: !isDev, // Disable aggressive monitoring in development
+    storageMonitoring: false, // Disable aggressive monitoring to prevent false positives
     csrfProtection: true,
     rateLimiting: true,
   },

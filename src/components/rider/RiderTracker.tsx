@@ -1035,7 +1035,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                 {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                     <OptimisticButton
                                         state={completeOptimisticState}
-                                        className={`flex-1 ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'} text-white`}
+                                        className={`flex-1 ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-primary hover:bg-primary/90'} text-white`}
                                         onClick={handleCompleteDelivery}
                                         disabled={isLoading}
                                         pendingMessage="Preparing..."
@@ -1057,7 +1057,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         <OptimisticButton
                                             state={completeOptimisticState}
                                             size="sm"
-                                            className="flex-1 bg-[#0CAA41] hover:bg-[#0CAA41]/90 text-white"
+                                            className="flex-1 bg-primary hover:bg-primary/90 text-white"
                                             onClick={confirmCompleteDelivery}
                                             pendingMessage="Completing..."
                                             successMessage="Completed!"
@@ -1278,7 +1278,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                             {delivery.status === 'in_progress' && !showCompletionConfirm ? (
                                 <Button
                                     size="lg"
-                                    className={`w-full ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'}`}
+                                    className={`w-full ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-primary hover:bg-primary/90'}`}
                                     onClick={handleCompleteDelivery}
                                     disabled={isLoading}
                                 >
@@ -1303,7 +1303,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         <OptimisticButton
                                             state={completeOptimisticState}
                                             size="lg"
-                                            className="bg-[#0CAA41] hover:bg-[#0CAA41]/90 text-white"
+                                            className="bg-primary hover:bg-primary/90 text-white"
                                             onClick={confirmCompleteDelivery}
                                             pendingMessage="Completing..."
                                             successMessage="Completed!"

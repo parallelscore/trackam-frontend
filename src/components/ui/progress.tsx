@@ -96,7 +96,7 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
   size = 60,
   strokeWidth = 4,
   className,
-  color = '#0CAA41',
+  color = 'hsl(var(--primary))',
   showLabel = false,
   animated = true
 }) => {
@@ -317,7 +317,7 @@ interface LoadingSpinnerProps {
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   size = 'md',
-  color = '#0CAA41',
+  color = 'hsl(var(--primary))',
   className,
   variant = 'spinner'
 }) => {
@@ -499,7 +499,7 @@ export const UploadProgress: React.FC<UploadProgressProps> = ({
 export const IndeterminateProgress: React.FC<{
   className?: string;
   color?: string;
-}> = ({ className, color = '#0CAA41' }) => {
+}> = ({ className, color = 'hsl(var(--primary))' }) => {
   const prefersReducedMotion = useReducedMotion();
   
   return (
