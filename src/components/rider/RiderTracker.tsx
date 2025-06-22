@@ -11,6 +11,7 @@ import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
+import { OptimisticButton, OptimisticWrapper, OptimisticToast } from '../ui/optimistic';
 import { getStatusColor, getStatusText, calculateDistance } from '@/utils/utils.ts';
 import {
     MapPin,
@@ -142,6 +143,11 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     const [trackingStartTime, setTrackingStartTime] = useState<number | null>(null);
     const [pathHistory, setPathHistory] = useState<Location[]>([]);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    
+    // Optimistic UI state
+    const [completeOptimisticState, setCompleteOptimisticState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [optimisticToastMessage, setOptimisticToastMessage] = useState('');
+    const [showOptimisticToast, setShowOptimisticToast] = useState(false);
     
     // Arrival detection state
     const [hasArrived, setHasArrived] = useState(false);
@@ -667,10 +673,16 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
     }, []);
 
     const confirmCompleteDelivery = useCallback(async () => {
+        setCompleteOptimisticState('pending');
+        setOptimisticToastMessage('Completing delivery...');
+        setShowOptimisticToast(true);
+        
         try {
             const result = await completeDelivery(trackingId);
 
             if (result.success) {
+                setCompleteOptimisticState('success');
+                setOptimisticToastMessage('Delivery completed successfully!');
                 stopLocationTracking();
                 setShowCompletionConfirm(false);
 
@@ -685,9 +697,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 setTimeout(() => {
                     navigate(`/rider/complete/${trackingId}`);
                 }, 1000);
+            } else {
+                setCompleteOptimisticState('error');
+                setOptimisticToastMessage('Failed to complete delivery');
             }
         } catch (error) {
             console.error('Error completing delivery:', error);
+            setCompleteOptimisticState('error');
+            setOptimisticToastMessage('An unexpected error occurred');
+        } finally {
+            // Hide toast after a delay
+            setTimeout(() => setShowOptimisticToast(false), 3000);
         }
     }, [completeDelivery, trackingId, stopLocationTracking, isConnected, send, navigate]);
 
@@ -1010,13 +1030,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
                                 {/* Completion controls */}
                                 {delivery.status === 'in_progress' && !showCompletionConfirm ? (
-                                    <Button
-                                        className={`flex-1 ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'}`}
+                                    <OptimisticButton
+                                        state={completeOptimisticState}
+                                        className={`flex-1 ${hasArrived ? 'bg-green-500 hover:bg-green-600' : 'bg-[#0CAA41] hover:bg-[#0CAA41]/90'} text-white`}
                                         onClick={handleCompleteDelivery}
                                         disabled={isLoading}
+                                        pendingMessage="Preparing..."
+                                        successMessage="Ready!"
+                                        errorMessage={hasArrived ? 'Confirm Delivery' : 'Mark as Delivered'}
                                     >
                                         {hasArrived ? 'Confirm Delivery' : 'Mark as Delivered'}
-                                    </Button>
+                                    </OptimisticButton>
                                 ) : delivery.status === 'in_progress' && showCompletionConfirm ? (
                                     <div className="flex gap-2 flex-1">
                                         <Button
@@ -1027,13 +1051,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         >
                                             Cancel
                                         </Button>
-                                        <Button
+                                        <OptimisticButton
+                                            state={completeOptimisticState}
                                             size="sm"
-                                            className="flex-1 bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                            className="flex-1 bg-[#0CAA41] hover:bg-[#0CAA41]/90 text-white"
                                             onClick={confirmCompleteDelivery}
+                                            pendingMessage="Completing..."
+                                            successMessage="Completed!"
+                                            errorMessage="Try Again"
                                         >
                                             Confirm Delivery
-                                        </Button>
+                                        </OptimisticButton>
                                     </div>
                                 ) : delivery.status === 'completed' ? (
                                     <div className="flex-1 text-center">
@@ -1269,13 +1297,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                                         >
                                             Cancel
                                         </Button>
-                                        <Button
+                                        <OptimisticButton
+                                            state={completeOptimisticState}
                                             size="lg"
-                                            className="bg-[#0CAA41] hover:bg-[#0CAA41]/90"
+                                            className="bg-[#0CAA41] hover:bg-[#0CAA41]/90 text-white"
                                             onClick={confirmCompleteDelivery}
+                                            pendingMessage="Completing..."
+                                            successMessage="Completed!"
+                                            errorMessage="Try Again"
                                         >
                                             Confirm
-                                        </Button>
+                                        </OptimisticButton>
                                     </div>
                                 </div>
                             ) : delivery.status === 'completed' ? (
@@ -1298,8 +1330,17 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 )}
             </div>
             
+            {/* Optimistic Toast */}
+            <OptimisticToast
+                show={showOptimisticToast}
+                message={optimisticToastMessage}
+                type={completeOptimisticState === 'success' ? 'success' : 
+                      completeOptimisticState === 'error' ? 'error' : 'info'}
+                onClose={() => setShowOptimisticToast(false)}
+            />
+            
             {/* Add animation styles for new elements */}
-            <style jsx global>{`
+            <style>{`
                 @keyframes fadeIn {
                     from { opacity: 0; transform: translateY(-20px); }
                     to { opacity: 1; transform: translateY(0); }
