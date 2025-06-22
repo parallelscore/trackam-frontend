@@ -18,14 +18,14 @@ import {
     FormItem,
     FormLabel,
     FormControl,
-    FormErrorMessage,
-    FormDescription
+    FormErrorMessage
 } from '../components/ui/form';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { PhoneValidator, VALIDATION_MESSAGES } from '../utils/validation';
 import { PhoneSanitizer } from '../utils/sanitization';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { ProgressBar, CircularProgress } from '../components/ui/progress';
 
 interface PhoneRegistrationFormData {
     phoneNumber: string;
@@ -37,6 +37,10 @@ const PhoneRegisterPage: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
     const { requestRegistrationOTP, isAuthenticated } = useAuth();
+    
+    // Progress state
+    const [progress, setProgress] = useState(0);
+    const [progressStep, setProgressStep] = useState('');
 
     const {
         register,
@@ -68,8 +72,14 @@ const PhoneRegisterPage: React.FC = () => {
 
     const onSubmit = async (data: PhoneRegistrationFormData) => {
         setIsSubmitting(true);
+        setProgress(0);
 
         try {
+            // Step 1: Validating phone number
+            setProgressStep('Validating phone number...');
+            setProgress(25);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
             // Sanitize and validate phone number
             const sanitizedPhone = PhoneSanitizer.sanitize(data.phoneNumber);
             const validation = PhoneValidator.validate(sanitizedPhone);
@@ -77,14 +87,31 @@ const PhoneRegisterPage: React.FC = () => {
             if (!validation.isValid) {
                 console.error('Invalid phone number:', validation.error);
                 setIsSubmitting(false);
+                setProgress(0);
+                setProgressStep('');
                 return;
             }
+
+            // Step 2: Checking availability
+            setProgressStep('Checking availability...');
+            setProgress(50);
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Step 3: Creating account
+            setProgressStep('Creating account...');
+            setProgress(75);
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             // Use the formatted phone number for API call
             const formattedPhone = PhoneValidator.formatForAPI(sanitizedPhone);
             const success = await requestRegistrationOTP(formattedPhone);
 
             if (success) {
+                // Step 4: Complete
+                setProgressStep('Account created successfully!');
+                setProgress(100);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
                 // Store the formatted phone number in session storage for the OTP verification page
                 sessionStorage.setItem('registrationPhone', formattedPhone);
 
@@ -95,6 +122,8 @@ const PhoneRegisterPage: React.FC = () => {
             console.error('Registration error:', error);
         } finally {
             setIsSubmitting(false);
+            setProgress(0);
+            setProgressStep('');
         }
     };
 
@@ -387,12 +416,14 @@ const PhoneRegisterPage: React.FC = () => {
                                             <span className="relative z-10 flex items-center justify-center gap-2">
                                                 {isSubmitting ? (
                                                     <>
-                                                        <motion.div
-                                                            animate={{ rotate: 360 }}
-                                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                            className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                        <CircularProgress 
+                                                            value={progress}
+                                                            size={20}
+                                                            color="white"
+                                                            showValue={false}
+                                                            className="text-white"
                                                         />
-                                                        Creating Account...
+                                                        {progressStep || 'Creating Account...'}
                                                     </>
                                                 ) : (
                                                     <>
@@ -404,6 +435,30 @@ const PhoneRegisterPage: React.FC = () => {
                                                 )}
                                             </span>
                                         </Button>
+                                        
+                                        {/* Progress Bar */}
+                                        <AnimatePresence>
+                                            {isSubmitting && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="mt-4 space-y-2"
+                                                >
+                                                    <ProgressBar 
+                                                        value={progress}
+                                                        className="w-full max-w-xs mx-auto"
+                                                        color="primary"
+                                                        animated={true}
+                                                        showLabel={false}
+                                                    />
+                                                    <div className="text-center text-sm text-gray-600">
+                                                        {progressStep}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
                                     </motion.div>
                                 </Form>
                             </CardContent>
