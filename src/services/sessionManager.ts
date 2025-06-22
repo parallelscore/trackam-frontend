@@ -52,6 +52,10 @@ export class SessionManager {
   private isActive: boolean = true;
   private tabId: string;
   private eventListeners: Array<(event: SessionEvent) => void> = [];
+  // Circuit breaker to prevent infinite logout loops
+  private logoutInProgress: boolean = false;
+  private logoutAttempts: number = 0;
+  private lastLogoutAttempt: number = 0;
 
   /**
    * Get singleton instance
@@ -293,34 +297,63 @@ export class SessionManager {
    * Handle logout scenarios
    */
   private handleLogout(reason: string): void {
+    const now = Date.now();
+    
+    // Circuit breaker: prevent infinite logout loops
+    if (this.logoutInProgress) {
+      console.warn(`SessionManager: Logout already in progress, ignoring ${reason}`);
+      return;
+    }
+
+    // Rate limiting: prevent rapid consecutive logout attempts
+    if (now - this.lastLogoutAttempt < 1000) { // 1 second minimum between attempts
+      this.logoutAttempts++;
+      if (this.logoutAttempts > 3) {
+        console.error('SessionManager: Too many logout attempts, circuit breaker activated');
+        return;
+      }
+    } else {
+      this.logoutAttempts = 1;
+    }
+
+    this.lastLogoutAttempt = now;
+    this.logoutInProgress = true;
+
     console.log(`SessionManager: Logout triggered - ${reason}`);
     
-    // Clear timers
-    this.clearTimers();
-    
-    // Clear session data
-    SecureStorage.clearTokenData();
-    
-    // Sync logout with other tabs
-    if (this.config.enableTabSync) {
-      this.syncWithOtherTabs('logout', { reason, timestamp: Date.now() });
-    }
-    
-    // Emit logout event
-    this.emitEvent({
-      type: 'logout',
-      timestamp: Date.now(),
-      details: { reason },
-    });
+    try {
+      // Clear timers
+      this.clearTimers();
+      
+      // Clear session data
+      SecureStorage.clearTokenData();
+      
+      // Sync logout with other tabs
+      if (this.config.enableTabSync) {
+        this.syncWithOtherTabs('logout', { reason, timestamp: now });
+      }
+      
+      // Emit logout event
+      this.emitEvent({
+        type: 'logout',
+        timestamp: now,
+        details: { reason },
+      });
 
-    // Log security event
-    const logoutError = new AppError(
-      ErrorType.AUTHENTICATION_ERROR,
-      `Session logout: ${reason}`,
-      'Your session has ended. Please log in again.',
-      { code: 'SESSION_LOGOUT', details: { reason } }
-    );
-    logError(logoutError, 'SessionManager');
+      // Log security event
+      const logoutError = new AppError(
+        ErrorType.AUTHENTICATION_ERROR,
+        `Session logout: ${reason}`,
+        'Your session has ended. Please log in again.',
+        { code: 'SESSION_LOGOUT', details: { reason } }
+      );
+      logError(logoutError, 'SessionManager');
+    } finally {
+      // Reset circuit breaker after a delay
+      setTimeout(() => {
+        this.logoutInProgress = false;
+      }, 1000);
+    }
   }
 
   /**

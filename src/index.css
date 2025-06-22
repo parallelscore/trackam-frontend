@@ -160,7 +160,7 @@
 }
 
 /* Enhance button hover states for better UX */
-.bg-\[#0CAA41\]:hover {
+.bg-primary:hover {
   background-color: #0a9639 !important;
   transform: translateY(-1px);
   transition: all 0.2s ease;
@@ -222,7 +222,7 @@
 /* Focus states for accessibility */
 button:focus-visible,
 .focus\:ring-2:focus-visible {
-  outline: 2px solid #0CAA41;
+  outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
 }
 

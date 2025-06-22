@@ -157,14 +157,14 @@ function App() {
                                     },
                                     success: {
                                         style: {
-                                            background: 'linear-gradient(135deg, #0CAA41 0%, #0CAA41 100%)',
+                                            background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)) 100%)',
                                             color: '#FFFFFF',
-                                            border: '1px solid #0CAA41',
+                                            border: '1px solid hsl(var(--primary))',
                                             borderLeft: '6px solid #FFFFFF',
                                         },
                                         iconTheme: {
                                             primary: '#FFFFFF',
-                                            secondary: '#0CAA41',
+                                            secondary: 'hsl(var(--primary))',
                                         },
                                     },
                                     error: {

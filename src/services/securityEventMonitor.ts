@@ -420,7 +420,8 @@ export class SecurityEventMonitor {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:4173',
-      // Add production domains
+      'https://trackam.xyz',
+      'https://www.trackam.xyz'
     ];
 
     if (process.env.NODE_ENV === 'production' && !allowedOrigins.includes(currentOrigin)) {

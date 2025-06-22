@@ -140,6 +140,9 @@ export class TokenValidator {
  * Secure storage class for authentication tokens
  */
 export class SecureStorage {
+  // Circuit breaker to prevent infinite logout loops
+  private static logoutInProgress = false;
+  private static logoutTimeoutId: NodeJS.Timeout | null = null;
   /**
    * Check if storage is available and secure
    */
@@ -282,6 +285,14 @@ export class SecureStorage {
   static clearTokenData(): void {
     if (!this.isStorageAvailable()) return;
 
+    // Circuit breaker: prevent multiple simultaneous logout operations
+    if (this.logoutInProgress) {
+      console.warn('SecureStorage: Logout already in progress, skipping');
+      return;
+    }
+
+    this.logoutInProgress = true;
+
     try {
       Object.values(STORAGE_KEYS).forEach(key => {
         localStorage.removeItem(key);
@@ -297,6 +308,14 @@ export class SecureStorage {
       }));
     } catch (error) {
       console.error('SecureStorage: Failed to clear token data', error);
+    } finally {
+      // Reset the circuit breaker after a delay to allow for proper cleanup
+      if (this.logoutTimeoutId) {
+        clearTimeout(this.logoutTimeoutId);
+      }
+      this.logoutTimeoutId = setTimeout(() => {
+        this.logoutInProgress = false;
+      }, 1000); // 1 second delay before allowing another logout
     }
   }
 
