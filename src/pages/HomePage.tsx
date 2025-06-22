@@ -497,12 +497,16 @@ const HomePage: React.FC = () => {
                             {/* Timeline Line */}
                             <div className="absolute top-20 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
 
-                            {/* Animated Rider Icon */}
+                            {/* Animated Rider Icon - Hardware Accelerated */}
                             <motion.div
-                                animate={{ left: ["0%", "100%"] }}
+                                animate={{ x: ["0%", "calc(100vw - 2rem)"] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.5 }}
                                 className="absolute top-16 h-8 w-8 z-30"
-                                style={{ left: "0%" }}
+                                style={{
+                                    // Hardware acceleration hints
+                                    willChange: 'transform',
+                                    backfaceVisibility: 'hidden'
+                                }}
                             >
                                 <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg"> {/* Changed to primary color */}
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -574,12 +578,16 @@ const HomePage: React.FC = () => {
                             {/* Vertical Timeline Line */}
                             <div className="absolute left-10 top-0 bottom-0 w-1 bg-gray-200 rounded-full"></div>
 
-                            {/* Animated Rider Icon for Mobile */}
+                            {/* Animated Rider Icon for Mobile - Hardware Accelerated */}
                             <motion.div
-                                animate={{ top: ["0%", "100%"] }}
+                                animate={{ y: ["0%", "calc(100vh - 4rem)"] }}
                                 transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", repeatDelay: 0.5 }}
                                 className="absolute left-8 w-6 h-6 z-30"
-                                style={{ top: "0%" }}
+                                style={{
+                                    // Hardware acceleration hints
+                                    willChange: 'transform',
+                                    backfaceVisibility: 'hidden'
+                                }}
                             >
                                 <div className="bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg"> {/* Changed to primary color */}
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
