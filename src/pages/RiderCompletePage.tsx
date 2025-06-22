@@ -9,6 +9,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '../components/ui/card';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
 import { Badge } from '../components/ui/badge';
+import { OptimisticButton, OptimisticWrapper, OptimisticToast } from '../components/ui/optimistic';
 
 // Enhanced animation variants matching VendorDashboard
 const fadeInUp = {
@@ -113,6 +114,11 @@ const RiderCompletePage: React.FC = () => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [completeError, setCompleteError] = useState<string | null>(null);
     const [hasFetched, setHasFetched] = useState(false);
+    
+    // Optimistic UI state
+    const [completeOptimisticState, setCompleteOptimisticState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [optimisticToastMessage, setOptimisticToastMessage] = useState('');
+    const [showOptimisticToast, setShowOptimisticToast] = useState(false);
 
     // Animation refs
     const headerRef = useRef(null);
@@ -151,6 +157,9 @@ const RiderCompletePage: React.FC = () => {
 
         setIsSubmitting(true);
         setCompleteError(null);
+        setCompleteOptimisticState('pending');
+        setOptimisticToastMessage('Completing delivery...');
+        setShowOptimisticToast(true);
 
         try {
             const result = await completeDelivery(trackingId);
@@ -158,6 +167,8 @@ const RiderCompletePage: React.FC = () => {
             if (result.success) {
                 setIsCompleted(true);
                 setShowConfirmation(false);
+                setCompleteOptimisticState('success');
+                setOptimisticToastMessage('Delivery completed successfully!');
 
                 // Remove tracking data from localStorage to reset rider state
                 localStorage.removeItem('trackam_current_tracking_id');
@@ -170,13 +181,19 @@ const RiderCompletePage: React.FC = () => {
                     navigate('/');
                 }, 5000);
             } else {
+                setCompleteOptimisticState('error');
+                setOptimisticToastMessage('Failed to complete delivery');
                 setCompleteError(result.message || 'Failed to complete delivery');
             }
         } catch (err: any) {
             console.error('Error completing delivery:', err);
+            setCompleteOptimisticState('error');
+            setOptimisticToastMessage('An unexpected error occurred');
             setCompleteError(err.message || 'An unexpected error occurred');
         } finally {
             setIsSubmitting(false);
+            // Hide toast after a delay
+            setTimeout(() => setShowOptimisticToast(false), 3000);
         }
     };
 
@@ -881,20 +898,17 @@ const RiderCompletePage: React.FC = () => {
                                         >
                                             Cancel
                                         </Button>
-                                        <Button
-                                            className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-sm sm:text-base shadow-lg"
+                                        <OptimisticButton
+                                            state={completeOptimisticState}
                                             onClick={handleConfirmComplete}
+                                            className="flex-1 py-2.5 sm:py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-sm sm:text-base shadow-lg"
                                             disabled={isSubmitting}
+                                            pendingMessage="Completing..."
+                                            successMessage="Completed!"
+                                            errorMessage="Try Again"
                                         >
-                                            {isSubmitting ? (
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                    Processing...
-                                                </div>
-                                            ) : (
-                                                'Yes, Complete Delivery'
-                                            )}
-                                        </Button>
+                                            Yes, Complete Delivery
+                                        </OptimisticButton>
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1050,9 +1064,13 @@ const RiderCompletePage: React.FC = () => {
                                                 whileTap={{ scale: 0.98 }}
                                                 className="flex-1"
                                             >
-                                                <Button
+                                                <OptimisticButton
+                                                    state={completeOptimisticState}
                                                     onClick={handleCompleteClick}
                                                     className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white py-3 sm:py-6 rounded-xl shadow-xl hover:shadow-2xl transition-all duration-300 text-sm sm:text-base"
+                                                    pendingMessage="Preparing..."
+                                                    successMessage="Ready!"
+                                                    errorMessage="Complete Delivery"
                                                 >
                                                     <span className="flex items-center gap-2">
                                                         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1060,7 +1078,7 @@ const RiderCompletePage: React.FC = () => {
                                                         </svg>
                                                         Complete Delivery
                                                     </span>
-                                                </Button>
+                                                </OptimisticButton>
                                             </motion.div>
                                         </div>
                                     </div>
@@ -1075,6 +1093,15 @@ const RiderCompletePage: React.FC = () => {
                     )}
                 </AnimatePresence>
             </div>
+            
+            {/* Optimistic Toast */}
+            <OptimisticToast
+                show={showOptimisticToast}
+                message={optimisticToastMessage}
+                type={completeOptimisticState === 'success' ? 'success' : 
+                      completeOptimisticState === 'error' ? 'error' : 'info'}
+                onClose={() => setShowOptimisticToast(false)}
+            />
         </Layout>
     );
 };
