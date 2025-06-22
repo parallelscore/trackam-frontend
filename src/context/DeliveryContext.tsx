@@ -1,5 +1,5 @@
 // src/context/DeliveryContext.tsx - Updated to use public endpoints for tracking
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import deliveryService from '../services/deliveryService';
 import { mockDeliveryService } from '../services/mockDeliveryService';
@@ -76,7 +76,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
     const [error, setError] = useState<string | null>(null);
 
     // Fetch deliveries with optional filtering (REQUIRES AUTH - vendor only)
-    const fetchDeliveries = async (filters?: { status?: string; search?: string; page?: number; limit?: number }) => {
+    const fetchDeliveries = useCallback(async (filters?: { status?: string; search?: string; page?: number; limit?: number }) => {
         setIsLoading(true);
         setError(null);
 
@@ -136,10 +136,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     // Create a new delivery (REQUIRES AUTH - vendor only)
-    const createDelivery = async (deliveryData: Delivery): Promise<Delivery | null> => {
+    const createDelivery = useCallback(async (deliveryData: Delivery): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
 
@@ -168,10 +168,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     // Get delivery by ID (REQUIRES AUTH - vendor only)
-    const getDeliveryById = async (id: string): Promise<Delivery | null> => {
+    const getDeliveryById = useCallback(async (id: string): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
 
@@ -205,10 +205,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     // Get delivery by tracking ID (REQUIRES AUTH - vendor only)
-    const getDeliveryByTrackingId = async (trackingId: string): Promise<Delivery | null> => {
+    const getDeliveryByTrackingId = useCallback(async (trackingId: string): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
 
@@ -247,10 +247,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentDelivery]);
 
     // Get delivery by tracking ID - PUBLIC (NO AUTH - for riders/customers)
-    const getPublicDeliveryByTrackingId = async (trackingId: string): Promise<Delivery | null> => {
+    const getPublicDeliveryByTrackingId = useCallback(async (trackingId: string): Promise<Delivery | null> => {
         setIsLoading(true);
         setError(null);
 
@@ -291,10 +291,10 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [currentDelivery]);
 
     // Get dashboard statistics (REQUIRES AUTH - vendor only)
-    const getDashboardStats = async (period: 'day' | 'week' | 'month' | 'all' = 'all'): Promise<DashboardStats> => {
+    const getDashboardStats = useCallback(async (period: 'day' | 'week' | 'month' | 'all' = 'all'): Promise<DashboardStats> => {
         setIsLoading(true);
         setError(null);
 
@@ -384,7 +384,7 @@ export const DeliveryProvider: React.FC<DeliveryProviderProps> = ({ children }) 
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     // Get delivery analytics for charts (REQUIRES AUTH - vendor only)
     const getDeliveryAnalytics = async (timeRange: 'week' | 'month' | 'year' = 'week'): Promise<DeliveryAnalyticsItem[]> => {
