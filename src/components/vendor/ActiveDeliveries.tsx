@@ -7,6 +7,7 @@ import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } f
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { OptimisticButton, OptimisticToast } from '../ui/optimistic';
 import { Delivery, DeliveryFilters, DeliveryStatus } from '@/types';
 import toast from 'react-hot-toast';
 import { apiClient } from '@/services/apiClient';
@@ -119,6 +120,11 @@ const ActiveDeliveries: React.FC = () => {
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
     const [isResending, setIsResending] = useState<string | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('table');
+    
+    // Optimistic UI state
+    const [resendOptimisticState, setResendOptimisticState] = useState<Record<string, 'idle' | 'pending' | 'success' | 'error'>>({});
+    const [optimisticToastMessage, setOptimisticToastMessage] = useState('');
+    const [showOptimisticToast, setShowOptimisticToast] = useState(false);
 
     // Animation refs
     const containerRef = useRef(null);
@@ -201,20 +207,34 @@ const ActiveDeliveries: React.FC = () => {
 
     const handleResendNotifications = async (trackingId: string) => {
         setIsResending(trackingId);
+        setResendOptimisticState(prev => ({ ...prev, [trackingId]: 'pending' }));
+        setOptimisticToastMessage('Resending notifications...');
+        setShowOptimisticToast(true);
 
         try {
             const result = await apiClient.post(`/deliveries/${trackingId}/resend-notifications`);
 
             if (result.success) {
+                setResendOptimisticState(prev => ({ ...prev, [trackingId]: 'success' }));
+                setOptimisticToastMessage('Notifications resent successfully!');
                 toast.success('Notifications resent successfully');
             } else {
+                setResendOptimisticState(prev => ({ ...prev, [trackingId]: 'error' }));
+                setOptimisticToastMessage('Failed to resend notifications');
                 toast.error(result.error || 'Failed to resend notifications');
             }
         } catch (error: any) {
             console.error('Error resending notifications:', error);
+            setResendOptimisticState(prev => ({ ...prev, [trackingId]: 'error' }));
+            setOptimisticToastMessage('Failed to resend notifications');
             toast.error('Failed to resend notifications');
         } finally {
             setIsResending(null);
+            // Hide toast and reset optimistic state after a delay
+            setTimeout(() => {
+                setShowOptimisticToast(false);
+                setResendOptimisticState(prev => ({ ...prev, [trackingId]: 'idle' }));
+            }, 3000);
         }
     };
 
@@ -1110,6 +1130,15 @@ const ActiveDeliveries: React.FC = () => {
                     repeat: Infinity,
                     ease: "easeInOut"
                 }}
+            />
+            
+            {/* Optimistic Toast */}
+            <OptimisticToast
+                show={showOptimisticToast}
+                message={optimisticToastMessage}
+                type={Object.values(resendOptimisticState).some(state => state === 'success') ? 'success' : 
+                      Object.values(resendOptimisticState).some(state => state === 'error') ? 'error' : 'info'}
+                onClose={() => setShowOptimisticToast(false)}
             />
         </motion.div>
     );
