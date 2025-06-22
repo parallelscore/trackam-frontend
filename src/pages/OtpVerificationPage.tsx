@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/common/Layout';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import { ProgressBar } from '../components/ui/progress';
 import {
     Card,
     CardHeader,
@@ -33,6 +34,10 @@ const OtpVerificationPage: React.FC = () => {
     const [countdown, setCountdown] = useState(60);
     const [canResend, setCanResend] = useState(false);
     const { verifyRegistrationOTP, requestRegistrationOTP, isAuthenticated } = useAuth();
+    
+    // Progress state
+    const [progress, setProgress] = useState(0);
+    const [progressStep, setProgressStep] = useState('');
 
     const {
         register,
@@ -85,19 +90,42 @@ const OtpVerificationPage: React.FC = () => {
         if (!phoneNumber) return;
 
         setIsSubmitting(true);
+        setProgress(0);
 
         try {
+            // Step 1: Validating OTP
+            setProgressStep('Validating OTP...');
+            setProgress(25);
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Step 2: Verifying with server
+            setProgressStep('Verifying with server...');
+            setProgress(50);
+            await new Promise(resolve => setTimeout(resolve, 400));
+
+            // Step 3: Processing verification
+            setProgressStep('Processing verification...');
+            setProgress(75);
+
             // Verify OTP
             const success = await verifyRegistrationOTP(phoneNumber, data.otp);
 
             if (success) {
+                // Step 4: Complete
+                setProgressStep('Verification successful!');
+                setProgress(100);
+                await new Promise(resolve => setTimeout(resolve, 300));
+
                 // Navigate to profile completion page
                 navigate('/complete-profile');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
+            toast.error('Failed to verify OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
+            setProgress(0);
+            setProgressStep('');
         }
     };
 
@@ -353,6 +381,30 @@ const OtpVerificationPage: React.FC = () => {
                                                 )}
                                             </span>
                                         </Button>
+
+                                        {/* Progress Bar - Below the button */}
+                                        <AnimatePresence>
+                                            {isSubmitting && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="space-y-2"
+                                                >
+                                                    <ProgressBar 
+                                                        value={progress}
+                                                        className="w-full max-w-xs mx-auto"
+                                                        color="primary"
+                                                        animated={true}
+                                                        showLabel={false}
+                                                    />
+                                                    <div className="text-center text-sm text-gray-600">
+                                                        {progressStep}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
 
                                         <div className="text-center text-sm">
                                             <span className="text-gray-500">Didn't receive the code? </span>
