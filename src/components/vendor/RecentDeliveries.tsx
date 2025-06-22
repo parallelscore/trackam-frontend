@@ -5,6 +5,7 @@ import { Delivery } from '@/types';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
+import { DeliveryItemSkeleton } from '../ui/skeleton';
 import { getStatusColor, getStatusText, formatDateTime, generateWhatsAppLink } from '@/utils/utils.ts';
 
 interface RecentDeliveriesProps {
@@ -325,77 +326,11 @@ const RecentDeliveries: React.FC<RecentDeliveriesProps> = ({
                                     {[1, 2, 3].map((i) => (
                                         <motion.div
                                             key={i}
-                                            className="p-4 border border-gray-100 rounded-xl bg-gray-50/50"
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             transition={{ delay: i * 0.1, duration: 0.5 }}
                                         >
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3 flex-1">
-                                                    {/* Avatar skeleton */}
-                                                    <motion.div
-                                                        className="w-12 h-12 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-xl"
-                                                        animate={{
-                                                            backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                                                        }}
-                                                        transition={{
-                                                            duration: 2,
-                                                            repeat: Infinity,
-                                                            ease: "easeInOut"
-                                                        }}
-                                                        style={{
-                                                            backgroundSize: "200% 100%"
-                                                        }}
-                                                    />
-                                                    <div className="space-y-2 flex-1">
-                                                        <motion.div
-                                                            className="h-5 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg w-3/4"
-                                                            animate={{
-                                                                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                                                            }}
-                                                            transition={{
-                                                                duration: 2,
-                                                                repeat: Infinity,
-                                                                ease: "easeInOut",
-                                                                delay: 0.2
-                                                            }}
-                                                            style={{
-                                                                backgroundSize: "200% 100%"
-                                                            }}
-                                                        />
-                                                        <motion.div
-                                                            className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg w-1/2"
-                                                            animate={{
-                                                                backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                                                            }}
-                                                            transition={{
-                                                                duration: 2,
-                                                                repeat: Infinity,
-                                                                ease: "easeInOut",
-                                                                delay: 0.4
-                                                            }}
-                                                            style={{
-                                                                backgroundSize: "200% 100%"
-                                                            }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <motion.div
-                                                    className="h-8 w-16 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded-lg"
-                                                    animate={{
-                                                        backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                                                    }}
-                                                    transition={{
-                                                        duration: 2,
-                                                        repeat: Infinity,
-                                                        ease: "easeInOut",
-                                                        delay: 0.6
-                                                    }}
-                                                    style={{
-                                                        backgroundSize: "200% 100%"
-                                                    }}
-                                                />
-                                            </div>
+                                            <DeliveryItemSkeleton />
                                         </motion.div>
                                     ))}
                                 </motion.div>
