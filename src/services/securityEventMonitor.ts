@@ -114,12 +114,13 @@ const SECURITY_RULES: SecurityRule[] = [
 const getMonitoringConfig = () => {
   const config = getSecurityConfig();
   return {
-    MONITORING_ENABLED: config.monitoring.enabled,
+    MONITORING_ENABLED: config.monitoring.enabled && config.monitoring.legacyMonitoring,
     AUTO_LOGOUT_ENABLED: config.enableSecurityFeatures,
     STORAGE_MONITORING: config.monitoring.storageMonitoring,
     DEVTOOLS_DETECTION: config.monitoring.devtoolsDetection,
     EVENT_RETENTION_TIME: 24 * 60 * 60 * 1000, // 24 hours
     MAX_EVENTS_STORED: 1000,
+    SMART_MONITORING_ENABLED: config.monitoring.smartMonitoring,
   };
 };
 
@@ -151,10 +152,13 @@ export class SecurityEventMonitor {
   initialize(): void {
     const SECURITY_CONFIG = getMonitoringConfig();
     if (!SECURITY_CONFIG.MONITORING_ENABLED || this.isMonitoring) {
+      if (SECURITY_CONFIG.SMART_MONITORING_ENABLED) {
+        console.log('SecurityEventMonitor: Skipping legacy monitoring - smart monitoring enabled');
+      }
       return;
     }
 
-    console.log('SecurityEventMonitor: Initializing security monitoring');
+    console.log('SecurityEventMonitor: Initializing legacy security monitoring');
     this.isMonitoring = true;
 
     // Set up various monitoring mechanisms
