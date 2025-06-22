@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { WebSocketLogger } from '@/services/apiClient';
 
 interface UseWebSocketOptions {
     url: string;
@@ -124,13 +125,13 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
             }
 
             setConnectionStatus('connecting');
-            console.log('Creating WebSocket connection to:', urlRef.current);
+            WebSocketLogger.logConnection(urlRef.current);
 
             const socket = new WebSocket(urlRef.current);
             socketRef.current = socket;
 
             socket.onopen = () => {
-                console.log('WebSocket connected successfully');
+                WebSocketLogger.logConnected(urlRef.current);
                 setIsConnected(true);
                 setConnectionStatus('connected');
                 reconnectCountRef.current = 0;
@@ -145,7 +146,7 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
             };
 
             socket.onclose = (event) => {
-                console.log(`WebSocket closed with code: ${event.code}, reason: ${event.reason || 'No reason provided'}`);
+                WebSocketLogger.logDisconnected(urlRef.current, event.code, event.reason);
 
                 setIsConnected(false);
                 clearTimers();
@@ -161,7 +162,7 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
                         reconnectCountRef.current += 1;
 
                         const delay = Math.min(reconnectInterval * Math.pow(1.5, reconnectCountRef.current - 1), 30000);
-                        console.log(`Attempting to reconnect (${reconnectCountRef.current}/${reconnectAttempts}) in ${delay}ms...`);
+                        WebSocketLogger.logReconnect(urlRef.current, reconnectCountRef.current, reconnectAttempts, delay);
 
                         reconnectTimerRef.current = window.setTimeout(() => {
                             createSocketConnection();
@@ -176,7 +177,7 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
             };
 
             socket.onerror = (event) => {
-                console.error('WebSocket error:', event);
+                WebSocketLogger.logError(urlRef.current, event);
                 setConnectionStatus('error');
                 if (errorCallbackRef.current) {
                     errorCallbackRef.current(event);
@@ -189,9 +190,12 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
 
                     // Handle built-in message types
                     if (data.type === 'pong') {
-                        // Heartbeat response - connection is alive
+                        // Heartbeat response - connection is alive, don't log ping/pong
                         return;
                     }
+
+                    // Log incoming message
+                    WebSocketLogger.logMessage(urlRef.current, data, 'incoming');
 
                     setLastMessage(event.data);
 
@@ -205,7 +209,7 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
             };
 
         } catch (err) {
-            console.error('Error creating WebSocket:', err);
+            WebSocketLogger.logError(urlRef.current, err as Error);
             setConnectionStatus('error');
         }
     }, [reconnectAttempts, reconnectInterval, startHeartbeat, clearTimers]);
@@ -246,6 +250,13 @@ const useWebSocket = (options: UseWebSocketOptions): UseWebSocketResult => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             try {
                 const message = typeof data === 'string' ? data : JSON.stringify(data);
+                
+                // Log outgoing message (skip ping messages to reduce noise)
+                const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
+                if (parsedData.type !== 'ping') {
+                    WebSocketLogger.logMessage(urlRef.current, parsedData, 'outgoing');
+                }
+                
                 socketRef.current.send(message);
                 return true;
             } catch (error) {

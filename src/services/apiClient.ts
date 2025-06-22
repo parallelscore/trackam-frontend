@@ -94,6 +94,171 @@ class ApiLogger {
     }
 }
 
+// WebSocket Logger utility (consistent with API Logger)
+export class WebSocketLogger {
+    private static isDevelopment = import.meta.env.DEV;
+
+    static logConnection(url: string): void {
+        if (!this.isDevelopment) return;
+
+        console.group(`🚀 WS CONNECT ${url}`);
+        console.log('WebSocket Config:', {
+            url,
+            protocol: 'ws',
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logConnected(url: string): void {
+        if (!this.isDevelopment) return;
+
+        console.group(`✅ WS CONNECTED ${url}`);
+        console.log('Connection Details:', {
+            url,
+            status: 'connected',
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logDisconnected(url: string, code?: number, reason?: string): void {
+        if (!this.isDevelopment) return;
+
+        console.group(`❌ WS DISCONNECTED ${url}`);
+        console.log('Disconnect Details:', {
+            url,
+            code,
+            reason: reason || 'No reason provided',
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logError(url: string, error: Event | Error): void {
+        if (!this.isDevelopment) return;
+
+        console.group(`❌ WS ERROR ${url}`);
+        console.error('Error Details:', {
+            url,
+            error: error instanceof Error ? error.message : 'WebSocket error',
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logMessage(url: string, data: any, direction: 'incoming' | 'outgoing' = 'incoming'): void {
+        if (!this.isDevelopment) return;
+
+        const icon = direction === 'incoming' ? '📥' : '📤';
+        const type = data?.type || 'unknown';
+        
+        console.group(`${icon} WS ${direction.toUpperCase()} ${url} (${type})`);
+        console.log('Message Details:', {
+            url,
+            direction,
+            type,
+            data,
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logReconnect(url: string, attempt: number, maxAttempts: number, delay: number): void {
+        if (!this.isDevelopment) return;
+
+        console.warn(`🔄 WS RECONNECT ${attempt}/${maxAttempts} ${url} (${delay}ms)`);
+    }
+}
+
+// Geolocation Logger utility (consistent with API and WebSocket Logger)
+export class GeolocationLogger {
+    private static isDevelopment = import.meta.env.DEV;
+    private static lastLogTime = 0;
+    private static logCooldown = 2000; // 2 seconds minimum between start/stop logs
+
+    static logStartTracking(options: any): void {
+        if (!this.isDevelopment) return;
+
+        const now = Date.now();
+        if (now - this.lastLogTime < this.logCooldown) {
+            return; // Skip logging if too frequent
+        }
+        this.lastLogTime = now;
+
+        console.group(`🚀 GEOLOCATION START`);
+        console.log('Tracking Config:', {
+            enableHighAccuracy: options.enableHighAccuracy,
+            timeout: options.timeout,
+            maximumAge: options.maximumAge,
+            interval: options.interval,
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logStopTracking(): void {
+        if (!this.isDevelopment) return;
+
+        const now = Date.now();
+        if (now - this.lastLogTime < this.logCooldown) {
+            return; // Skip logging if too frequent
+        }
+        this.lastLogTime = now;
+
+        console.group(`❌ GEOLOCATION STOP`);
+        console.log('Tracking Details:', {
+            status: 'stopped',
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logLocationUpdate(location: any, options?: any): void {
+        if (!this.isDevelopment) return;
+
+        console.group(`✅ GEOLOCATION UPDATE (±${Math.round(location.accuracy || 0)}m)`);
+        console.log('Location Details:', {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            accuracy: location.accuracy,
+            speed: location.speed,
+            highAccuracyMode: options?.enableHighAccuracy,
+            timestamp: new Date(location.timestamp).toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logError(error: GeolocationPositionError, retryCount?: number, maxRetries?: number): void {
+        if (!this.isDevelopment) return;
+
+        const errorMessages = {
+            [error.PERMISSION_DENIED]: 'Permission denied',
+            [error.POSITION_UNAVAILABLE]: 'Position unavailable',
+            [error.TIMEOUT]: 'Request timeout',
+        };
+
+        const errorType = errorMessages[error.code] || 'Unknown error';
+        const retryInfo = retryCount !== undefined ? ` (retry ${retryCount}/${maxRetries})` : '';
+
+        console.group(`❌ GEOLOCATION ERROR ${errorType}${retryInfo}`);
+        console.error('Error Details:', {
+            code: error.code,
+            message: error.message,
+            retryCount,
+            maxRetries,
+            timestamp: new Date().toISOString(),
+        });
+        console.groupEnd();
+    }
+
+    static logRetry(retryCount: number, maxRetries: number, delay: number): void {
+        if (!this.isDevelopment) return;
+
+        console.warn(`🔄 GEOLOCATION RETRY ${retryCount}/${maxRetries} (${delay / 1000}s)`);
+    }
+}
+
 // API Error class
 export class ApiError extends Error {
     public statusCode?: number;

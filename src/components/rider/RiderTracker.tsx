@@ -268,7 +268,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
 
     // Handle WebSocket messages - fixed message handling
     const handleWebSocketMessage = useCallback((data: any) => {
-        console.log('📡 WebSocket message received:', data);
+        // WebSocket logging is now handled by WebSocketLogger in useWebSocket hook
 
         switch (data.type) {
             case 'connections_info':
@@ -276,10 +276,10 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 setConnectedClients(data.connections_count || data.count || 1);
                 break;
             case 'location_update':
-                console.log('📍 Received location update:', data);
+                // Location update handling
                 break;
             case 'status_update':
-                console.log('📊 Received status update:', data);
+                // Status update handling
                 break;
             case 'pong':
                 // Heartbeat response - connection is alive
@@ -295,7 +295,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                 if (data.error) {
                     console.warn('⚠️ WebSocket server error:', data.error);
                 } else {
-                    console.log('📦 Unknown message type:', data.type || 'undefined', data);
+                    // Unknown message types are now logged by WebSocketLogger
                 }
         }
     }, []);
@@ -308,15 +308,15 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         reconnectInterval: 10000,
         heartbeatInterval: 25000,
         onConnect: () => {
-            console.log('✅ WebSocket connected to:', wsUrl);
+            // WebSocket connection logging is now handled by WebSocketLogger
             setConnectedClients(1);
         },
         onDisconnect: () => {
-            console.log('❌ WebSocket disconnected');
+            // WebSocket disconnection logging is now handled by WebSocketLogger
             setConnectedClients(0);
         },
         onError: (error) => {
-            console.error('🚨 WebSocket error:', error);
+            // WebSocket error logging is now handled by WebSocketLogger
         },
         onMessage: handleWebSocketMessage
     });
@@ -334,9 +334,18 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         location,
         error: locationError,
         isTracking,
-        startTracking: startLocationTracking,
-        stopTracking: stopLocationTracking
+        startTracking: startLocationTrackingRaw,
+        stopTracking: stopLocationTrackingRaw
     } = useGeolocation(geolocationOptions);
+
+    // Stabilize geolocation functions to prevent useEffect cycling
+    const startLocationTracking = useCallback(() => {
+        startLocationTrackingRaw();
+    }, [startLocationTrackingRaw]);
+
+    const stopLocationTracking = useCallback(() => {
+        stopLocationTrackingRaw();
+    }, [stopLocationTrackingRaw]);
 
     // Check location permission (stable)
     useEffect(() => {
@@ -597,50 +606,44 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
         }
     }, [location, isTracking, delivery.status, processLocationUpdate, isUpdatingLocation]);
 
-    // Auto-start tracking (modified to not restart tracking if arrived)
-    useEffect(() => {
-        let mounted = true;
+    // Stable auto-start tracking callback
+    const autoStartTracking = useCallback(async () => {
+        if (!isTracking && !hasArrived) {
+            startLocationTracking();
 
-        const autoStartTracking = async () => {
-            if (!isTracking && mounted && !hasArrived) {
-                startLocationTracking();
+            if (delivery.status === 'accepted') {
+                try {
+                    const result = await startTracking(trackingId);
 
-                if (delivery.status === 'accepted') {
-                    try {
-                        const result = await startTracking(trackingId);
-
-                        if (result.success && isConnected && mounted) {
-                            setTimeout(() => {
-                                send({
-                                    type: 'status_update',
-                                    tracking_id: trackingId,
-                                    status: 'in_progress',
-                                    timestamp: Date.now()
-                                });
-                            }, 500);
-                        }
-                    } catch (error) {
-                        console.error('Error starting tracking:', error);
-                        if (mounted) {
-                            setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
-                        }
+                    if (result.success && isConnected) {
+                        setTimeout(() => {
+                            send({
+                                type: 'status_update',
+                                tracking_id: trackingId,
+                                status: 'in_progress',
+                                timestamp: Date.now()
+                            });
+                        }, 500);
                     }
+                } catch (error) {
+                    console.error('Error starting tracking:', error);
+                    setLocationIssue('Failed to start tracking. Please refresh the page and try again.');
                 }
             }
-        };
+        }
+    }, [isTracking, hasArrived, startLocationTracking, delivery.status, startTracking, trackingId, isConnected, send]);
 
+    // Auto-start tracking (with stable dependencies)
+    useEffect(() => {
+        // Only run once when component mounts or key dependencies change
         autoStartTracking();
-
+        
         return () => {
-            mounted = false;
-            if (isTracking) {
-                stopLocationTracking();
-            }
             if (locationUpdateTimeoutRef.current) {
                 clearTimeout(locationUpdateTimeoutRef.current);
             }
         };
-    }, [delivery.status, trackingId, isTracking, startTracking, startLocationTracking, isConnected, send, stopLocationTracking, hasArrived]);
+    }, [autoStartTracking]);
 
     // Cleanup on unmount
     useEffect(() => {

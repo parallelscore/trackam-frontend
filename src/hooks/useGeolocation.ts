@@ -1,6 +1,7 @@
 // src/hooks/useGeolocation.ts
 import { useState, useEffect, useRef } from 'react';
 import { Location } from '@/types';
+import { GeolocationLogger } from '@/services/apiClient';
 
 interface GeolocationOptions {
     enableHighAccuracy?: boolean;
@@ -50,24 +51,18 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
 
         lastUpdateTime.current = now;
 
-        // Log successful location update
-        console.log('Location updated:', {
-            latitude,
-            longitude,
-            accuracy,
-            speed,
-            timestamp: new Date(timestamp).toISOString(),
-            highAccuracyMode: options.enableHighAccuracy
-        });
-
-        setLocation({
+        const locationData = {
             latitude,
             longitude,
             accuracy: accuracy ?? undefined,
             speed: speed ?? undefined,
             timestamp
-        });
+        };
 
+        // Log successful location update using centralized logger
+        GeolocationLogger.logLocationUpdate(locationData, options);
+
+        setLocation(locationData);
         setError(null);
         retryCount.current = 0; // Reset retry count on success
     };
@@ -78,7 +73,7 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
             retryCount.current++;
             const retryDelay = 1000 * retryCount.current;
 
-            console.log(`Location error, retrying in ${retryDelay/1000}s (retry #${retryCount.current})`);
+            GeolocationLogger.logRetry(retryCount.current, maxRetries, retryDelay);
 
             setTimeout(() => {
                 navigator.geolocation.getCurrentPosition(
@@ -89,6 +84,9 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
             }, retryDelay);
             return;
         }
+
+        // Log error using centralized logger
+        GeolocationLogger.logError(error, retryCount.current, maxRetries);
 
         let errorMessage = 'Unknown location error';
 
@@ -112,6 +110,15 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
             setError('Geolocation is not supported by your browser');
             return;
         }
+
+        // Log start tracking using centralized logger
+        GeolocationLogger.logStartTracking({
+            enableHighAccuracy,
+            timeout,
+            maximumAge,
+            interval,
+            skipInitialPermissionCheck
+        });
 
         setIsTracking(true);
 
@@ -150,6 +157,11 @@ const useGeolocation = (options: GeolocationOptions = {}): UseGeolocationResult 
     };
 
     const stopTracking = () => {
+        // Log stop tracking using centralized logger
+        if (isTracking) {
+            GeolocationLogger.logStopTracking();
+        }
+
         // Only update state if actually tracking to prevent unnecessary re-renders
         if (isTracking) {
             setIsTracking(false);
