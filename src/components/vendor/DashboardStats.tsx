@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { Card, CardContent } from '../ui/card';
+import { DashboardCardSkeleton } from '../ui/skeleton';
 import { useDelivery } from '../../context/DeliveryContext';
 
 interface StatsProps {
@@ -90,6 +91,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+
     // Animation refs
     const containerRef = useRef(null);
     const isInView = useInView(containerRef, { once: true, margin: "-50px" });
@@ -118,7 +120,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
         };
 
         fetchStats();
-    }, [period, error]);
+    }, [period]);
 
     // Enhanced stat configurations with gradients and better colors
     const statConfigs = [
@@ -183,6 +185,7 @@ const DashboardStats: React.FC<StatsProps> = ({ period = 'all' }) => {
             glowColor: 'rgba(239, 68, 68, 0.15)'
         }
     ];
+
 
     return (
         <motion.div
