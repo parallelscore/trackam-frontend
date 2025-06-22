@@ -4,6 +4,7 @@ import {AnimatePresence, motion} from 'framer-motion';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
+import { ProgressBar, CircularProgress } from '../ui/progress';
 
 const TrackingForm: React.FC = () => {
     const [trackingId, setTrackingId] = useState('');
@@ -12,6 +13,10 @@ const TrackingForm: React.FC = () => {
     const [isFocused, setIsFocused] = useState(false);
     const navigate = useNavigate();
     const inputRef = useRef<HTMLInputElement>(null);
+    
+    // Progress state
+    const [progress, setProgress] = useState(0);
+    const [progressStep, setProgressStep] = useState('');
 
     // Auto-focus on mount for better UX
     useEffect(() => {
@@ -23,6 +28,7 @@ const TrackingForm: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsLoading(true);
+        setProgress(0);
 
         // Simple validation
         if (!trackingId.trim()) {
@@ -31,12 +37,36 @@ const TrackingForm: React.FC = () => {
             return;
         }
 
-        // Simulate API call delay for better UX
-        await new Promise(resolve => setTimeout(resolve, 800));
+        try {
+            // Step 1: Validating tracking ID
+            setProgressStep('Validating tracking ID...');
+            setProgress(25);
+            await new Promise(resolve => setTimeout(resolve, 300));
 
-        // Navigate to tracking page
-        navigate(`/track/${trackingId.trim()}`);
-        setIsLoading(false);
+            // Step 2: Searching database
+            setProgressStep('Searching database...');
+            setProgress(50);
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Step 3: Loading delivery details
+            setProgressStep('Loading delivery details...');
+            setProgress(75);
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Step 4: Complete
+            setProgressStep('Redirecting...');
+            setProgress(100);
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Navigate to tracking page
+            navigate(`/track/${trackingId.trim()}`);
+        } catch {
+            setError('Failed to lookup tracking ID. Please try again.');
+        } finally {
+            setIsLoading(false);
+            setProgress(0);
+            setProgressStep('');
+        }
     };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -217,12 +247,14 @@ const TrackingForm: React.FC = () => {
                                     <span className="relative z-10 flex items-center justify-center gap-2">
                                         {isLoading ? (
                                             <>
-                                                <motion.div
-                                                    animate={{ rotate: 360 }}
-                                                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                    className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
+                                                <CircularProgress 
+                                                    value={progress}
+                                                    size={20}
+                                                    color="white"
+                                                    showValue={false}
+                                                    className="text-white"
                                                 />
-                                                Tracking...
+                                                {progressStep || 'Tracking...'}
                                             </>
                                         ) : (
                                             <>
@@ -235,6 +267,30 @@ const TrackingForm: React.FC = () => {
                                     </span>
                                 </Button>
                             </motion.div>
+                            
+                            {/* Progress Bar */}
+                            <AnimatePresence>
+                                {isLoading && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.3 }}
+                                        className="mt-4 space-y-2"
+                                    >
+                                        <ProgressBar 
+                                            value={progress}
+                                            className="w-full"
+                                            color="primary"
+                                            animated={true}
+                                            showLabel={false}
+                                        />
+                                        <div className="text-center text-sm text-gray-600">
+                                            {progressStep}
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </form>
 
                         {/* Help Text */}
