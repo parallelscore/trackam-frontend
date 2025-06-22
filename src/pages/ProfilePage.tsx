@@ -22,6 +22,7 @@ import {
 } from '../components/ui/form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { ProgressBar, CircularProgress } from '../components/ui/progress';
 
 interface ProfileFormData {
     firstName: string;
@@ -37,6 +38,11 @@ const ProfilePage: React.FC = () => {
     const { user, isAuthenticated, isLoading } = useAuth();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+    
+    // Upload progress state
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
+    const [processingStep, setProcessingStep] = useState<string>('');
     const [isEmailVerified] = useState(false);
 
     const {
@@ -61,17 +67,52 @@ const ProfilePage: React.FC = () => {
     React.useEffect(() => {
         if (profileImage && profileImage.length > 0) {
             const file = profileImage[0];
-            const reader = new FileReader();
-
-            reader.onloadend = () => {
-                setProfileImageUrl(reader.result as string);
-            };
-
-            reader.readAsDataURL(file);
+            handleImageUpload(file);
         } else if (user?.profile_image_url) {
             setProfileImageUrl(user.profile_image_url as string);
         }
     }, [profileImage, user]);
+    
+    // Handle image upload with progress
+    const handleImageUpload = async (file: File) => {
+        setIsUploading(true);
+        setUploadProgress(0);
+        setProcessingStep('Processing image...');
+        
+        try {
+            const reader = new FileReader();
+            
+            // Simulate upload progress
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    if (prev >= 100) {
+                        clearInterval(progressInterval);
+                        return 100;
+                    }
+                    return prev + 10;
+                });
+            }, 100);
+            
+            reader.onloadend = () => {
+                setProfileImageUrl(reader.result as string);
+                setProcessingStep('Complete!');
+                toast.success('Image uploaded successfully!');
+                
+                setTimeout(() => {
+                    setIsUploading(false);
+                    setUploadProgress(0);
+                    setProcessingStep('');
+                }, 1000);
+            };
+            
+            reader.readAsDataURL(file);
+        } catch (error) {
+            setIsUploading(false);
+            setUploadProgress(0);
+            setProcessingStep('');
+            toast.error('Failed to process image');
+        }
+    };
 
     // Redirect if not authenticated
     React.useEffect(() => {
@@ -82,6 +123,7 @@ const ProfilePage: React.FC = () => {
 
     const onSubmit = async (data: ProfileFormData) => {
         setIsSubmitting(true);
+        setProcessingStep('Updating profile...');
 
         try {
             // This would be replaced with an actual API call to update profile
@@ -107,6 +149,7 @@ const ProfilePage: React.FC = () => {
             toast.error('Failed to update your profile. Please try again.');
         } finally {
             setIsSubmitting(false);
+            setProcessingStep('');
         }
     };
 
@@ -250,6 +293,26 @@ const ProfilePage: React.FC = () => {
                                             </motion.div>
                                         </div>
 
+                                        {/* Upload Progress Indicator */}
+                                        {isUploading && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                className="mb-4 bg-primary/10 border border-primary/20 rounded-lg p-3"
+                                            >
+                                                <CircularProgress 
+                                                    value={uploadProgress} 
+                                                    size={40}
+                                                    color="primary"
+                                                    showValue={true}
+                                                    className="mx-auto mb-2"
+                                                />
+                                                <div className="text-xs text-center text-gray-600">
+                                                    {processingStep}
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                        
                                         <h3 className="text-xl font-bold text-secondary mb-1">
                                             {user?.first_name} {user?.last_name}
                                         </h3>
@@ -456,6 +519,27 @@ const ProfilePage: React.FC = () => {
                                                 </FormDescription>
                                             </FormItem>
 
+                                            {/* Form Submission Progress */}
+                                            {isSubmitting && processingStep && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    className="mb-4 bg-primary/5 border border-primary/20 rounded-lg p-4"
+                                                >
+                                                    <div className="flex items-center space-x-3">
+                                                        <CircularProgress 
+                                                            value={undefined} // Indeterminate
+                                                            size={24}
+                                                            color="primary"
+                                                            showValue={false}
+                                                        />
+                                                        <div className="text-sm text-primary font-medium">
+                                                            {processingStep}
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                            
                                             <div className="flex justify-end pt-6">
                                                 <Button
                                                     type="submit"
