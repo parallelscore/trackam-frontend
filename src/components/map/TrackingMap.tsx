@@ -1131,7 +1131,7 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
             )}
 
             {/* Enhanced custom styles for popups and animations */}
-            <style jsx global>{`
+            <style>{`
                 .custom-popup .leaflet-popup-content-wrapper {
                     border-radius: 16px;
                     padding: 0;
