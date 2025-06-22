@@ -30,6 +30,8 @@ interface SecurityConfig {
     storageMonitoring: boolean;
     csrfProtection: boolean;
     rateLimiting: boolean;
+    smartMonitoring: boolean;
+    legacyMonitoring: boolean;
   };
   
   // Authentication state persistence
@@ -66,6 +68,8 @@ export const SECURITY_CONFIG: SecurityConfig = {
     storageMonitoring: false, // Disable aggressive monitoring to prevent false positives
     csrfProtection: true,
     rateLimiting: true,
+    smartMonitoring: true, // Enable intelligent monitoring with adaptive thresholds
+    legacyMonitoring: false, // Disable legacy security monitor to prevent conflicts
   },
   
   statePersistence: {
