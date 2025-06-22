@@ -244,7 +244,7 @@ export class CSPManager {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' http://localhost:* https:",
+      "connect-src 'self' http://localhost:* https: ws://localhost:* wss:",
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",
