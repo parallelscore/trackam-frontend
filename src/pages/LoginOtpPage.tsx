@@ -21,9 +21,10 @@ import {
 } from '../components/ui/form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { OTPValidator, VALIDATION_MESSAGES, PhoneValidator } from '../utils/validation';
+import { OTPValidator, VALIDATION_MESSAGES } from '../utils/validation';
 import { OTPSanitizer } from '../utils/sanitization';
-import { AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
+import { ProgressBar, CircularProgress } from '../components/ui/progress';
 
 interface LoginOtpFormData {
     otp: string;
@@ -36,6 +37,10 @@ const LoginOtpPage: React.FC = () => {
     const [countdown, setCountdown] = useState(60);
     const [canResend, setCanResend] = useState(false);
     const { verifyLoginOTP, requestLoginOTP, isAuthenticated } = useAuth();
+    
+    // Progress state
+    const [progress, setProgress] = useState(0);
+    const [progressStep, setProgressStep] = useState('');
 
     const {
         register,
@@ -94,8 +99,14 @@ const LoginOtpPage: React.FC = () => {
         if (!phoneNumber) return;
 
         setIsSubmitting(true);
+        setProgress(0);
 
         try {
+            // Step 1: Validating OTP
+            setProgressStep('Validating OTP...');
+            setProgress(25);
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
             // Sanitize and validate OTP
             const sanitizedOtp = OTPSanitizer.sanitize(data.otp);
             const validation = OTPValidator.validate(sanitizedOtp);
@@ -103,25 +114,43 @@ const LoginOtpPage: React.FC = () => {
             if (!validation.isValid) {
                 toast.error(validation.error || 'Invalid OTP format');
                 setIsSubmitting(false);
+                setProgress(0);
+                setProgressStep('');
                 return;
             }
 
+            // Step 2: Verifying with server
+            setProgressStep('Verifying with server...');
+            setProgress(50);
+            await new Promise(resolve => setTimeout(resolve, 300));
+
+            // Step 3: Authenticating user
+            setProgressStep('Authenticating user...');
+            setProgress(75);
+            
             // Verify OTP with sanitized value
             const success = await verifyLoginOTP(phoneNumber, sanitizedOtp);
 
             if (success) {
+                // Step 4: Complete
+                setProgressStep('Login successful!');
+                setProgress(100);
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
                 // Clear login data from session storage
                 sessionStorage.removeItem('loginPhone');
 
                 // Navigate to vendor dashboard
                 navigate('/vendor');
-                toast.success('Login successful!');
+                // Note: AuthContext already shows success toast, no need for duplicate
             }
         } catch (error) {
             console.error('OTP verification error:', error);
             toast.error('Failed to verify OTP. Please try again.');
         } finally {
             setIsSubmitting(false);
+            setProgress(0);
+            setProgressStep('');
         }
     };
 
@@ -405,6 +434,30 @@ const LoginOtpPage: React.FC = () => {
                                                 )}
                                             </span>
                                         </Button>
+                                        
+                                        {/* Progress Bar - Below the button */}
+                                        <AnimatePresence>
+                                            {isSubmitting && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, y: 10 }}
+                                                    animate={{ opacity: 1, y: 0 }}
+                                                    exit={{ opacity: 0, y: -10 }}
+                                                    transition={{ duration: 0.3 }}
+                                                    className="space-y-2"
+                                                >
+                                                    <ProgressBar 
+                                                        value={progress}
+                                                        className="w-full max-w-xs mx-auto"
+                                                        color="primary"
+                                                        animated={true}
+                                                        showLabel={false}
+                                                    />
+                                                    <div className="text-center text-sm text-gray-600">
+                                                        {progressStep}
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
 
                                         <div className="text-center text-sm">
                                             <span className="text-gray-500">Didn't receive the code? </span>
