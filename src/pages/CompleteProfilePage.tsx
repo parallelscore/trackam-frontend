@@ -29,6 +29,8 @@ import { useAuth } from '../context/AuthContext';
 import { NameValidator, BusinessNameValidator, EmailValidator, VALIDATION_MESSAGES } from '../utils/validation';
 import { NameSanitizer, BusinessNameSanitizer, EmailSanitizer } from '../utils/sanitization';
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { FormSkeleton, ProfileSkeleton } from '../components/ui/skeleton';
+import { ProgressBar, CircularProgress, UploadProgress } from '../components/ui/progress';
 
 interface CompleteProfileFormData {
     firstName: string;
@@ -85,6 +87,12 @@ const CompleteProfilePage: React.FC = () => {
     const { completeProfile, isAuthenticated, isLoading } = useAuth();
     const [showSkipDialog, setShowSkipDialog] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    
+    // File upload progress state
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+    const [processingStep, setProcessingStep] = useState<string>('');
 
 
     const {
@@ -124,7 +132,7 @@ const CompleteProfilePage: React.FC = () => {
         }
     }, [isAuthenticated, isLoading, navigate]);
 
-    const handleFileSelect = (files: FileList | null) => {
+    const handleFileSelect = async (files: FileList | null) => {
         if (!files || files.length === 0) return;
 
         const file = files[0];
@@ -141,7 +149,38 @@ const CompleteProfilePage: React.FC = () => {
             return;
         }
 
-        setValue('profileImage', files);
+        // Start upload progress simulation
+        setIsUploading(true);
+        setUploadStatus('uploading');
+        setUploadProgress(0);
+        setProcessingStep('Preparing file...');
+
+        try {
+            // Simulate file processing steps with progress
+            for (let i = 0; i <= 100; i += 10) {
+                setUploadProgress(i);
+                if (i === 20) setProcessingStep('Validating image...');
+                if (i === 50) setProcessingStep('Generating preview...');
+                if (i === 80) setProcessingStep('Finalizing...');
+                if (i === 100) setProcessingStep('Complete!');
+                
+                // Small delay to show progress
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            setValue('profileImage', files);
+            setUploadStatus('success');
+            toast.success('Image uploaded successfully!');
+        } catch (error) {
+            setUploadStatus('error');
+            toast.error('Failed to process image');
+        } finally {
+            setTimeout(() => {
+                setIsUploading(false);
+                setUploadProgress(0);
+                setProcessingStep('');
+            }, 1000);
+        }
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -161,6 +200,7 @@ const CompleteProfilePage: React.FC = () => {
 
     const onSubmit = async (data: CompleteProfileFormData) => {
         setIsSubmitting(true);
+        setProcessingStep('Validating profile data...');
 
         try {
             // Sanitize and validate all inputs
@@ -208,6 +248,7 @@ const CompleteProfilePage: React.FC = () => {
             }
 
             // Complete profile with sanitized data
+            setProcessingStep('Creating your profile...');
             const success = await completeProfile({
                 first_name: firstNameValidation.sanitizedValue || sanitizedFirstName,
                 last_name: lastNameValidation.sanitizedValue || sanitizedLastName,
@@ -217,6 +258,7 @@ const CompleteProfilePage: React.FC = () => {
             });
 
             if (success) {
+                setProcessingStep('Finalizing setup...');
                 // Clear registration data from session storage
                 sessionStorage.removeItem('registrationPhone');
                 sessionStorage.removeItem('otpVerified');
@@ -233,6 +275,7 @@ const CompleteProfilePage: React.FC = () => {
             console.error('Profile completion error:', error);
         } finally {
             setIsSubmitting(false);
+            setProcessingStep('');
         }
     };
 
@@ -310,21 +353,57 @@ const CompleteProfilePage: React.FC = () => {
     if (isLoading) {
         return (
             <Layout>
-                <div className="min-h-screen flex justify-center items-center bg-gradient-to-br from-primary/5 to-accent/5">
-                    <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="text-center"
-                    >
-                        <div className="flex flex-col items-center justify-center">
-                            <div className="w-16 h-16 relative">
-                                <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute"></div>
-                                <div className="w-12 h-12 border-4 border-accent border-b-transparent rounded-full animate-spin absolute top-2 left-2" style={{animationDirection: 'reverse', animationDuration: '1s'}}></div>
-                            </div>
-                            <p className="text-lg font-medium text-secondary mt-4">Loading your profile...</p>
-                            <p className="text-sm text-gray-500">Please wait a moment</p>
-                        </div>
-                    </motion.div>
+                <div className="min-h-screen bg-gradient-to-br from-primary/5 via-white to-accent/5 relative overflow-hidden">
+                    <div className="max-w-2xl mx-auto px-4 py-8 lg:py-16 relative z-10">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="space-y-8"
+                        >
+                            {/* Header skeleton */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1 }}
+                                className="text-center space-y-4"
+                            >
+                                <div className="h-8 w-48 bg-gray-200 rounded mx-auto animate-pulse" />
+                                <div className="h-6 w-64 bg-gray-200 rounded mx-auto animate-pulse" />
+                                <div className="h-4 w-80 bg-gray-200 rounded mx-auto animate-pulse" />
+                            </motion.div>
+                            
+                            {/* Progress bar skeleton */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="space-y-2"
+                            >
+                                <div className="flex justify-between">
+                                    <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+                                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse" />
+                                </div>
+                                <div className="h-3 w-full bg-gray-200 rounded-full overflow-hidden">
+                                    <motion.div
+                                        className="h-full bg-primary/30 rounded-full"
+                                        animate={{ width: ["0%", "33%", "0%"] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                    />
+                                </div>
+                            </motion.div>
+                            
+                            {/* Form skeleton */}
+                            <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.3 }}
+                            >
+                                <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200 p-8">
+                                    <FormSkeleton fields={3} showButtons={true} />
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    </div>
                 </div>
             </Layout>
         );
@@ -731,6 +810,60 @@ const CompleteProfilePage: React.FC = () => {
                                                             <br />
                                                             <Badge variant="outline" className="mt-1 text-xs">Drag & Drop supported</Badge>
                                                         </div>
+                                                        
+                                                        {/* Upload Progress Indicator */}
+                                                        {isUploading && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, y: 10 }}
+                                                                animate={{ opacity: 1, y: 0 }}
+                                                                className="mt-4 space-y-3"
+                                                            >
+                                                                <div className="text-center">
+                                                                    <CircularProgress 
+                                                                        value={uploadProgress} 
+                                                                        size={60}
+                                                                        color="primary"
+                                                                        showValue={true}
+                                                                        className="mx-auto"
+                                                                    />
+                                                                </div>
+                                                                <div className="text-center text-sm text-gray-600">
+                                                                    {processingStep}
+                                                                </div>
+                                                                <ProgressBar 
+                                                                    value={uploadProgress}
+                                                                    className="w-full"
+                                                                    color="primary"
+                                                                    animated={true}
+                                                                    showLabel={false}
+                                                                />
+                                                            </motion.div>
+                                                        )}
+                                                        
+                                                        {/* Upload Status */}
+                                                        {uploadStatus === 'success' && !isUploading && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                className="mt-2 text-center"
+                                                            >
+                                                                <Badge className="bg-green-100 text-green-800 border-green-200">
+                                                                    ✓ Image ready
+                                                                </Badge>
+                                                            </motion.div>
+                                                        )}
+                                                        
+                                                        {uploadStatus === 'error' && !isUploading && (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                                animate={{ opacity: 1, scale: 1 }}
+                                                                className="mt-2 text-center"
+                                                            >
+                                                                <Badge className="bg-red-100 text-red-800 border-red-200">
+                                                                    ✗ Upload failed
+                                                                </Badge>
+                                                            </motion.div>
+                                                        )}
                                                     </motion.div>
 
                                                     {/* Email Input */}
@@ -798,6 +931,32 @@ const CompleteProfilePage: React.FC = () => {
                                         </AnimatePresence>
                                     </Form>
                                 </CardContent>
+                                
+                                {/* Form Submission Progress */}
+                                {isSubmitting && processingStep && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="mx-6 lg:mx-8 mb-4 bg-primary/5 border border-primary/20 rounded-lg p-4"
+                                    >
+                                        <div className="flex items-center space-x-3">
+                                            <CircularProgress 
+                                                value={undefined} // Indeterminate
+                                                size={32}
+                                                color="primary"
+                                                showValue={false}
+                                            />
+                                            <div className="flex-1">
+                                                <div className="text-sm font-medium text-primary">
+                                                    {processingStep}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    Please wait while we set up your profile...
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
 
                                 <CardFooter className="flex flex-col space-y-4 px-6 lg:px-8 pb-8">
                                     {/* Navigation Buttons */}
