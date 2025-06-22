@@ -16,6 +16,7 @@ import FloatingActionButton from '../components/vendor/dashboard/FloatingActionB
 
 // Animations
 import { tabContentVariants } from '../components/ui/animations';
+import { USE_MOCK_SERVICE } from '../config/serviceConfig';
 
 type TabType = 'overview' | 'deliveries' | 'create';
 
@@ -25,16 +26,16 @@ const VendorDashboard: React.FC = () => {
     const { deliveries, fetchDeliveries, isLoading: deliveriesLoading } = useDelivery();
     const [activeTab, setActiveTab] = useState<TabType>('overview');
 
-    // Check authentication
+    // Check authentication (bypass when using mock service)
     useEffect(() => {
-        if (!authLoading && !isAuthenticated) {
+        if (!authLoading && !isAuthenticated && !USE_MOCK_SERVICE) {
             navigate('/login');
         }
     }, [isAuthenticated, authLoading, navigate]);
 
     // Fetch initial data with a higher limit for the dashboard
     useEffect(() => {
-        if (isAuthenticated) {
+        if (isAuthenticated || USE_MOCK_SERVICE) {
             fetchDeliveries({ limit: 100 });
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
