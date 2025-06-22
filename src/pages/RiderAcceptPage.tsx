@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '../compone
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../components/ui/alert';
+import { OptimisticButton, OptimisticWrapper, OptimisticToast } from '../components/ui/optimistic';
 import { getStatusColor, getStatusText, formatDateTime } from '../utils/utils';
 import {
     requestLocationPermission,
@@ -38,6 +39,12 @@ const RiderAcceptPage: React.FC = () => {
     const [showLocationSettings, setShowLocationSettings] = useState(false);
     const [showImportantInfo, setShowImportantInfo] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Optimistic UI state
+    const [acceptOptimisticState, setAcceptOptimisticState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [declineOptimisticState, setDeclineOptimisticState] = useState<'idle' | 'pending' | 'success' | 'error'>('idle');
+    const [optimisticToastMessage, setOptimisticToastMessage] = useState('');
+    const [showOptimisticToast, setShowOptimisticToast] = useState(false);
 
     // Status check flags
     const [isCheckingStatus, setIsCheckingStatus] = useState(true);
@@ -164,6 +171,9 @@ const RiderAcceptPage: React.FC = () => {
     const handleLocationSuccess = useCallback(async (position: GeolocationPosition) => {
         if (!tracking_id) return;
         setIsLoading(true);
+        setAcceptOptimisticState('pending');
+        setOptimisticToastMessage('Accepting delivery...');
+        setShowOptimisticToast(true);
 
         console.log('Initial rider position:', {
             latitude: position.coords.latitude,
@@ -183,6 +193,8 @@ const RiderAcceptPage: React.FC = () => {
 
                 setLocationPermissionGranted(true);
                 setIsAccepted(true);
+                setAcceptOptimisticState('success');
+                setOptimisticToastMessage('Delivery accepted successfully!');
 
                 console.log('Set permission before navigation:', {
                     localStorage: localStorage.getItem('trackam_location_permission_granted'),
@@ -194,14 +206,20 @@ const RiderAcceptPage: React.FC = () => {
                     navigate(`/rider/${tracking_id}?locationGranted=true&tracking_id=${tracking_id}`);
                 }, 500);
             } else {
+                setAcceptOptimisticState('error');
+                setOptimisticToastMessage('Failed to accept delivery');
                 setError(result.message || 'Failed to accept delivery');
             }
         } catch (err) {
             console.error('Error accepting delivery:', err);
+            setAcceptOptimisticState('error');
+            setOptimisticToastMessage('An unexpected error occurred');
             setError('An unexpected error occurred');
         } finally {
             setIsLoading(false);
             setShowAcceptConfirmation(false);
+            // Hide toast after a delay
+            setTimeout(() => setShowOptimisticToast(false), 3000);
         }
     }, [tracking_id, acceptDelivery, navigate, setLocationPermissionGranted]);
 
@@ -240,25 +258,36 @@ const RiderAcceptPage: React.FC = () => {
     const handleConfirmDecline = useCallback(async () => {
         if (!tracking_id) return;
         setIsLoading(true);
+        setDeclineOptimisticState('pending');
+        setOptimisticToastMessage('Declining delivery...');
+        setShowOptimisticToast(true);
 
         try {
             const result = await declineDelivery(tracking_id);
 
             if (result.success) {
                 setIsDeclined(true);
+                setDeclineOptimisticState('success');
+                setOptimisticToastMessage('Delivery declined successfully!');
 
                 if (delivery?.vendor) {
                     notifyVendorOfDecline(delivery);
                 }
             } else {
+                setDeclineOptimisticState('error');
+                setOptimisticToastMessage('Failed to decline delivery');
                 setError(result.message || 'Failed to decline delivery');
             }
         } catch (err) {
             console.error('Error declining delivery:', err);
+            setDeclineOptimisticState('error');
+            setOptimisticToastMessage('An unexpected error occurred');
             setError('An unexpected error occurred');
         } finally {
             setIsLoading(false);
             setShowDeclineConfirmation(false);
+            // Hide toast after a delay
+            setTimeout(() => setShowOptimisticToast(false), 3000);
         }
     }, [tracking_id, declineDelivery, delivery]);
 
@@ -737,20 +766,17 @@ const RiderAcceptPage: React.FC = () => {
                                                 >
                                                     Cancel
                                                 </Button>
-                                                <Button
-                                                    className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg"
+                                                <OptimisticButton
+                                                    state={acceptOptimisticState}
                                                     onClick={handleConfirmAccept}
+                                                    className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold shadow-lg"
                                                     disabled={isLoading}
+                                                    pendingMessage="Accepting..."
+                                                    successMessage="Accepted!"
+                                                    errorMessage="Try Again"
                                                 >
-                                                    {isLoading ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                            Processing...
-                                                        </div>
-                                                    ) : (
-                                                        'Yes, Accept Delivery'
-                                                    )}
-                                                </Button>
+                                                    Yes, Accept Delivery
+                                                </OptimisticButton>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -784,21 +810,17 @@ const RiderAcceptPage: React.FC = () => {
                                                 >
                                                     Cancel
                                                 </Button>
-                                                <Button
-                                                    variant="destructive"
-                                                    className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 font-semibold shadow-lg"
+                                                <OptimisticButton
+                                                    state={declineOptimisticState}
                                                     onClick={handleConfirmDecline}
+                                                    className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 font-semibold shadow-lg text-white"
                                                     disabled={isLoading}
+                                                    pendingMessage="Declining..."
+                                                    successMessage="Declined!"
+                                                    errorMessage="Try Again"
                                                 >
-                                                    {isLoading ? (
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                            Processing...
-                                                        </div>
-                                                    ) : (
-                                                        'Yes, Decline'
-                                                    )}
-                                                </Button>
+                                                    Yes, Decline
+                                                </OptimisticButton>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -845,6 +867,15 @@ const RiderAcceptPage: React.FC = () => {
                         </AnimatePresence>
                     </div>
                 </div>
+                
+                {/* Optimistic Toast */}
+                <OptimisticToast
+                    show={showOptimisticToast}
+                    message={optimisticToastMessage}
+                    type={acceptOptimisticState === 'success' || declineOptimisticState === 'success' ? 'success' : 
+                          acceptOptimisticState === 'error' || declineOptimisticState === 'error' ? 'error' : 'info'}
+                    onClose={() => setShowOptimisticToast(false)}
+                />
             </div>
         </Layout>
     );
