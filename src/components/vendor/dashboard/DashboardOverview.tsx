@@ -2,7 +2,7 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import DashboardStats from '../DashboardStats';
-import DashboardAnalytics from '../DashboardAnalytics';
+import LazyDashboardAnalytics from '../LazyDashboardAnalytics';
 import DeliveryMetrics from '../DeliveryMetrics';
 import TopRiders from '../TopRiders';
 import RecentDeliveries from '../RecentDeliveries';
@@ -45,7 +45,7 @@ const DashboardOverview: React.FC<DashboardOverviewProps> = ({
         variants={fadeInUp}
         className="overflow-visible"
       >
-        <DashboardAnalytics />
+        <LazyDashboardAnalytics />
       </motion.div>
 
       {/* Enhanced Delivery Metrics */}
