@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/common/Layout';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-    CardFooter
-} from '../components/ui/card';
 import {
     Form,
     FormItem,
@@ -22,227 +12,78 @@ import {
 } from '../components/ui/form';
 import { useAuth } from '../context/AuthContext';
 import { PhoneValidator, VALIDATION_MESSAGES } from '../utils/validation';
-import { PhoneSanitizer } from '../utils/sanitization';
-import { AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { ProgressBar, CircularProgress } from '../components/ui/progress';
-
-interface PhoneLoginFormData {
-    phoneNumber: string;
-}
+import { AlertCircle, CheckCircle, Info, Lock } from 'lucide-react';
+import { ProgressBar } from '../components/ui/progress';
+// New unified components
+import { AuthFormCard, GradientButton, AnimatedBackground, ParticleEffect, StatusIndicator, CenteredContainer } from '../components/ui';
+import { useProgressSteps, usePhoneForm, useAuthenticatedRedirect } from '../components/ui';
+import { containerVariants, itemVariants } from '@/lib/animationVariants';
 
 const PhoneLoginPage: React.FC = () => {
     const navigate = useNavigate();
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [showTooltip, setShowTooltip] = useState(false);
     const { requestLoginOTP, isAuthenticated } = useAuth();
     
-    // Progress state
-    const [progress, setProgress] = useState(0);
-    const [progressStep, setProgressStep] = useState('');
-
-    const {
-        register,
-        handleSubmit,
-        formState: { errors },
-        watch,
-        setValue,
-        trigger
-    } = useForm<PhoneLoginFormData>({
-        defaultValues: {
-            phoneNumber: ''
-        }
-    });
-
-    const phoneNumber = watch('phoneNumber');
+    // Use the new hooks
+    const { progress, progressStep, isRunning, startProgress } = useProgressSteps();
+    const { phoneNumber, register, handleSubmit, errors, isValid: isValidPhone, validationMessage, handlePhoneChange } = usePhoneForm();
     
-    // Real-time phone validation
-    const phoneValidation = phoneNumber ? PhoneValidator.validate(phoneNumber) : { isValid: false };
-    const isValidPhone = phoneValidation.isValid;
+    // Use the new auth redirect hook
+    useAuthenticatedRedirect(isAuthenticated, '/vendor');
 
-    // Redirect if already authenticated
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/vendor');
-        }
-    }, [isAuthenticated, navigate]);
+    const onSubmit = async (data: { phoneNumber: string }) => {
+        if (!isValidPhone) return;
 
-    const onSubmit = async (data: PhoneLoginFormData) => {
-        setIsSubmitting(true);
-        setProgress(0);
+        const progressSteps = [
+            { label: 'Validating phone number...', progress: 25, duration: 200 },
+            { label: 'Preparing SMS...', progress: 50, duration: 300 },
+            { label: 'Sending OTP code...', progress: 75, duration: 400 },
+            { label: 'Code sent successfully!', progress: 100, duration: 300 }
+        ];
 
         try {
-            // Step 1: Validating phone number
-            setProgressStep('Validating phone number...');
-            setProgress(25);
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await startProgress(progressSteps.slice(0, 2));
             
-            // Sanitize and validate phone number
-            const sanitizedPhone = PhoneSanitizer.sanitize(data.phoneNumber);
-            const validation = PhoneValidator.validate(sanitizedPhone);
-            
-            if (!validation.isValid) {
-                console.error('Invalid phone number:', validation.error);
-                setIsSubmitting(false);
-                setProgress(0);
-                setProgressStep('');
-                return;
-            }
-
-            // Step 2: Preparing SMS
-            setProgressStep('Preparing SMS...');
-            setProgress(50);
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            // Use the formatted phone number for API call
-            const formattedPhone = PhoneValidator.formatForAPI(sanitizedPhone);
-            
-            // Step 3: Sending OTP
-            setProgressStep('Sending OTP code...');
-            setProgress(75);
+            const formattedPhone = PhoneValidator.formatForAPI(data.phoneNumber);
             const success = await requestLoginOTP(formattedPhone);
 
             if (success) {
-                // Step 4: Complete
-                setProgressStep('Code sent successfully!');
-                setProgress(100);
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // Store the formatted phone number in session storage for the OTP verification page
+                await startProgress(progressSteps.slice(2));
                 sessionStorage.setItem('loginPhone', formattedPhone);
-
-                // Navigate to OTP verification page
                 navigate('/verify-login-otp');
             }
         } catch (error) {
             console.error('Login error:', error);
-        } finally {
-            setIsSubmitting(false);
-            setProgress(0);
-            setProgressStep('');
         }
     };
 
-    // Handle phone number input change with real-time sanitization
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const sanitized = PhoneSanitizer.sanitize(e.target.value);
-        setValue('phoneNumber', sanitized);
-        trigger('phoneNumber');
+    // Format phone validation message for StatusIndicator
+    const getValidationStatus = () => {
+        if (!phoneNumber) return null;
+        if (isValidPhone) return { type: 'success' as const, message: 'Valid Nigerian number' };
+        if (validationMessage) return { type: 'warning' as const, message: validationMessage };
+        return { type: 'info' as const, message: VALIDATION_MESSAGES.PHONE_FORMAT_HINT };
     };
 
-    // Animation variants
-    const containerVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: {
-            opacity: 1,
-            y: 0,
-            transition: {
-                duration: 0.6,
-                ease: "easeOut",
-                staggerChildren: 0.1
-            }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: {
-            opacity: 1,
-            y: 0,
-            transition: { duration: 0.4, ease: "easeOut" }
-        }
-    };
+    const validationStatus = getValidationStatus();
 
     return (
         <Layout>
-            <div className="min-h-screen flex items-center justify-center px-4 py-12 relative">
-                {/* Background decorative elements */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <motion.div
-                        animate={{
-                            scale: [1, 1.2, 1],
-                            rotate: [0, -8, 8, 0]
-                        }}
-                        transition={{
-                            duration: 8,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                        }}
-                        className="absolute top-16 right-20 w-36 h-36 bg-primary/10 rounded-full blur-2xl"
-                    />
-                    <motion.div
-                        animate={{
-                            scale: [1, 0.8, 1],
-                            rotate: [0, 12, -12, 0]
-                        }}
-                        transition={{
-                            duration: 12,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: 3
-                        }}
-                        className="absolute bottom-20 left-16 w-28 h-28 bg-accent/10 rounded-full blur-2xl"
-                    />
-                </div>
-
+            <CenteredContainer>
+                <AnimatedBackground />
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="w-full max-w-md relative z-10"
                 >
-                    <Card className="bg-white/90 backdrop-blur-xl shadow-2xl border-0 overflow-hidden relative">
-                        {/* Gradient border effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary via-accent to-secondary rounded-xl p-0.5">
-                            <div className="bg-white rounded-xl h-full w-full" />
-                        </div>
+                    <AuthFormCard
+                        icon={Lock}
+                        title="Welcome Back"
+                        subtitle="Sign in to your TrackAm vendor account"
+                    >
 
-                        <div className="relative z-10">
-                            <CardHeader className="text-center pb-6">
-                                <motion.div
-                                    variants={itemVariants}
-                                    className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
-                                >
-                                    <motion.div
-                                        animate={{
-                                            scale: [1, 1.1, 1],
-                                            rotate: [0, -5, 5, 0]
-                                        }}
-                                        transition={{
-                                            duration: 3,
-                                            repeat: Infinity,
-                                            ease: "easeInOut"
-                                        }}
-                                    >
-                                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                        </svg>
-                                    </motion.div>
-
-                                    {/* Pulsing rings */}
-                                    <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-primary/40"
-                                        animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
-                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut" }}
-                                    />
-                                    <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-accent/40"
-                                        animate={{ scale: [1, 1.5, 1], opacity: [0.4, 0, 0.4] }}
-                                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: 0.7 }}
-                                    />
-                                </motion.div>
-
-                                <motion.div variants={itemVariants}>
-                                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent mb-2">
-                                        Welcome Back
-                                    </CardTitle>
-                                    <CardDescription className="text-gray-600 text-lg">
-                                        Sign in to your TrackAm vendor account
-                                    </CardDescription>
-                                </motion.div>
-                            </CardHeader>
-
-                            <CardContent className="px-8 pb-6">
-                                <Form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                        <div className="px-8 pb-6">
+                            <Form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                                     <motion.div variants={itemVariants}>
                                         <FormItem className="text-center">
                                             <div className="flex items-center justify-center mb-2">
@@ -309,29 +150,16 @@ const PhoneLoginPage: React.FC = () => {
                                                 </FormControl>
                                             </div>
                                             
-                                            {/* Phone validation status indicator */}
-                                            {phoneNumber && (
+                                            {validationStatus && (
                                                 <motion.div 
                                                     initial={{ opacity: 0, scale: 0.9 }}
                                                     animate={{ opacity: 1, scale: 1 }}
-                                                    className="flex items-center justify-center mt-4 gap-2"
+                                                    className="flex justify-center mt-4"
                                                 >
-                                                    {isValidPhone ? (
-                                                        <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                                                            <CheckCircle className="w-4 h-4 text-green-600" />
-                                                            <span className="text-sm text-green-700 font-medium">Valid Nigerian number</span>
-                                                        </div>
-                                                    ) : phoneValidation.error ? (
-                                                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-                                                            <AlertCircle className="w-4 h-4 text-amber-600" />
-                                                            <span className="text-sm text-amber-700">{phoneValidation.error}</span>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
-                                                            <Info className="w-4 h-4 text-blue-600" />
-                                                            <span className="text-sm text-blue-700">{VALIDATION_MESSAGES.PHONE_FORMAT_HINT}</span>
-                                                        </div>
-                                                    )}
+                                                    <StatusIndicator
+                                                        type={validationStatus.type}
+                                                        message={validationStatus.message}
+                                                    />
                                                 </motion.div>
                                             )}
                                             
@@ -354,40 +182,20 @@ const PhoneLoginPage: React.FC = () => {
                                     </motion.div>
 
                                     <motion.div variants={itemVariants} className="flex justify-center">
-                                        <Button
+                                        <GradientButton
                                             type="submit"
-                                            className="w-full max-w-xs h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
-                                            disabled={isSubmitting || !isValidPhone}
+                                            icon={Lock}
+                                            isLoading={isRunning}
+                                            progress={progress}
+                                            progressStep={progressStep}
+                                            disabled={!isValidPhone}
+                                            className="max-w-xs"
                                         >
-                                            {/* Button background animation */}
-                                            <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-                                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                                {isSubmitting ? (
-                                                    <>
-                                                        <CircularProgress 
-                                                            value={progress}
-                                                            size={20}
-                                                            color="white"
-                                                            showValue={false}
-                                                            className="text-white"
-                                                        />
-                                                        {progressStep || 'Sending Code...'}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                                        </svg>
-                                                        Send Login Code
-                                                    </>
-                                                )}
-                                            </span>
-                                        </Button>
+                                            Send Login Code
+                                        </GradientButton>
                                         
-                                        {/* Progress Bar */}
                                         <AnimatePresence>
-                                            {isSubmitting && (
+                                            {isRunning && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -402,17 +210,14 @@ const PhoneLoginPage: React.FC = () => {
                                                         animated={true}
                                                         showLabel={false}
                                                     />
-                                                    <div className="text-center text-sm text-gray-600">
-                                                        {progressStep}
-                                                    </div>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
                                     </motion.div>
-                                </Form>
-                            </CardContent>
+                            </Form>
+                        </div>
 
-                            <CardFooter className="px-8 pb-8">
+                        <div className="px-8 pb-8">
                                 <motion.div variants={itemVariants} className="w-full text-center space-y-3">
                                     <div className="text-sm text-gray-600">
                                         Don't have an account?{' '}
@@ -439,40 +244,16 @@ const PhoneLoginPage: React.FC = () => {
                                         </div>
                                     </div>
                                 </motion.div>
-                            </CardFooter>
                         </div>
-
-                        {/* Floating particles - match OTP page success animation style */}
-                        <AnimatePresence>
-                            {phoneNumber && isValidPhone && (
-                                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                    {[...Array(4)].map((_, i) => (
-                                        <motion.div
-                                            key={i}
-                                            className="absolute w-2 h-2 bg-accent/60 rounded-full"
-                                            style={{
-                                                left: `${Math.random() * 100}%`,
-                                                top: `${Math.random() * 100}%`,
-                                            }}
-                                            initial={{ scale: 0, opacity: 0 }}
-                                            animate={{
-                                                scale: [0, 1, 0],
-                                                opacity: [0, 1, 0],
-                                                y: [0, -40]
-                                            }}
-                                            transition={{
-                                                duration: 1.5,
-                                                ease: "easeOut",
-                                                delay: i * 0.1
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </AnimatePresence>
-                    </Card>
+                        
+                        <ParticleEffect
+                            isVisible={phoneNumber ? isValidPhone : false}
+                            particleCount={4}
+                            color="accent"
+                        />
+                    </AuthFormCard>
                 </motion.div>
-            </div>
+            </CenteredContainer>
         </Layout>
     );
 };
