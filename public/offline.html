@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - TrackAm</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0CAA41 0%, #1A2C56 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .container {
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .offline-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .offline-icon svg {
+            width: 40px;
+            height: 40px;
+            fill: currentColor;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .retry-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem;
+        }
+
+        .retry-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .retry-button:active {
+            transform: translateY(0);
+        }
+
+        .features {
+            margin-top: 3rem;
+            text-align: left;
+        }
+
+        .features h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .features ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .features li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            opacity: 0.8;
+        }
+
+        .features li::before {
+            content: '✓';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: rgba(12, 170, 65, 0.3);
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            margin-right: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(239, 68, 68, 0.9);
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .connection-status.online {
+            background: rgba(16, 185, 129, 0.9);
+        }
+
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            p {
+                font-size: 1rem;
+            }
+            
+            .features {
+                margin-top: 2rem;
+            }
+        }
+
+        /* Animation for the offline icon */
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.05);
+                opacity: 0.8;
+            }
+        }
+
+        .offline-icon {
+            animation: pulse 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status" id="connectionStatus">
+        📡 Offline
+    </div>
+
+    <div class="container">
+        <div class="offline-icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M23 12l-2.44-2.78.34-.12c.12-.05.12-.23 0-.28l-.34-.12L23 6.89c.56-.63.56-1.54 0-2.17-.63-.56-1.54-.56-2.17 0L18.72 6.6l-.12-.34c-.05-.12-.23-.12-.28 0l-.12.34L16.28 4.72c-.63-.56-1.54-.56-2.17 0-.56.63-.56 1.54 0 2.17L16 8.78l-.34.12c-.12.05-.12.23 0 .28l.34.12L14.11 11c-.56.63-.56 1.54 0 2.17.63.56 1.54.56 2.17 0L18.17 11l.12.34c.05.12.23.12.28 0l.12-.34L20.83 13c.63.56 1.54.56 2.17 0 .56-.63.56-1.54 0-2.17zM12 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-8 0c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm4-4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+            </svg>
+        </div>
+        
+        <h1>You're Offline</h1>
+        <p>Don't worry! TrackAm works offline too. Some features may be limited, but you can still access cached data and previously viewed deliveries.</p>
+        
+        <button class="retry-button" onclick="location.reload()">
+            🔄 Try Again
+        </button>
+        
+        <a href="/" class="retry-button">
+            🏠 Go Home
+        </a>
+        
+        <div class="features">
+            <h3>Available Offline:</h3>
+            <ul>
+                <li>View previously loaded deliveries</li>
+                <li>Access cached tracking information</li>
+                <li>Browse saved maps and routes</li>
+                <li>Review delivery history</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Monitor online/offline status
+        function updateConnectionStatus() {
+            const statusEl = document.getElementById('connectionStatus');
+            if (navigator.onLine) {
+                statusEl.textContent = '🌐 Online';
+                statusEl.classList.add('online');
+                
+                // Auto-reload when back online after 2 seconds
+                setTimeout(() => {
+                    if (navigator.onLine) {
+                        location.reload();
+                    }
+                }, 2000);
+            } else {
+                statusEl.textContent = '📡 Offline';
+                statusEl.classList.remove('online');
+            }
+        }
+
+        // Listen for online/offline events
+        window.addEventListener('online', updateConnectionStatus);
+        window.addEventListener('offline', updateConnectionStatus);
+
+        // Initial status check
+        updateConnectionStatus();
+
+        // Check connection periodically
+        setInterval(updateConnectionStatus, 5000);
+    </script>
+</body>
+</html>

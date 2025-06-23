@@ -1,0 +1,80 @@
+{
+  "name": "TrackAm - Delivery Tracking",
+  "short_name": "TrackAm",
+  "description": "Nigeria's premier delivery tracking application for vendors, riders, and customers",
+  "theme_color": "#0CAA41",
+  "background_color": "#FFFFFF",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "start_url": "/",
+  "id": "trackam-pwa",
+  "categories": ["business", "productivity", "logistics"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Track Package",
+      "short_name": "Track",
+      "description": "Quickly track a delivery",
+      "url": "/track",
+      "icons": [
+        {
+          "src": "favicon.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Vendor Dashboard",
+      "short_name": "Dashboard",
+      "description": "Access vendor dashboard",
+      "url": "/vendor/dashboard",
+      "icons": [
+        {
+          "src": "favicon.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Rider Portal",
+      "short_name": "Rider",
+      "description": "Access rider portal",
+      "url": "/rider",
+      "icons": [
+        {
+          "src": "favicon.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "handle_links": "preferred",
+  "capture_links": "existing-client-navigate"
+}
