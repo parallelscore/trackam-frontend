@@ -3,17 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/common/Layout';
-import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ProgressBar } from '../components/ui/progress';
-import {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-    CardContent,
-    CardFooter
-} from '../components/ui/card';
 import {
     Form,
     FormItem,
@@ -22,6 +13,11 @@ import {
 } from '../components/ui/form';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { CheckCircle2 } from 'lucide-react';
+// New unified components
+import { AuthFormCard, GradientButton, AnimatedBackground, ParticleEffect, CenteredContainer } from '../components/ui';
+import { useProgressSteps, useAuthenticatedRedirect } from '../components/ui';
+import { containerVariants, itemVariants } from '@/lib/animationVariants';
 
 interface OtpVerificationFormData {
     otp: string;
@@ -30,15 +26,13 @@ interface OtpVerificationFormData {
 const OtpVerificationPage: React.FC = () => {
     const navigate = useNavigate();
     const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
     const [countdown, setCountdown] = useState(60);
     const [canResend, setCanResend] = useState(false);
     const { verifyRegistrationOTP, requestRegistrationOTP, isAuthenticated } = useAuth();
     
-    // Progress state
-    const [progress, setProgress] = useState(0);
-    const [progressStep, setProgressStep] = useState('');
-
+    // Use the new hooks
+    const { progress, progressStep, isRunning, startProgress } = useProgressSteps();
+    
     const {
         register,
         handleSubmit,
@@ -52,12 +46,8 @@ const OtpVerificationPage: React.FC = () => {
 
     const otpValue = watch('otp');
 
-    // Redirect if already authenticated
-    useEffect(() => {
-        if (isAuthenticated) {
-            navigate('/complete-profile');
-        }
-    }, [isAuthenticated, navigate]);
+    // Use the new auth redirect hook
+    useAuthenticatedRedirect(isAuthenticated, '/complete-profile');
 
     // Check if there's a phone number in session storage
     useEffect(() => {
@@ -89,61 +79,38 @@ const OtpVerificationPage: React.FC = () => {
     const onSubmit = async (data: OtpVerificationFormData) => {
         if (!phoneNumber) return;
 
-        setIsSubmitting(true);
-        setProgress(0);
+        const progressSteps = [
+            { label: 'Validating OTP...', progress: 25, duration: 300 },
+            { label: 'Verifying with server...', progress: 50, duration: 400 },
+            { label: 'Processing verification...', progress: 75, duration: 200 },
+            { label: 'Verification successful!', progress: 100, duration: 300 }
+        ];
 
         try {
-            // Step 1: Validating OTP
-            setProgressStep('Validating OTP...');
-            setProgress(25);
-            await new Promise(resolve => setTimeout(resolve, 300));
-
-            // Step 2: Verifying with server
-            setProgressStep('Verifying with server...');
-            setProgress(50);
-            await new Promise(resolve => setTimeout(resolve, 400));
-
-            // Step 3: Processing verification
-            setProgressStep('Processing verification...');
-            setProgress(75);
-
-            // Verify OTP
+            await startProgress(progressSteps.slice(0, 3));
+            
             const success = await verifyRegistrationOTP(phoneNumber, data.otp);
 
             if (success) {
-                // Step 4: Complete
-                setProgressStep('Verification successful!');
-                setProgress(100);
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                // Navigate to profile completion page
+                await startProgress(progressSteps.slice(3));
                 navigate('/complete-profile');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
             toast.error('Failed to verify OTP. Please try again.');
-        } finally {
-            setIsSubmitting(false);
-            setProgress(0);
-            setProgressStep('');
         }
     };
 
     const handleResendOtp = async () => {
-        if (!phoneNumber || !canResend) return;
-
-        setIsSubmitting(true);
+        if (!phoneNumber || !canResend || isRunning) return;
 
         try {
-            // Resend OTP
             const success = await requestRegistrationOTP(phoneNumber);
 
             if (success) {
-                // Reset countdown and disable resend button
                 setCountdown(60);
                 setCanResend(false);
 
-                // Start countdown again
                 const timer = setInterval(() => {
                     setCountdown(prev => {
                         if (prev <= 1) {
@@ -157,8 +124,6 @@ const OtpVerificationPage: React.FC = () => {
             }
         } catch (error) {
             console.error('OTP resend error:', error);
-        } finally {
-            setIsSubmitting(false);
         }
     };
 
@@ -179,125 +144,24 @@ const OtpVerificationPage: React.FC = () => {
         return phone;
     };
 
-    // Animation variants
-    const containerVariants = {
-        hidden: { opacity: 0, scale: 0.95 },
-        visible: {
-            opacity: 1,
-            scale: 1,
-            transition: {
-                duration: 0.5,
-                ease: "easeOut",
-                staggerChildren: 0.1
-            }
-        }
-    };
-
-    const itemVariants = {
-        hidden: { opacity: 0, y: 20 },
-        visible: {
-            opacity: 1,
-            y: 0,
-            transition: { duration: 0.4, ease: "easeOut" }
-        }
-    };
 
     return (
         <Layout>
-            <div className="min-h-screen flex items-center justify-center px-4 py-12 relative">
-                {/* Background decorative elements */}
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    <motion.div
-                        animate={{
-                            scale: [1, 1.3, 1],
-                            rotate: [0, 10, -10, 0]
-                        }}
-                        transition={{
-                            duration: 10,
-                            repeat: Infinity,
-                            ease: "easeInOut"
-                        }}
-                        className="absolute top-10 left-1/4 w-32 h-32 bg-primary/10 rounded-full blur-2xl"
-                    />
-                    <motion.div
-                        animate={{
-                            scale: [1, 0.7, 1],
-                            rotate: [0, -15, 15, 0]
-                        }}
-                        transition={{
-                            duration: 14,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                            delay: 2
-                        }}
-                        className="absolute bottom-10 right-1/4 w-40 h-40 bg-accent/10 rounded-full blur-2xl"
-                    />
-                </div>
-
+            <CenteredContainer>
+                <AnimatedBackground />
                 <motion.div
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
-                    className="w-full max-w-md relative z-10"
                 >
-                    <Card className="bg-white/90 backdrop-blur-xl shadow-2xl border-0 overflow-hidden relative">
-                        {/* Gradient border effect */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-primary via-accent to-secondary rounded-xl p-0.5">
-                            <div className="bg-white rounded-xl h-full w-full" />
-                        </div>
+                    <AuthFormCard
+                        icon={CheckCircle2}
+                        title="Verify Your Phone"
+                        subtitle={`We've sent a 6-digit code to ${phoneNumber ? formatPhoneNumber(phoneNumber) : ''}`}
+                    >
 
-                        <div className="relative z-10">
-                            <CardHeader className="text-center pb-6">
-                                <motion.div
-                                    variants={itemVariants}
-                                    className="w-20 h-20 bg-gradient-to-r from-primary to-accent rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl relative"
-                                >
-                                    <motion.div
-                                        animate={{
-                                            scale: [1, 1.1, 1],
-                                            rotate: [0, 5, -5, 0]
-                                        }}
-                                        transition={{
-                                            duration: 2,
-                                            repeat: Infinity,
-                                            ease: "easeInOut"
-                                        }}
-                                    >
-                                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                    </motion.div>
-
-                                    {/* Pulsing rings */}
-                                    <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-primary/30"
-                                        animate={{ scale: [1, 1.2, 1], opacity: [0.7, 0, 0.7] }}
-                                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                                    />
-                                    <motion.div
-                                        className="absolute inset-0 rounded-3xl border-2 border-accent/30"
-                                        animate={{ scale: [1, 1.4, 1], opacity: [0.5, 0, 0.5] }}
-                                        transition={{ duration: 2, repeat: Infinity, ease: "easeOut", delay: 0.5 }}
-                                    />
-                                </motion.div>
-
-                                <motion.div variants={itemVariants}>
-                                    <CardTitle className="text-3xl font-bold bg-gradient-to-r from-secondary to-primary bg-clip-text text-transparent mb-2">
-                                        Verify Your Phone
-                                    </CardTitle>
-                                    <CardDescription className="text-gray-600 text-lg px-4">
-                                        We've sent a 6-digit code to{' '}
-                                        {phoneNumber && (
-                                            <span className="font-semibold text-primary">
-                                                {formatPhoneNumber(phoneNumber)}
-                                            </span>
-                                        )}
-                                    </CardDescription>
-                                </motion.div>
-                            </CardHeader>
-
-                            <CardContent className="px-8 pb-6">
-                                <Form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+                        <div className="px-8 pb-6">
+                            <Form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                                     <motion.div variants={itemVariants}>
                                         <FormItem>
                                             <FormControl>
@@ -353,38 +217,20 @@ const OtpVerificationPage: React.FC = () => {
                                     </motion.div>
 
                                     <motion.div variants={itemVariants} className="space-y-4">
-                                        <Button
+                                        <GradientButton
                                             type="submit"
-                                            className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group"
-                                            disabled={isSubmitting || !otpValue || otpValue.length !== 6}
+                                            icon={CheckCircle2}
+                                            isLoading={isRunning}
+                                            progress={progress}
+                                            progressStep={progressStep}
+                                            loadingText="Verifying..."
+                                            disabled={!otpValue || otpValue.length !== 6}
                                         >
-                                            {/* Button background animation */}
-                                            <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                            Verify Code
+                                        </GradientButton>
 
-                                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                                {isSubmitting ? (
-                                                    <>
-                                                        <motion.div
-                                                            animate={{ rotate: 360 }}
-                                                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                            className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-                                                        />
-                                                        Verifying...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        Verify Code
-                                                    </>
-                                                )}
-                                            </span>
-                                        </Button>
-
-                                        {/* Progress Bar - Below the button */}
                                         <AnimatePresence>
-                                            {isSubmitting && (
+                                            {isRunning && (
                                                 <motion.div
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -399,9 +245,6 @@ const OtpVerificationPage: React.FC = () => {
                                                         animated={true}
                                                         showLabel={false}
                                                     />
-                                                    <div className="text-center text-sm text-gray-600">
-                                                        {progressStep}
-                                                    </div>
                                                 </motion.div>
                                             )}
                                         </AnimatePresence>
@@ -413,7 +256,7 @@ const OtpVerificationPage: React.FC = () => {
                                                     type="button"
                                                     className="text-primary hover:text-accent font-semibold hover:underline transition-colors duration-300"
                                                     onClick={handleResendOtp}
-                                                    disabled={isSubmitting}
+                                                    disabled={isRunning}
                                                     whileHover={{ scale: 1.05 }}
                                                     whileTap={{ scale: 0.95 }}
                                                 >
@@ -426,10 +269,10 @@ const OtpVerificationPage: React.FC = () => {
                                             )}
                                         </div>
                                     </motion.div>
-                                </Form>
-                            </CardContent>
+                            </Form>
+                        </div>
 
-                            <CardFooter className="px-8 pb-8">
+                        <div className="px-8 pb-8">
                                 <motion.div variants={itemVariants} className="w-full text-center space-y-3">
                                     <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
                                         <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -441,40 +284,17 @@ const OtpVerificationPage: React.FC = () => {
                                         By verifying, you agree to receive SMS notifications from TrackAm
                                     </div>
                                 </motion.div>
-                            </CardFooter>
                         </div>
-
-                        {/* Floating success particles */}
-                        <AnimatePresence>
-                            {otpValue && otpValue.length === 6 && (
-                                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                                    {[...Array(8)].map((_, i) => (
-                                        <motion.div
-                                            key={i}
-                                            className="absolute w-2 h-2 bg-primary/60 rounded-full"
-                                            style={{
-                                                left: `${Math.random() * 100}%`,
-                                                top: `${Math.random() * 100}%`,
-                                            }}
-                                            initial={{ scale: 0, opacity: 0 }}
-                                            animate={{
-                                                scale: [0, 1, 0],
-                                                opacity: [0, 1, 0],
-                                                y: [0, -50]
-                                            }}
-                                            transition={{
-                                                duration: 2,
-                                                ease: "easeOut",
-                                                delay: i * 0.1
-                                            }}
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </AnimatePresence>
-                    </Card>
+                        
+                        <ParticleEffect
+                            isVisible={otpValue ? otpValue.length === 6 : false}
+                            particleCount={8}
+                            color="primary"
+                            duration={2}
+                        />
+                    </AuthFormCard>
                 </motion.div>
-            </div>
+            </CenteredContainer>
         </Layout>
     );
 };
