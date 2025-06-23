@@ -5,6 +5,7 @@ import { useDelivery } from '../../context/DeliveryContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { optimizedFadeIn, optimizedSlideUp, optimizedStaggerContainer } from '../../utils/performanceAnimations';
 
 type TimeRange = 'week' | 'month' | 'year';
 
