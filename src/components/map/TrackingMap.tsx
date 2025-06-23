@@ -4,8 +4,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Location } from '@/types';
+import { optimizedFadeIn, optimizedSlideUp } from '../../utils/performanceAnimations';
 
-// Fix for Leaflet marker icon issue
+// Optimized icon imports - only load what's needed
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
@@ -18,36 +19,7 @@ const DefaultIcon = L.icon({
 
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Enhanced animation variants matching the dashboard components
-const containerVariants = {
-    hidden: { opacity: 0, y: 60, scale: 0.95 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: {
-            duration: 0.8,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            staggerChildren: 0.1,
-            delayChildren: 0.2
-        }
-    }
-};
-
-const fadeInUp = {
-    hidden: { opacity: 0, y: 40, scale: 0.95 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        transition: {
-            duration: 0.7,
-            ease: [0.25, 0.46, 0.45, 0.94],
-            type: "spring",
-            stiffness: 100
-        }
-    }
-};
+// Use optimized animation variants from performance utils
 
 const buttonVariants = {
     hidden: { opacity: 0, scale: 0.8, rotate: -45 },
@@ -808,7 +780,7 @@ const TrackingMap: React.FC<TrackingMapProps> = ({
         <motion.div
             style={{ height, width: '100%' }}
             className="relative overflow-hidden"
-            variants={containerVariants}
+            variants={optimizedFadeIn}
             initial="hidden"
             animate="visible"
         >
