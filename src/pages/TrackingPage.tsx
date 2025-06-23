@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
-import TrackingMap from '../components/map/TrackingMap';
+import LazyTrackingMap from '../components/map/LazyTrackingMap';
 import DeliveryStatusHeader from '../components/customer/DeliveryStatusHeader';
 import PackageDetails from '../components/customer/PackageDetails';
 import { useDelivery } from '../context/DeliveryContext';
@@ -179,7 +179,7 @@ const TrackingPage: React.FC = () => {
                 {/* Map Section */}
                 <div className="space-y-2">
                     <div className="rounded-lg overflow-hidden border h-[400px]">
-                        <TrackingMap
+                        <LazyTrackingMap
                             riderLocation={currentDelivery.rider?.current_location}
                             destinationLocation={currentDelivery.customer.location}
                             isTracking={currentDelivery.status === 'in_progress'}
