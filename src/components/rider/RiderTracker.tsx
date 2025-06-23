@@ -6,7 +6,7 @@ import { Delivery, Location } from '@/types';
 import { useRider } from '../../context/RiderContext';
 import useGeolocation from '../../hooks/useGeolocation';
 import useWebSocket from '../../hooks/useWebSocket';
-import TrackingMap from '../map/TrackingMap';
+import LazyTrackingMap from '../map/LazyTrackingMap';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -938,7 +938,7 @@ const RiderTracker: React.FC<RiderTrackerProps> = ({ delivery }) => {
                     <div className="space-y-4">
                         <div className="relative bg-white rounded-lg border border-gray-200 overflow-hidden">
                             <div className="h-[calc(100vh-280px)] min-h-[400px]">
-                                <TrackingMap
+                                <LazyTrackingMap
                                     riderLocation={location || undefined}
                                     destinationLocation={delivery.customer.location}
                                     isTracking={isTracking && !hasArrived} // Stop tracking when arrived
