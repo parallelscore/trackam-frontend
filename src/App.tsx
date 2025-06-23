@@ -10,7 +10,12 @@ import { WebSocketProvider } from './context/WebSocketContext';
 import { checkLocationPermission, isGeolocationSupported, platforms } from './utils/riderUtils';
 import LoadingFallback from './components/common/LoadingFallback';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import PWAUpdatePrompt from './components/common/PWAUpdatePrompt';
 import { AppError, ErrorType, logError } from './utils/errorHandling';
+import { offlineStorage } from './utils/swRegistration';
+import { setupProductionErrorHandlers } from './utils/productionErrorHandlers';
+import { initializeCompatibility, VendorErrorBoundary } from './utils/reactCompatibility';
+import { devSafeSW } from './utils/devSafeServiceWorker';
 import './utils/errorTestingUtils'; // Load testing utilities in development
 
 // Lazy-loaded Pages
@@ -130,9 +135,20 @@ if (typeof window !== 'undefined') {
 }
 
 function App() {
+    // Initialize offline storage, error handlers, and compatibility layers on app start
+    useEffect(() => {
+        initializeCompatibility();
+        offlineStorage.initialize().catch(console.error);
+        setupProductionErrorHandlers();
+        
+        // Use development-safe service worker registration
+        devSafeSW.safeRegister().catch(console.error);
+    }, []);
+
     return (
         <ErrorBoundary level="critical" showRetry={true}>
-            <AuthProvider>
+            <VendorErrorBoundary>
+                <AuthProvider>
                 <DeliveryProvider>
                     <WebSocketProvider>
                         <RiderProvider>
@@ -227,10 +243,14 @@ function App() {
                                 </Suspense>
                             </AnimatePresence>
                         </Router>
+                        
+                        {/* PWA Update Prompt */}
+                        <PWAUpdatePrompt />
                     </RiderProvider>
                 </WebSocketProvider>
             </DeliveryProvider>
         </AuthProvider>
+            </VendorErrorBoundary>
         </ErrorBoundary>
     );
 }
